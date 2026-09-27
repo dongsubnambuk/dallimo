@@ -25,3 +25,10 @@
 ## 3. Pull Request 규칙
 
 - PR 제목과 본문은 한국어로 작성한다.
+
+## 4. 커밋·PR 작성자 규칙
+
+- 커밋, push, PR에 Claude를 기여자로 넣지 않는다.
+  - 커밋 작성자는 저장소 소유자 계정으로 한다.
+  - 커밋 메시지에 `Co-Authored-By: Claude` 등 Claude 관련 trailer를 넣지 않는다.
+  - PR 본문에 Claude Code 생성 문구나 세션 링크를 넣지 않는다.
