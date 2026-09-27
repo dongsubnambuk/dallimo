@@ -1,9 +1,11 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import Svg, { Circle, Polyline } from 'react-native-svg';
 
 import { AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
-import { radius, spacing, stroke, typography } from '@/design/tokens';
+import { fontFamily, OBLIQUE_SKEW, radius, spacing, stroke, typography } from '@/design/tokens';
 import { formatDistanceKm } from '@/shared/format';
+import { makeProjection, type GeoPoint } from '@/shared/geo';
 
 export type CourseCardProps = {
   title: string;
@@ -13,27 +15,35 @@ export type CourseCardProps = {
   proximityM?: number;
   // 예: "내 PB 25:42 · 주간 18위"
   recordContext?: string;
+  // 예: "이번 주 128명". 코스를 달린 사람 수로 사회적 신호를 준다.
+  socialContext?: string;
+  // 있으면 왼쪽에 경로 모양을 그린다 (레퍼런스 P7: 목록 항목은 작은 경로 모양 + 제목 + 수치).
+  route?: GeoPoint[];
   selected?: boolean;
   variant?: 'default' | 'compact';
   loading?: boolean;
   onPress?: () => void;
+  // 누르면 무엇이 일어나는지 스크린 리더에 알려준다
+  accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 };
 
 // 113장: course identity > distance > metadata.
-// 88.2장/95장: 떠 있는 카드가 아니라 간격과 경계로 구분하고, thumbnail 없는 버전이 기본이다.
-// 왼쪽 route mark(출발점 ─ 도착점)가 선택 상태를 signal line으로 보여준다. 선택된 코스는 지도 route highlight와 연결된다(90장).
-// 레퍼런스 P10: 선택을 채운 상자로 감싸지 않고 선·색으로만 표시한다.
+// 95장: 사진 thumbnail 없는 버전이 기본. 경로 모양은 사진이 아니라 코스 geometry이므로 route가 있을 때만 그린다.
+// 레퍼런스 P10: 선택을 채운 상자로 감싸지 않고 경로 색·제목 색으로 표시한다. 선택 코스는 지도 route highlight와 연결된다(90장).
 export function CourseCard({
   title,
   distanceM,
   tags = [],
   proximityM,
   recordContext,
+  socialContext,
+  route,
   selected = false,
   variant = 'default',
   loading = false,
   onPress,
+  accessibilityHint,
   style,
 }: CourseCardProps) {
   const compact = variant === 'compact';
@@ -43,28 +53,31 @@ export function CourseCard({
   }
 
   const distance = formatDistanceKm(distanceM, 1);
-  const secondary = [proximityM != null ? `내 위치에서 ${formatDistanceKm(proximityM, 1)}km` : null, recordContext]
+  const meta = [socialContext, proximityM != null ? `내 위치에서 ${formatDistanceKm(proximityM, 1)}km` : null, recordContext]
     .filter(Boolean)
     .join(' · ');
 
   return (
     <AppPressable
       onPress={onPress}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ selected }}
-      accessibilityLabel={[title, `${distance}킬로미터`, ...tags, secondary, selected ? '선택됨' : null]
-        .filter(Boolean)
-        .join(', ')}
+      accessibilityLabel={[title, `${distance}킬로미터`, ...tags, meta, selected ? '선택됨' : null].filter(Boolean).join(', ')}
       style={[styles.root, compact && styles.compact, style]}
     >
       <View style={styles.row}>
-        <RouteMark active={selected} />
+        {route && route.length > 1 ? (
+          <RouteGlyph route={route} active={selected} size={compact ? GLYPH_COMPACT : GLYPH} />
+        ) : (
+          <RouteMark active={selected} />
+        )}
         <View style={styles.body}>
           <View style={styles.titleRow}>
             <AppText role="sectionTitle" tone={selected ? 'accent' : 'primary'} numberOfLines={compact ? 1 : 2} style={styles.title}>
               {title}
             </AppText>
             <View style={styles.distance}>
-              <AppText role="sectionTitle" tabular tone={selected ? 'accent' : 'primary'}>
+              <AppText role="sectionTitle" tabular tone={selected ? 'accent' : 'primary'} style={styles.distanceValue}>
                 {distance}
               </AppText>
               <AppText role="caption" tone="secondary">
@@ -77,9 +90,9 @@ export function CourseCard({
               {tags.join(' · ')}
             </AppText>
           ) : null}
-          {!compact && secondary ? (
+          {!compact && meta ? (
             <AppText role="caption" tone="secondary" tabular numberOfLines={1}>
-              {secondary}
+              {meta}
             </AppText>
           ) : null}
         </View>
@@ -88,7 +101,30 @@ export function CourseCard({
   );
 }
 
-// 출발점과 도착점을 잇는 짧은 세로 경로 표시
+const GLYPH = 56;
+const GLYPH_COMPACT = 40;
+
+// 코스 경로 모양 (사진 thumbnail이 아닌 geometry)
+function RouteGlyph({ route, active, size }: { route: GeoPoint[]; active: boolean; size: number }) {
+  const { colors } = useTheme();
+  const project = makeProjection([route], size, size, spacing.sm);
+  const pts = route.map(project);
+  const color = active ? colors.route.course : colors.text.secondary;
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.glyph, { width: size, height: size, backgroundColor: active ? colors.action.tint : colors.border.subtle }]}
+    >
+      <Svg width={size} height={size}>
+        <Polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth={active ? 3 : 2.5} strokeLinecap="round" strokeLinejoin="round" />
+        <Circle cx={pts[0][0]} cy={pts[0][1]} r={3} fill={colors.bg.surface} stroke={color} strokeWidth={2} />
+      </Svg>
+    </View>
+  );
+}
+
+// 경로가 없을 때: 출발점과 도착점을 잇는 짧은 세로 표시
 function RouteMark({ active }: { active: boolean }) {
   const { colors } = useTheme();
   const color = active ? colors.action.primary : colors.border.strong;
@@ -114,11 +150,7 @@ function CourseCardSkeleton({ compact, style }: { compact: boolean; style?: Styl
       style={[styles.root, compact && styles.compact, style]}
     >
       <View style={styles.row}>
-        <View style={styles.mark}>
-          <View style={[styles.node, { borderColor: colors.border.subtle }]} />
-          <View style={[styles.line, { backgroundColor: colors.border.subtle, width: stroke.control }]} />
-          <View style={[styles.node, { borderColor: colors.border.subtle }]} />
-        </View>
+        <View style={[styles.glyph, bar, { width: compact ? GLYPH_COMPACT : GLYPH, height: compact ? GLYPH_COMPACT : GLYPH }]} />
         {/* 76장: skeleton은 실제 content geometry와 비슷하게 둔다 */}
         <View style={styles.body}>
           <View style={[bar, { height: typography.sectionTitle.lineHeight, width: '65%' }]} />
@@ -134,21 +166,20 @@ const NODE = 8;
 
 const styles = StyleSheet.create({
   root: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.card,
-    borderCurve: 'continuous',
   },
   compact: {
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   row: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
   },
   body: {
     flex: 1,
-    gap: spacing.xs,
+    gap: spacing.xs / 2,
   },
   titleRow: {
     flexDirection: 'row',
@@ -163,7 +194,18 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: spacing.xs / 2,
   },
+  // 레퍼런스 P4: 기록·거리 숫자는 굵은 기울임꼴
+  distanceValue: {
+    fontFamily: fontFamily.extrabold,
+    transform: [{ skewX: OBLIQUE_SKEW }],
+  },
+  glyph: {
+    borderRadius: radius.control,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+  },
   mark: {
+    alignSelf: 'stretch',
     alignItems: 'center',
     paddingVertical: spacing.xs,
   },

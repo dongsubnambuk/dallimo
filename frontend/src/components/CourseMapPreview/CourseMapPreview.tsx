@@ -5,8 +5,9 @@ import Svg, { Circle, Polyline } from 'react-native-svg';
 import { AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing } from '@/design/tokens';
+import { makeProjection, pointAt, sliceRoute, type GeoPoint } from '@/shared/geo';
 
-export type GeoPoint = { latitude: number; longitude: number };
+export type { GeoPoint } from '@/shared/geo';
 
 export type RouteAnnotation = {
   // 경로 시작점부터의 진행 비율 0~1
@@ -70,11 +71,11 @@ export function CourseMapPreview({
     );
   }
 
-  const project = makeProjection([route, ...(actual ? [actual] : []), ...others], width, height);
+  const project = makeProjection([route, ...(actual ? [actual] : []), ...others], width, height, PAD);
   const toPoints = (pts: GeoPoint[]) => pts.map((p) => project(p).join(',')).join(' ');
   const start = project(route[0]);
   const end = project(route[route.length - 1]);
-  const deviationPts = actual && deviation ? slice(actual, deviation.from, deviation.to) : null;
+  const deviationPts = actual && deviation ? sliceRoute(actual, deviation.from, deviation.to) : null;
 
   return (
     <View
@@ -142,57 +143,6 @@ function toneColor(tone: RouteAnnotation['tone'], colors: ReturnType<typeof useT
   if (tone === 'target') return colors.route.target;
   if (tone === 'danger') return colors.status.danger;
   return colors.route.course;
-}
-
-// 위경도를 화면 좌표로. 짧은 거리에서는 경도에 cos(위도)를 곱한 등거리 투영으로 충분하다.
-function makeProjection(sets: GeoPoint[][], width: number, height: number) {
-  const all = sets.flat();
-  const lats = all.map((p) => p.latitude);
-  const lngs = all.map((p) => p.longitude);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const k = Math.cos((((minLat + maxLat) / 2) * Math.PI) / 180);
-  const spanX = Math.max((maxLng - minLng) * k, 1e-9);
-  const spanY = Math.max(maxLat - minLat, 1e-9);
-  const scale = Math.min((width - PAD * 2) / spanX, (height - PAD * 2) / spanY);
-  const offX = (width - spanX * scale) / 2;
-  const offY = (height - spanY * scale) / 2;
-  return (p: GeoPoint): [number, number] => [
-    offX + (p.longitude - minLng) * k * scale,
-    offY + (maxLat - p.latitude) * scale,
-  ];
-}
-
-// 점 사이 누적 거리 기준으로 진행 비율 위치를 찾는다
-function cumulative(pts: GeoPoint[]) {
-  const d = [0];
-  for (let i = 1; i < pts.length; i++) {
-    const dx = pts[i].longitude - pts[i - 1].longitude;
-    const dy = pts[i].latitude - pts[i - 1].latitude;
-    d.push(d[i - 1] + Math.hypot(dx, dy));
-  }
-  return d;
-}
-
-function pointAt(pts: GeoPoint[], t: number): GeoPoint {
-  const d = cumulative(pts);
-  const target = Math.min(1, Math.max(0, t)) * d[d.length - 1];
-  const i = Math.max(1, d.findIndex((v) => v >= target));
-  const seg = d[i] - d[i - 1] || 1;
-  const r = (target - d[i - 1]) / seg;
-  return {
-    latitude: pts[i - 1].latitude + (pts[i].latitude - pts[i - 1].latitude) * r,
-    longitude: pts[i - 1].longitude + (pts[i].longitude - pts[i - 1].longitude) * r,
-  };
-}
-
-function slice(pts: GeoPoint[], from: number, to: number) {
-  const d = cumulative(pts);
-  const total = d[d.length - 1];
-  const inner = pts.filter((_, i) => d[i] / total >= from && d[i] / total <= to);
-  return [pointAt(pts, from), ...inner, pointAt(pts, to)];
 }
 
 const TAG_HEIGHT = 22;

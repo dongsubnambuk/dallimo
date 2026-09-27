@@ -160,3 +160,36 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 - 2.2장의 모든 v0 값
 - 지도 위 route 색 구분 (지도 SDK 결정 후)
 - OS dark mode 대응 방식. 현재는 화면 컨텍스트(light 탐색 / dark 러닝)만 쓰고 OS 설정은 따르지 않는다 (110.1장)
+
+## 7. Explore Home (SCR-E01) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 하단 탭 4개 | 탐색 / 달리기 / 함께 / 마이. 탐색 외 3개 탭은 구현 순서가 오기 전까지 안내 화면 | 65장, 72장 |
+| 지도 경계 | `features/explore/components/ExploreMap.tsx`. SDK 결정 후 구현만 교체. 지금은 코스 경로 geometry를 SVG로 그리는 기능형 placeholder | VISUAL-IMPLEMENTATION Phase 2, 97장 |
+| 지도 맞춤 | 선택 코스(+2.5km 안이면 내 위치)에 맞추고, 상단 검색·하단 시트가 가리는 높이를 비워 둔다 | 8항 Maps "지도 위 UI가 중요한 내용을 가리지 않게" |
+| 경로 탭 선택 | SVG 요소에 터치 핸들러를 달지 않고 눌린 좌표와 가장 가까운 경로(24px 안)를 계산 | web/native 동작 통일 |
+| 코스 상세 진입 | 목록에서 코스 선택(1) → 지도 하단 "자세히 보기" 또는 선택된 코스 다시 누름(2) | 73장 "2~3 tap 이내" |
+| 데이터 | `CourseRepository` 인터페이스 + mock 구현, TanStack Query | 119장, 9.1장 |
+| 위치 | `LocationSource`(49.2장) 중 권한·현재 위치만. mock 구현 | 러닝 기록용 수신은 Running Engine 단계 |
+| 권한 거부 | 빈 화면 대신 기본 지역(대구 수성구) 코스를 보여주고 권한 안내 | LOC-002 "검색/조회 기능 유지" |
+| 검색창 | 불러온 코스를 이름·태그로 바로 좁힌다. 지역 검색(CRS-003, SCR-E02)은 API가 생기면 연결 | 119.1장 |
+| 빠른 필터 | 3~5km, 평지, 야간 밝음, 초보 추천 | 90장, CRS-004 |
+| 개발용 상태 전환 | 개발 빌드에서 `/?scenario=loading|denied|empty|error` | 74장 상태 QA |
+| 새 컴포넌트 | `SecondaryButton`(src/components, Playground와 탐색에서 사용), `StateNotice`(탐색 전용, 다른 화면에서 쓰이면 승격) | CLAUDE.md 13항 |
+| 의존성 | `@tanstack/react-query` 5.104.0 | 9.1장 Server State |
+
+### 7.1 탐색 화면 레퍼런스 반영 (사용자 피드백: "UI가 너무 단순함")
+
+| 변경 | 레퍼런스 | 명세서 근거 |
+| --- | --- | --- |
+| 지도 바탕(물·공원·큰길·골목·장소 이름)을 SVG로 그린다. `mockMapBase.ts`, `colors.mapBase` | 모든 레퍼런스 앱은 지도 위에 경로를 올린다 (P1) | VISUAL-IMPLEMENTATION "지도 geometry를 흉내 낸 기능형 placeholder", 정적 이미지 금지. SDK 도입 시 제거 |
+| 코스 시작점에 이번 주 러너 수 말풍선 | 고스트러너 코스 위 러너 수 | 64.1 Competition-aware, 83 Signal |
+| 선택 코스는 흰 테두리 + signal 선, "출발" 말풍선 | Runnect 출발 태그 (P1·P3) | 83 route signal, 8항 경로 구분 |
+| 선택 코스 요약 카드(이름·거리·예상 시간·이번 주 러너 수·코스 보기) | AllTrails·Runnect 지도 위 코스 카드 | 89 "지도보다 카드가 커지지 않게" → 한 줄 요약 높이 76 |
+| 내 위치 버튼 | 모든 지도 앱 | 8항 Maps |
+| 목록에 경로 모양(사진 아님), 거리 기울임 숫자, 사회적 신호 한 줄 | Runnect·NRC 목록 (P7), P4 | 95 "사진 thumbnail 없는 버전이 기본" 유지 |
+| 정렬: 가까운 순 / 인기순 / 짧은 순 | Runnect 최신순·스크랩순 | CRS-004 필터/정렬 |
+| 로딩·결과 없음·오류에서도 내 위치(또는 기본 지역) 주변 지도 표시 | - | 74 상태, 빈 회색 화면 제거 |
+| 가려지는 영역·가장자리의 라벨과 말풍선 숨김 | - | 8항 "지도 위 UI가 중요한 내용을 가리지 않게" |
+| `CourseSummary`에 `estimatedSec`, `finisherCount`, `weeklyRunnerCount` | - | 43장 CourseSummary는 OpenAPI 확정 시 맞춘다 |

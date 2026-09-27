@@ -11,10 +11,11 @@ import { MetricBlock } from '@/components/MetricBlock';
 import { ParticipantChip } from '@/components/ParticipantChip';
 import { PrimaryRunButton } from '@/components/PrimaryRunButton';
 import { RankingRow } from '@/components/RankingRow';
+import { SecondaryButton } from '@/components/SecondaryButton';
 import { VerificationBadge } from '@/components/VerificationBadge';
-import { AppDivider, AppIcon, AppPressable, AppSurface, AppText } from '@/design/primitives';
+import { AppDivider, AppIcon, AppSurface, AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
-import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
+import { elevation, fontFamily, radius, spacing } from '@/design/tokens';
 import { formatDistanceKm, formatDuration, formatPace } from '@/shared/format';
 
 import { nearbyOthers, stadiumLoop, suseongmotActual, suseongmotLoop } from './sampleRoutes';
@@ -382,24 +383,6 @@ function ElevationProfile() {
   );
 }
 
-function SecondaryButton({ label, emphasized, style }: { label: string; emphasized?: boolean; style?: object }) {
-  const { colors } = useTheme();
-  return (
-    <AppPressable
-      accessibilityLabel={label}
-      style={[
-        styles.secondary,
-        { backgroundColor: emphasized ? colors.action.tint : colors.bg.surface, borderColor: colors.border.subtle },
-        style,
-      ]}
-    >
-      <AppText role="sectionTitle" tone={emphasized ? 'accent' : 'primary'} style={styles.center}>
-        {label}
-      </AppText>
-    </AppPressable>
-  );
-}
-
 const styles = StyleSheet.create({
   previews: {
     gap: spacing.xxxl,
@@ -530,15 +513,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  secondary: {
-    borderRadius: radius.control,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    minHeight: touchTarget.min,
-    paddingHorizontal: spacing.lg,
-  },
-  center: {
-    textAlign: 'center',
   },
 });

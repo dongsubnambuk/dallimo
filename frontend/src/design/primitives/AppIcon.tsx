@@ -1,4 +1,5 @@
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
+import type { ColorValue } from 'react-native';
 
 import { useTheme } from '../theme';
 
@@ -31,6 +32,11 @@ const icons = {
   check: { ios: 'checkmark', android: 'check' },
   expand: { ios: 'chevron.down', android: 'expand_more' },
   collapse: { ios: 'chevron.right', android: 'chevron_right' },
+  search: { ios: 'magnifyingglass', android: 'search' },
+  tabExplore: { ios: 'map', android: 'map' },
+  tabRun: { ios: 'figure.run', android: 'directions_run' },
+  tabTogether: { ios: 'person.2', android: 'group' },
+  tabMy: { ios: 'person.crop.circle', android: 'account_circle' },
 } satisfies Record<string, { ios: SFSymbol; android: AndroidSymbol }>;
 
 export type IconName = keyof typeof icons;
@@ -39,7 +45,7 @@ export type AppIconProps = {
   name: IconName;
   size?: number;
   // theme의 semantic color 값만 넘긴다. 기본값은 text.primary.
-  color?: string;
+  color?: ColorValue;
   // 있으면 스크린 리더가 읽는 이미지, 없으면 옆 텍스트를 보조하는 장식 아이콘으로 숨긴다.
   accessibilityLabel?: string;
 };
