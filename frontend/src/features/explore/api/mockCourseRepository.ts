@@ -15,16 +15,23 @@ const MOCK_COURSES: MockCourse[] = [
     tags: ['평지', '야간 밝음'],
     displayRoute: loopRoute({ latitude: 35.8286, longitude: 128.6176 }, 420, 300, 48, 0.08),
     myBestSec: 702,
+    estimatedSec: 840,
+    finisherCount: 1284,
+    weeklyRunnerCount: 128,
   },
   {
     id: 'c-deuran',
     name: '수성못–들안길 왕복',
     distanceM: 5100,
     tags: ['신호 적음'],
+    // 수성못 남동쪽에서 들안길 방향으로 갔다가 돌아오는 굽은 왕복
     displayRoute: legRoute({ latitude: 35.8262, longitude: 128.6214 }, [
-      [120, -180], [80, -260], [60, -300], [-40, -220], [-90, 160], [-60, 300], [-70, 260],
+      [60, -90], [80, -110], [90, -90], [70, -120], [40, -130], [10, -140], [-20, -120], [10, -100], [-40, 20], [-70, 110], [-90, 130], [-60, 140], [-40, 120], [-50, 100],
     ]),
     myBestSec: null,
+    estimatedSec: 1860,
+    finisherCount: 412,
+    weeklyRunnerCount: 37,
   },
   {
     id: 'c-beomeo',
@@ -33,6 +40,9 @@ const MOCK_COURSES: MockCourse[] = [
     tags: ['오르막'],
     displayRoute: loopRoute({ latitude: 35.8398, longitude: 128.6262 }, 260, 330, 32, 0.12, 1.2),
     myBestSec: null,
+    estimatedSec: 1320,
+    finisherCount: 236,
+    weeklyRunnerCount: 21,
   },
   {
     id: 'c-sincheon',
@@ -43,6 +53,9 @@ const MOCK_COURSES: MockCourse[] = [
       [-60, 220], [-40, 300], [-30, 320], [-50, 280], [-20, 240],
     ]),
     myBestSec: 1611,
+    estimatedSec: 1740,
+    finisherCount: 2051,
+    weeklyRunnerCount: 215,
   },
   {
     id: 'c-dusan',
@@ -51,6 +64,9 @@ const MOCK_COURSES: MockCourse[] = [
     tags: ['야간 밝음', '초보 추천'],
     displayRoute: loopRoute({ latitude: 35.8245, longitude: 128.6105 }, 230, 170, 28, 0.06, 2),
     myBestSec: null,
+    estimatedSec: 1080,
+    finisherCount: 96,
+    weeklyRunnerCount: 12,
   },
   {
     id: 'c-stadium',
@@ -59,6 +75,9 @@ const MOCK_COURSES: MockCourse[] = [
     tags: ['초보 추천'],
     displayRoute: loopRoute({ latitude: 35.8297, longitude: 128.6895 }, 380, 380, 36, 0.04, 0.6),
     myBestSec: null,
+    estimatedSec: 1680,
+    finisherCount: 688,
+    weeklyRunnerCount: 54,
   },
 ];
 

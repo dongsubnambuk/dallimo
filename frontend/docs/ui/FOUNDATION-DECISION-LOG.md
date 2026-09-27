@@ -178,3 +178,18 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 개발용 상태 전환 | 개발 빌드에서 `/?scenario=loading|denied|empty|error` | 74장 상태 QA |
 | 새 컴포넌트 | `SecondaryButton`(src/components, Playground와 탐색에서 사용), `StateNotice`(탐색 전용, 다른 화면에서 쓰이면 승격) | CLAUDE.md 13항 |
 | 의존성 | `@tanstack/react-query` 5.104.0 | 9.1장 Server State |
+
+### 7.1 탐색 화면 레퍼런스 반영 (사용자 피드백: "UI가 너무 단순함")
+
+| 변경 | 레퍼런스 | 명세서 근거 |
+| --- | --- | --- |
+| 지도 바탕(물·공원·큰길·골목·장소 이름)을 SVG로 그린다. `mockMapBase.ts`, `colors.mapBase` | 모든 레퍼런스 앱은 지도 위에 경로를 올린다 (P1) | VISUAL-IMPLEMENTATION "지도 geometry를 흉내 낸 기능형 placeholder", 정적 이미지 금지. SDK 도입 시 제거 |
+| 코스 시작점에 이번 주 러너 수 말풍선 | 고스트러너 코스 위 러너 수 | 64.1 Competition-aware, 83 Signal |
+| 선택 코스는 흰 테두리 + signal 선, "출발" 말풍선 | Runnect 출발 태그 (P1·P3) | 83 route signal, 8항 경로 구분 |
+| 선택 코스 요약 카드(이름·거리·예상 시간·이번 주 러너 수·코스 보기) | AllTrails·Runnect 지도 위 코스 카드 | 89 "지도보다 카드가 커지지 않게" → 한 줄 요약 높이 76 |
+| 내 위치 버튼 | 모든 지도 앱 | 8항 Maps |
+| 목록에 경로 모양(사진 아님), 거리 기울임 숫자, 사회적 신호 한 줄 | Runnect·NRC 목록 (P7), P4 | 95 "사진 thumbnail 없는 버전이 기본" 유지 |
+| 정렬: 가까운 순 / 인기순 / 짧은 순 | Runnect 최신순·스크랩순 | CRS-004 필터/정렬 |
+| 로딩·결과 없음·오류에서도 내 위치(또는 기본 지역) 주변 지도 표시 | - | 74 상태, 빈 회색 화면 제거 |
+| 가려지는 영역·가장자리의 라벨과 말풍선 숨김 | - | 8항 "지도 위 UI가 중요한 내용을 가리지 않게" |
+| `CourseSummary`에 `estimatedSec`, `finisherCount`, `weeklyRunnerCount` | - | 43장 CourseSummary는 OpenAPI 확정 시 맞춘다 |

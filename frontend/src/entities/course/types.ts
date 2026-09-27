@@ -14,6 +14,12 @@ export type CourseSummary = {
   displayRoute: GeoPoint[];
   // 내 최고 기록(초). 기록이 없으면 null.
   myBestSec: number | null;
+  // 평균 완주 기준 예상 소요 시간(초)
+  estimatedSec: number;
+  // 인증된 완주자 수
+  finisherCount: number;
+  // 이번 주 이 코스를 달린 러너 수 (탐색 지도 위 표시)
+  weeklyRunnerCount: number;
 };
 
 export type NearbyCourseQuery = {

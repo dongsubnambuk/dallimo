@@ -25,6 +25,16 @@ export const palette = {
   warningDark: '#D99500',
   dangerDark: '#F06262',
 
+  // placeholder 지도 바탕 (지도 SDK 전까지)
+  mapLandLight: '#ECEEEC',
+  mapWaterLight: '#C9DEE4',
+  mapParkLight: '#D9E8D6',
+  mapRoadLight: '#FFFFFF',
+  mapLandDark: '#1A1F1E',
+  mapWaterDark: '#17282E',
+  mapParkDark: '#1B2A21',
+  mapRoadDark: '#2B3230',
+
   routeActual: '#FFFFFF',
   routeTarget: '#86E7D8',
 } as const;
@@ -40,6 +50,8 @@ export type ColorRoles = {
   ranking: { up: string; down: string };
   route: { course: string; actual: string; target: string };
   border: { subtle: string; strong: string };
+  // 지도 SDK 결정 전 placeholder 지도 바탕색. SDK 도입 시 SDK 지도 스타일로 대체한다.
+  mapBase: { land: string; water: string; park: string; road: string; roadMajor: string };
 };
 
 // hex 뒤 두 자리는 alpha
@@ -66,6 +78,7 @@ export const colorRoles: Record<ColorScheme, ColorRoles> = {
     // 밝은 지도 위: 경로는 signal ink, 실제 이동은 기본 글자색, 목표(PB·ghost)는 반투명 signal
     route: { course: palette.signalInk, actual: palette.textPrimaryLight, target: alpha(palette.signalInk, '66') },
     border: { subtle: alpha(palette.textSecondaryLight, '29'), strong: alpha(palette.textSecondaryLight, '66') },
+    mapBase: { land: palette.mapLandLight, water: palette.mapWaterLight, park: palette.mapParkLight, road: palette.mapRoadLight, roadMajor: palette.mapRoadLight },
   },
   dark: {
     bg: { canvas: palette.canvasDark, surface: palette.surfaceDark, elevated: palette.surfaceDark },
@@ -87,5 +100,6 @@ export const colorRoles: Record<ColorScheme, ColorRoles> = {
     // 어두운 지도 위: 88장 route 후보 계열 (course는 signal bright, actual 흰색, target 연한 청록)
     route: { course: palette.signalBright, actual: palette.routeActual, target: palette.routeTarget },
     border: { subtle: alpha(palette.textSecondaryDark, '29'), strong: alpha(palette.textSecondaryDark, '66') },
+    mapBase: { land: palette.mapLandDark, water: palette.mapWaterDark, park: palette.mapParkDark, road: palette.mapRoadDark, roadMajor: palette.mapRoadDark },
   },
 };
