@@ -25,7 +25,6 @@ export const palette = {
   warningDark: '#D99500',
   dangerDark: '#F06262',
 
-  routeCourse: '#00BFA6',
   routeActual: '#FFFFFF',
   routeTarget: '#86E7D8',
 } as const;
@@ -64,7 +63,8 @@ export const colorRoles: Record<ColorScheme, ColorRoles> = {
     status: { success: palette.successLight, warning: palette.warningLight, danger: palette.dangerLight },
     gps: { good: palette.successLight, fair: palette.warningLight, poor: palette.dangerLight },
     ranking: { up: palette.successLight, down: palette.dangerLight },
-    route: { course: palette.routeCourse, actual: palette.routeActual, target: palette.routeTarget },
+    // 밝은 지도 위: 경로는 signal ink, 실제 이동은 기본 글자색, 목표(PB·ghost)는 반투명 signal
+    route: { course: palette.signalInk, actual: palette.textPrimaryLight, target: alpha(palette.signalInk, '66') },
     border: { subtle: alpha(palette.textSecondaryLight, '29'), strong: alpha(palette.textSecondaryLight, '66') },
   },
   dark: {
@@ -84,7 +84,8 @@ export const colorRoles: Record<ColorScheme, ColorRoles> = {
     status: { success: palette.successDark, warning: palette.warningDark, danger: palette.dangerDark },
     gps: { good: palette.successDark, fair: palette.warningDark, poor: palette.dangerDark },
     ranking: { up: palette.successDark, down: palette.dangerDark },
-    route: { course: palette.routeCourse, actual: palette.routeActual, target: palette.routeTarget },
+    // 어두운 지도 위: 88장 route 후보 계열 (course는 signal bright, actual 흰색, target 연한 청록)
+    route: { course: palette.signalBright, actual: palette.routeActual, target: palette.routeTarget },
     border: { subtle: alpha(palette.textSecondaryDark, '29'), strong: alpha(palette.textSecondaryDark, '66') },
   },
 };

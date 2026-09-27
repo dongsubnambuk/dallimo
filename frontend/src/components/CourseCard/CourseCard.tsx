@@ -23,6 +23,7 @@ export type CourseCardProps = {
 // 113장: course identity > distance > metadata.
 // 88.2장/95장: 떠 있는 카드가 아니라 간격과 경계로 구분하고, thumbnail 없는 버전이 기본이다.
 // 왼쪽 route mark(출발점 ─ 도착점)가 선택 상태를 signal line으로 보여준다. 선택된 코스는 지도 route highlight와 연결된다(90장).
+// 레퍼런스 P10: 선택을 채운 상자로 감싸지 않고 선·색으로만 표시한다.
 export function CourseCard({
   title,
   distanceM,
@@ -35,7 +36,6 @@ export function CourseCard({
   onPress,
   style,
 }: CourseCardProps) {
-  const { colors } = useTheme();
   const compact = variant === 'compact';
 
   if (loading) {
@@ -54,13 +54,13 @@ export function CourseCard({
       accessibilityLabel={[title, `${distance}킬로미터`, ...tags, secondary, selected ? '선택됨' : null]
         .filter(Boolean)
         .join(', ')}
-      style={[styles.root, compact && styles.compact, selected && { backgroundColor: colors.action.tint }, style]}
+      style={[styles.root, compact && styles.compact, style]}
     >
       <View style={styles.row}>
         <RouteMark active={selected} />
         <View style={styles.body}>
           <View style={styles.titleRow}>
-            <AppText role="sectionTitle" numberOfLines={compact ? 1 : 2} style={styles.title}>
+            <AppText role="sectionTitle" tone={selected ? 'accent' : 'primary'} numberOfLines={compact ? 1 : 2} style={styles.title}>
               {title}
             </AppText>
             <View style={styles.distance}>

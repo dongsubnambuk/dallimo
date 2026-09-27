@@ -29,12 +29,16 @@ export type TextRole =
 type RoleStyle = Pick<TextStyle, 'fontSize' | 'lineHeight' | 'fontFamily' | 'letterSpacing'> & {
   // undefined면 시스템 글자 크기 설정을 제한 없이 따른다.
   maxFontSizeMultiplier?: number;
+  // 기록 숫자를 기울임꼴로 (레퍼런스 P4). Pretendard에는 italic이 없어 skew로 만든다.
+  oblique?: boolean;
 };
+
+export const OBLIQUE_SKEW = '-8deg';
 
 export const typography: Record<TextRole, RoleStyle> = {
   // 숫자는 좁은 자간으로 하나의 덩어리처럼 읽히게 한다.
-  metricHero: { fontSize: 64, lineHeight: 68, fontFamily: fontFamily.extrabold, letterSpacing: -2, maxFontSizeMultiplier: 1.3 },
-  metricLarge: { fontSize: 36, lineHeight: 40, fontFamily: fontFamily.extrabold, letterSpacing: -1, maxFontSizeMultiplier: 1.3 },
+  metricHero: { fontSize: 64, lineHeight: 68, fontFamily: fontFamily.extrabold, letterSpacing: -2, maxFontSizeMultiplier: 1.3, oblique: true },
+  metricLarge: { fontSize: 36, lineHeight: 40, fontFamily: fontFamily.extrabold, letterSpacing: -1, maxFontSizeMultiplier: 1.3, oblique: true },
   screenTitle: { fontSize: 24, lineHeight: 32, fontFamily: fontFamily.extrabold, letterSpacing: -0.5, maxFontSizeMultiplier: 1.5 },
   sectionTitle: { fontSize: 17, lineHeight: 24, fontFamily: fontFamily.semibold, letterSpacing: -0.2 },
   body: { fontSize: 15, lineHeight: 22, fontFamily: fontFamily.regular },

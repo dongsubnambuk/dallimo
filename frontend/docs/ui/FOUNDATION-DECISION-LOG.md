@@ -3,7 +3,21 @@
 DESIGN-SYSTEM-PLAYGROUND-SPEC.md 116장 "Decision Log | 아직 미확정인 visual 값 목록 기록"에 따라 작성한다.
 명세서 원문 문서(`DESIGN-SYSTEM.md` 등)는 수정하지 않았다. 명세서에 없는 값과 판단은 이 문서에만 기록한다.
 
-## 0. v0.1 시각 개선 (사용자 피드백 반영)
+## 00. v0.2 레퍼런스 기반 개선
+
+사용자 피드백: v0.1도 AI 시안처럼 보임. 핀터레스트와 실제 국내 앱 화면을 근거로 다시 설계하라.
+조사 내용과 채택/비채택 근거는 `REFERENCE-RESEARCH-2026-09.md`에 있다.
+
+| 변경 | 내용 | 근거 |
+| --- | --- | --- |
+| `CourseMapPreview` 추가 | 경로 geometry를 SVG로 그림. 코스 선, 실제 이동, 이탈 점선, 출발/도착 표시, 경로 위 라벨, 주변 코스 흐리게, 거리 배지. 지도 SDK 전이라 배경 지도는 그리지 않음 | 67.1장 CourseMapPreview, 레퍼런스 P1·P3 |
+| 의존성 `react-native-svg` 15.15.4 | 경로·고도 그래프 그리기. Expo SDK 57 번들 버전 (`expo install`) | Expo Go 포함 모듈 |
+| 기록 숫자 기울임 | metricHero·metricLarge에 skewX -8deg | 레퍼런스 P4, 83장 "fast" |
+| route 색 역할 | light: course=signal ink, actual=기본 글자색, target=반투명 signal / dark: course=signal bright, actual 흰색, target `#86E7D8` | 8항 Maps: 경로 구분, 88장 |
+| CourseCard 선택 표시 | 채운 배경 상자 제거, route mark·제목·거리 색으로만 표시 | 레퍼런스 P10 |
+| 미리보기 | 5개 화면 모두 경로 그림 중심으로 재구성. 코스 상세에 고도 프로필·하단 고정 CTA, 러닝 중에 "오늘의 나 / PB 기록" 경로 라벨, 결과에 실제 경로·이탈 구간, 함께 달리기에 배번 헤더 | 90~94장, P3·P5·P6·P9 |
+
+
 
 사용자 피드백: 컴포넌트가 평범함, 글꼴·숫자가 밋밋함, Playground 구성, 색감. 폰트는 Pretendard 적용을 사용자가 승인했다.
 

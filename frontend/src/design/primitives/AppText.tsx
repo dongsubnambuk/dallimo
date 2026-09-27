@@ -1,6 +1,6 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import { typography, type TextRole } from '../tokens';
+import { OBLIQUE_SKEW, typography, type TextRole } from '../tokens';
 import { useTheme } from '../theme';
 
 export type TextTone = 'primary' | 'secondary' | 'inverse' | 'accent' | 'success' | 'warning' | 'danger';
@@ -15,7 +15,7 @@ export type AppTextProps = Omit<TextProps, 'role'> & {
 
 export function AppText({ role = 'body', tone = 'primary', tabular, style, maxFontSizeMultiplier, ...props }: AppTextProps) {
   const { colors } = useTheme();
-  const { maxFontSizeMultiplier: roleMax, ...roleStyle } = typography[role];
+  const { maxFontSizeMultiplier: roleMax, oblique, ...roleStyle } = typography[role];
   const color =
     tone === 'accent'
       ? colors.action.primary
@@ -26,7 +26,7 @@ export function AppText({ role = 'body', tone = 'primary', tabular, style, maxFo
   return (
     <Text
       maxFontSizeMultiplier={maxFontSizeMultiplier ?? roleMax}
-      style={[roleStyle, styles.base, { color }, tabular && styles.tabular, style]}
+      style={[roleStyle, styles.base, { color }, tabular && styles.tabular, oblique && styles.oblique, style]}
       {...props}
     />
   );
@@ -38,5 +38,8 @@ const styles = StyleSheet.create({
   },
   tabular: {
     fontVariant: ['tabular-nums'],
+  },
+  oblique: {
+    transform: [{ skewX: OBLIQUE_SKEW }],
   },
 });
