@@ -1,0 +1,28 @@
+# Repository-wide ignores.
+# Expo 관련 항목은 frontend/.gitignore, Spring Boot 관련 항목은 backend 생성 시 추가한다.
+
+# dependencies
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+*.iml
+
+# logs
+*.log
+npm-debug.log*
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Claude Code local settings
+.claude/settings.local.json
