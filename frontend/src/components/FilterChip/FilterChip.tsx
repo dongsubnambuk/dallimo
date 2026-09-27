@@ -2,7 +2,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
-import { radius, spacing, stroke } from '@/design/tokens';
+import { radius, spacing, touchTarget } from '@/design/tokens';
 
 export type FilterChipProps = {
   label: string;
@@ -12,28 +12,32 @@ export type FilterChipProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-// 95장: 선택 상태를 명확히, 너무 많은 색상은 쓰지 않는다. 선택은 테두리 색과 체크 아이콘으로 함께 표시한다.
+const CHIP_HEIGHT = 36;
+// 보이는 높이는 36, 터치 영역은 hitSlop으로 최소 터치 영역(48)을 맞춘다.
+const SLOP = (touchTarget.min - CHIP_HEIGHT) / 2;
+
+// 95장: 선택 상태를 명확히, 너무 많은 색상은 쓰지 않는다.
+// 국내 앱 패턴: 미선택은 회색 채움, 선택은 signal 채움 + 체크 아이콘(색만으로 구분하지 않음).
 export function FilterChip({ label, selected = false, disabled = false, onPress, style }: FilterChipProps) {
   const { colors } = useTheme();
+  const fg = selected ? colors.action.onPrimary : colors.text.primary;
 
   return (
     <AppPressable
       onPress={onPress}
       disabled={disabled}
+      hitSlop={{ top: SLOP, bottom: SLOP }}
       accessibilityLabel={label}
       accessibilityState={{ selected }}
       style={[
         styles.root,
-        {
-          borderColor: selected ? colors.action.primary : colors.border.subtle,
-          backgroundColor: colors.bg.surface,
-        },
+        { backgroundColor: selected ? colors.action.primary : colors.border.subtle },
         style,
       ]}
     >
       <View style={styles.content}>
-        {selected ? <AppIcon name="check" size={14} color={colors.text.primary} /> : null}
-        <AppText role="label" numberOfLines={1}>
+        {selected ? <AppIcon name="check" size={14} color={fg} /> : null}
+        <AppText role="label" numberOfLines={1} style={{ color: fg }}>
           {label}
         </AppText>
       </View>
@@ -43,9 +47,9 @@ export function FilterChip({ label, selected = false, disabled = false, onPress,
 
 const styles = StyleSheet.create({
   root: {
-    borderWidth: stroke.control,
+    minHeight: CHIP_HEIGHT,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.md + spacing.xs,
     alignSelf: 'flex-start',
   },
   content: {

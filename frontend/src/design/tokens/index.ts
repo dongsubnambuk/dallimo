@@ -5,5 +5,5 @@ export { elevation, radius, stroke } from './radius';
 export type { RadiusToken } from './radius';
 export { spacing, touchTarget } from './spacing';
 export type { SpacingToken } from './spacing';
-export { typography } from './typography';
+export { fontAssets, fontFamily, typography } from './typography';
 export type { TextRole } from './typography';

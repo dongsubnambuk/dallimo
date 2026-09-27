@@ -29,6 +29,8 @@ const icons = {
   start: { ios: 'play.fill', android: 'play_arrow' },
   warning: { ios: 'exclamationmark.triangle.fill', android: 'warning' },
   check: { ios: 'checkmark', android: 'check' },
+  expand: { ios: 'chevron.down', android: 'expand_more' },
+  collapse: { ios: 'chevron.right', android: 'chevron_right' },
 } satisfies Record<string, { ios: SFSymbol; android: AndroidSymbol }>;
 
 export type IconName = keyof typeof icons;

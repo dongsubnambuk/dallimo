@@ -3,6 +3,48 @@
 DESIGN-SYSTEM-PLAYGROUND-SPEC.md 116장 "Decision Log | 아직 미확정인 visual 값 목록 기록"에 따라 작성한다.
 명세서 원문 문서(`DESIGN-SYSTEM.md` 등)는 수정하지 않았다. 명세서에 없는 값과 판단은 이 문서에만 기록한다.
 
+## 0. v0.1 시각 개선 (사용자 피드백 반영)
+
+사용자 피드백: 컴포넌트가 평범함, 글꼴·숫자가 밋밋함, Playground 구성, 색감. 폰트는 Pretendard 적용을 사용자가 승인했다.
+
+### 0.1 국내 레퍼런스 조사 (명세서 58.2장)
+
+- 조사 경로: 컨테이너 네트워크 정책으로 App Store, Play Store, 공식 사이트, velog 접근이 막혀 있다. 공개 소스인 Runnect Android(`github.com/Runnect/Runnect-Android`)의 실제 구현을 읽었다. 나머지 국내 앱은 명세서 59장 분석을 따른다.
+- Runnect에서 확인한 구현 (값은 복제하지 않고 패턴만 채택)
+
+| 패턴 | Runnect 구현 | 달리모 적용 |
+| --- | --- | --- |
+| 글꼴 | Pretendard regular/medium/semibold/bold | Pretendard regular/medium/semibold/extrabold |
+| 수치 요약 | 라벨(13 Medium 회색) 위, 값(20 Bold) 아래, 1dp 세로 구분선으로 3칸 | `MetricBlock labelPosition="top"` + 세로 구분선 요약 행 (코스 상세·결과 미리보기) |
+| 섹션 구분 | 8dp 회색 띠 | `AppDivider variant="section"` |
+| 코스 정보 | 키(Semibold) + 값(Regular) 행 | 코스 상세 미리보기의 정보 행 |
+| 랭킹 | 24dp 원형 순위 배지 · 닉네임 · 기록(아래 페이스). 본인 행은 둥근 브랜드 연한 배경 + "PB" 알약 | `RankingRow` 재구성. 금·은·동 색은 89장(podium 과장 금지)에 따라 쓰지 않고 signal 연한 배경만 |
+| 버튼 모서리 | 10dp, bottom sheet 20dp | radius.control 10, sheet 20 |
+| 브랜드 색 | 보라 `#593EEC` | 채택하지 않음 (83장 teal 고정, 75장 보라 계열 회피) |
+
+### 0.2 바뀐 값
+
+| 항목 | v0 | v0.1 | 이유 |
+| --- | --- | --- | --- |
+| 폰트 | 시스템 폰트 | Pretendard 4굵기 (OFL 1.1, `assets/fonts/pretendard/LICENSE.txt`) | 사용자 승인. 88.1장 후보 |
+| signal | 단일 `#00BFA6` | dark `#1FE0C4` / light `#00796B` | light 배경 대비 2.19 실패 해결(4.99), dark에서 더 선명하게 |
+| status (light) | `#1B9A59` `#D99500` `#D84A4A` | `#137F48` `#9A6500` `#C93D3D` | light 배경 AA(4.5) 통과 |
+| status (dark) | 위와 같음 | `#2DBA72` `#D99500` `#F06262` | dark 배경 대비 향상 |
+| 추가 색 역할 | - | `action.tint`, `border.strong` | 선택·본인 행 연한 배경, 비선택 route mark |
+| radius | 8 / 12 / 20 | 10 / 14 / 20 | 국내 레퍼런스 |
+| FilterChip | 테두리 | 채움(미선택 회색, 선택 signal), 보이는 높이 36 + hitSlop으로 터치 48 | 국내 앱 패턴, 덜 둔해 보이게 |
+| MetricBlock emphasized | 왼쪽 signal 선 | 값을 signal 색으로 | light signal이 AA를 통과해 가능해짐 |
+
+### 0.3 새 컴포넌트
+
+- `SignalRail`: 진행률 선 + 진행 지점 점. 88.2장 "route line, progress rail을 같은 signal line 언어로 연결"을 구현한다. ParticipantChip과 러닝 중 코스 진행률에 쓴다. CLAUDE.md 13항에 따라 여기에 이유를 기록한다.
+- `CourseCard`의 route mark(출발점 ─ 도착점 세로 표시)도 같은 signal line 언어다.
+
+### 0.4 Playground
+
+- 맨 위: 핵심 화면 5개 조합 미리보기 (98장 Distinctiveness 검증). 제품 화면 구현이 아니라 정적 예시 데이터로 만든 컴포넌트 조합이다. 지도는 SDK 결정 전이라 빈 영역으로 둔다.
+- 아래: 상태 검증을 그룹별로 접고, 라이트/다크/비교를 전환한다.
+
 ## 1. 구조
 
 | 명세서 (110장) | 실제 | 이유 |
@@ -35,15 +77,15 @@ DESIGN-SYSTEM-PLAYGROUND-SPEC.md 116장 "Decision Log | 아직 미확정인 visu
 
 | 토큰 | 값 | 판단 근거 |
 | --- | --- | --- |
-| 추가 색 역할 `action.primaryPressed` | palette.signalPressed | 88장 palette에 이미 있는 값에 역할 이름만 붙였다 |
-| 추가 색 역할 `action.onPrimary` | canvasDark `#101312` | signal 위 흰 글자는 대비 2.33으로 실패, near-black은 8.01 |
+| 추가 색 역할 `action.primaryPressed` | signal의 눌림 색 | light/dark 각각 한 단계 진하게 |
+| 추가 색 역할 `action.onPrimary` | light는 흰색, dark는 `#101312` | 두 경우 모두 AA 통과 (0.2장) |
 | 추가 색 역할 `border.subtle` | text.secondary + alpha 0x33 | divider, skeleton, 비활성 버튼용. palette에서 파생 |
 | `action.secondary` | text.primary | 보조 action은 accent 대신 기본 글자색 |
 | `bg.elevated` | surface와 같은 색 + `elevation.mapOverlay` 그림자 | 88.2장: elevation은 sheet/map overlay에만 |
 | `gps.good/fair/poor`, `ranking.up/down` | success / warning / danger | 별도 색을 늘리지 않고 status 색을 재사용 |
-| metricLarge 36/40 700, screenTitle 24/30 700, sectionTitle 17/22 600, body 15/22 400, label 13/18 600, caption 12/16 400 | | 시스템 폰트 기준 |
+| metricHero 64/68 ExtraBold 자간 -2, metricLarge 36/40 ExtraBold 자간 -1, screenTitle 24/32 ExtraBold, sectionTitle 17/24 SemiBold, body 15/22 Regular, label 13/18 Medium, caption 12/16 Regular | | Pretendard 기준 |
 | maxFontSizeMultiplier | metricHero/metricLarge 1.3, screenTitle/label 1.5, 나머지 제한 없음 | 큰 숫자·컨트롤만 제한하고 본문은 제한하지 않는다 |
-| radius | control 8 / card 12 / sheet 20 / pill 999 | 88.2장 3단계 + 114장 pill |
+| radius | control 10 / card 14 / sheet 20 / pill 999 | 88.2장 3단계 + 114장 pill, 국내 레퍼런스 |
 | stroke | signal 3 / control 1.5 | signal line(선택, 본인, 진행률, emphasized metric) 두께 통일 |
 | touchTarget | min 48 / primary 56 | 68장 "충분한 크기" |
 | elevation | sheet, mapOverlay (boxShadow) | |
@@ -52,7 +94,7 @@ DESIGN-SYSTEM-PLAYGROUND-SPEC.md 116장 "Decision Log | 아직 미확정인 visu
 
 ### 2.3 폰트
 
-115.1장 "새 font family 임의 결정 금지"에 따라 시스템 폰트를 쓴다. Pretendard 등은 88.1장대로 라이선스·번들 크기 확인 후 결정한다.
+Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraBold 네 파일만 넣어 앱 용량 증가를 약 6.3MB로 제한했다. 숫자 고정 폭(tnum) 지원을 확인했다.
 
 ## 3. 컴포넌트 판단
 
@@ -60,14 +102,14 @@ DESIGN-SYSTEM-PLAYGROUND-SPEC.md 116장 "Decision Log | 아직 미확정인 visu
 | --- | --- |
 | AppText | 112.1장 API의 `role`이 RN의 ARIA `role` prop과 겹쳐 RN 쪽을 제외했다. 접근성 역할은 `accessibilityRole`을 쓴다 |
 | AppIcon | expo-symbols 하나만 사용. iOS SF Symbols, Android/web Material Symbols. 옆에 텍스트가 있으면 스크린 리더에서 숨긴다 |
-| MetricBlock | emphasized는 accent 글자색 대신 signal line을 쓴다. light canvas에서 accent 글자 대비가 2.19로 실패하기 때문이다. 값이 길면 native에서 한 줄에 맞게 줄인다 |
+| MetricBlock | emphasized는 값을 signal 색으로 쓴다. 값이 길면 native에서 한 줄에 맞게 줄인다. labelPosition top/bottom |
 | PrimaryRunButton | 시작할 수 없으면 이유 문구를 버튼 아래에 표시한다 (73장) |
 | GapIndicator | 부호: 시간은 앞서면 `−`, 거리는 앞서면 `+` (94장 "+72m"). 방향 아이콘·부호·문구를 함께 표시 |
-| RankingRow | relation은 normal/self/friend. podium은 순위로 판단, nearby는 목록 배치로 표현한다. 순위 없음은 `--` |
-| ParticipantChip | 상태 문구가 이름보다 앞에 온다 (113장 state first). 위치 대신 진행률만 표시 |
+| RankingRow | relation은 normal/self/friend + isPB. podium은 순위로 판단, nearby는 목록 배치로 표현한다. 순위 없음은 `--` |
+| ParticipantChip | 상태 문구가 이름보다 앞에 온다 (113장 state first). 단 레이스 중 running은 기본 상태라 아이콘으로만 표시한다. 위치 대신 SignalRail 진행률만 표시 |
 | 문구 | "GPS 찾는 중/보통/약함/사용 불가", "기록 검증 중/공식 기록 미인증/인증 거부", "초대됨/준비 완료/달리는 중/연결 끊김/완주/중도 포기" 등은 v0 문구다. "GPS 양호", "공식 기록 인증됨"은 92·93장 문구다 |
 
-## 4. 대비 검증 (WCAG)
+## 4. 대비 검증 (WCAG, v0.1)
 
 | 조합 | 대비 | 결과 |
 | --- | --- | --- |
@@ -75,20 +117,13 @@ DESIGN-SYSTEM-PLAYGROUND-SPEC.md 116장 "Decision Log | 아직 미확정인 visu
 | text.secondary / canvas light | 4.72 | AA |
 | text.primary / canvas dark | 17.49 | AA |
 | text.secondary / canvas dark | 8.51 | AA |
-| action.onPrimary / action.primary | 8.01 | AA |
-| action.onPrimary / action.primaryPressed | 5.63 | AA |
-| action.primary / canvas dark | 8.01 | AA |
-| status.success / canvas dark | 5.17 | AA |
-| status.warning / canvas dark | 7.34 | AA |
-| status.danger / canvas dark | 4.45 | 3:1 이상 (큰 글자·UI) |
-| status.success / canvas light | 3.39 | 3:1 이상 (큰 글자·UI) |
-| status.danger / canvas light | 3.94 | 3:1 이상 (큰 글자·UI) |
-| **action.primary / canvas light** | **2.19** | 실패 |
-| **status.warning / canvas light** | **2.39** | 실패 |
-| **route.target / canvas light** | **1.37** | 실패 |
-
-- 현재 컴포넌트는 status 색을 글자에 쓰지 않고 아이콘과 signal line에만 쓴다. 의미는 항상 옆 글자로도 전달한다.
-- 실패한 세 조합은 light 화면에서 아이콘·선·지도 경로로 쓰일 때 문제가 된다. 98장 "Accent contrast"와 "Map legibility" 검증 전에 palette를 확정하지 않는다.
+| action.primary(light `#00796B`) / canvas light | 4.99 | AA |
+| action.onPrimary(white) / action.primary light | 5.32 | AA |
+| action.primary(dark `#1FE0C4`) / canvas dark | 11.14 | AA |
+| action.onPrimary(`#101312`) / action.primary dark | 11.14 | AA |
+| status success / warning / danger (light) | 4.74 / 4.65 / 4.67 | AA |
+| status success / warning / danger (dark) | 7.45 / 7.34 / 5.90 | AA |
+| **route.target / canvas light** | **1.37** | 실패. 지도 SDK 결정 후 route 색과 함께 다시 정한다 |
 
 ## 5. QA 범위와 한계
 
@@ -106,7 +141,7 @@ DESIGN-SYSTEM-PLAYGROUND-SPEC.md 116장 "Decision Log | 아직 미확정인 visu
 
 ## 6. 아직 확정하지 않은 항목
 
-- 브랜드 accent와 status 색 (4장 대비 실패 항목 포함)
+- 브랜드 accent와 status 색 (v0.1 후보)
 - 폰트 family
 - 2.2장의 모든 v0 값
 - 지도 위 route 색 구분 (지도 SDK 결정 후)

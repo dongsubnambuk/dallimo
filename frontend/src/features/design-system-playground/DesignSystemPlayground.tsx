@@ -10,14 +10,19 @@ import { MetricBlock } from '@/components/MetricBlock';
 import { ParticipantChip, type ParticipantStatus } from '@/components/ParticipantChip';
 import { PrimaryRunButton } from '@/components/PrimaryRunButton';
 import { RankingRow } from '@/components/RankingRow';
+import { SignalRail } from '@/components/SignalRail';
 import { VerificationBadge, type VerificationStatus } from '@/components/VerificationBadge';
-import { AppDivider, AppIcon, AppSurface, AppText } from '@/design/primitives';
+import { AppDivider, AppIcon, AppPressable, AppSurface, AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
-import { colorRoles, radius, spacing, stroke, type ColorRoles, type TextRole } from '@/design/tokens';
+import { radius, spacing, stroke, type ColorRoles, type TextRole } from '@/design/tokens';
 import { formatDistanceKm, formatDuration, formatPace } from '@/shared/format';
 
+import { ScreenPreviews } from './ScreenPreviews';
+
 // DESIGN-SYSTEM-PLAYGROUND-SPEC.md 111장: 전시용 갤러리가 아니라 토큰·컴포넌트·상태를 검증하는 개발 도구다.
-// 정상 상태보다 edge state를 더 많이 보여주고, 실제 한국어 문자열과 단위를 쓴다.
+// 위에는 98장 화면 조합 미리보기, 아래에는 컴포넌트별 상태 검증을 둔다. 상태 검증은 그룹별로 접는다.
+
+type ContextMode = 'light' | 'dark' | 'both';
 
 const LONG_COURSE = '수성못 둘레길 야간 5K 루프 (동쪽 데크길 경유, 초보 추천, 화장실 2곳)';
 const LONG_NICK = '새벽다섯시에일어나는러너김민수입니다';
@@ -27,7 +32,7 @@ const PARTICIPANT_STATES: { status: ParticipantStatus; progress?: number }[] = [
   { status: 'invited' },
   { status: 'ready' },
   { status: 'running', progress: 0.64 },
-  { status: 'disconnected' },
+  { status: 'disconnected', progress: 0.41 },
   { status: 'finished', progress: 1 },
   { status: 'dnf' },
 ];
@@ -36,154 +41,112 @@ const TEXT_ROLES: TextRole[] = ['metricHero', 'metricLarge', 'screenTitle', 'sec
 export function DesignSystemPlayground() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const [mode, setMode] = useState<ContextMode>('both');
 
   return (
     <ScrollView
       style={{ backgroundColor: colors.bg.canvas }}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.huge }]}
     >
-      <AppText role="caption" tone="secondary">
-        개발 전용 QA 화면. 현재 시스템 글자 크기 배율 {PixelRatio.getFontScale().toFixed(2)}. 글자 크기 테스트는 기기
-        설정에서 바꾼 뒤 이 화면을 다시 확인한다.
-      </AppText>
+      <View style={styles.section}>
+        <AppText role="screenTitle" accessibilityRole="header">
+          화면 조합 미리보기
+        </AppText>
+        <AppText role="body" tone="secondary">
+          핵심 화면 다섯 개를 같은 토큰과 컴포넌트로 조합했다. 하나의 서비스로 보이는지 확인한다.
+        </AppText>
+        <ScreenPreviews />
+      </View>
 
-      <Section title="Foundations · Color roles">
-        <ContextPair>{() => <ColorRoleList />}</ContextPair>
-      </Section>
+      <View style={styles.section}>
+        <AppText role="screenTitle" accessibilityRole="header">
+          상태 검증
+        </AppText>
+        <AppText role="caption" tone="secondary">
+          시스템 글자 크기 배율 {PixelRatio.getFontScale().toFixed(2)}. 글자 크기 테스트는 기기 설정에서 바꾼 뒤 다시
+          확인한다.
+        </AppText>
+        <View style={styles.wrap}>
+          {(
+            [
+              ['light', '라이트'],
+              ['dark', '다크'],
+              ['both', '비교'],
+            ] as const
+          ).map(([m, label]) => (
+            <FilterChip key={m} label={label} selected={mode === m} onPress={() => setMode(m)} />
+          ))}
+        </View>
 
-      <Section title="Foundations · Spacing / Radius / Stroke">
-        <SpacingScale />
-        <RadiusScale />
-      </Section>
-
-      <Section title="Typography">
-        <ContextPair>{() => <TypographyList />}</ContextPair>
-        <Case label="tabular vs 기본 숫자 폭">
-          <View style={styles.row}>
-            <View>
-              <AppText role="metricLarge" tabular>
-                1:11:11
-              </AppText>
-              <AppText role="metricLarge" tabular>
-                8:88:88
-              </AppText>
-              <AppText role="caption" tone="secondary">
-                tabular
-              </AppText>
-            </View>
-            <View>
-              <AppText role="metricLarge">1:11:11</AppText>
-              <AppText role="metricLarge">8:88:88</AppText>
-              <AppText role="caption" tone="secondary">
-                기본
-              </AppText>
-            </View>
-          </View>
-        </Case>
-      </Section>
-
-      <Section title="Actions">
-        <ActionCases />
-      </Section>
-
-      <Section title="Metrics">
-        <Case label="light · default / emphasized / warning / unavailable">
-          <View style={styles.grid}>
-            <MetricBlock label="거리" value={formatDistanceKm(5020)} unit="km" />
-            <MetricBlock label="평균 페이스" value={formatPace(303)} status="emphasized" />
-            <MetricBlock label="현재 페이스" value={formatPace(412)} status="warning" />
-            <MetricBlock label="고도 상승" value="" unit="m" status="unavailable" />
-          </View>
-        </Case>
-        <DarkBlock label="dark · Active Run metric 위계 (92장 배치 기준)">
-          <DarkRunMetrics />
-        </DarkBlock>
-      </Section>
-
-      <Section title="Course">
-        <CourseCases />
-      </Section>
-
-      <Section title="GPS">
-        <ContextPair>
-          {() => (
-            <View style={styles.stack}>
-              {GPS_STATES.map((q) => (
-                <Case key={q} label={q}>
-                  <GpsStatus quality={q} />
-                </Case>
-              ))}
-            </View>
-          )}
-        </ContextPair>
-      </Section>
-
-      <Section title="Competition · GapIndicator">
-        <ContextPair>
-          {() => (
-            <View style={styles.stack}>
-              <Case label="ahead · sec">
-                <GapIndicator direction="ahead" delta={8} label="목표" />
-              </Case>
-              <Case label="behind · sec">
-                <GapIndicator direction="behind" delta={72} label="PB" />
-              </Case>
-              <Case label="tied · 받침 없음 / 있음">
-                <GapIndicator direction="tied" label="민수" />
-                <GapIndicator direction="tied" label="지훈" />
-              </Case>
-              <Case label="noData">
-                <GapIndicator direction="noData" label="PB" />
-              </Case>
-              <Case label="ahead · m (Together)">
-                <GapIndicator direction="ahead" delta={72} unit="m" label="민수" size="compact" />
-              </Case>
-              <Case label="behind · m (Together)">
-                <GapIndicator direction="behind" delta={110} unit="m" label="선두" size="compact" />
-              </Case>
-            </View>
-          )}
-        </ContextPair>
-      </Section>
-
-      <Section title="Ranking">
-        <RankingCases />
-      </Section>
-
-      <Section title="Verification">
-        <ContextPair>
-          {() => (
-            <View style={styles.stack}>
-              {VERIFICATION_STATES.map((s) => (
-                <Case key={s} label={s}>
-                  <VerificationBadge status={s} />
-                </Case>
-              ))}
-            </View>
-          )}
-        </ContextPair>
-      </Section>
-
-      <Section title="Together · ParticipantChip">
-        <ContextPair>
-          {() => (
-            <View style={styles.stack}>
-              {PARTICIPANT_STATES.map(({ status, progress }) => (
-                <Case key={status} label={status}>
-                  <ParticipantChip name="민수" status={status} progress={progress} />
-                </Case>
-              ))}
-              <Case label="긴 닉네임 · running">
+        <Group title="색 역할" count={Object.values(colors).reduce((n, g) => n + Object.keys(g).length, 0)}>
+          <Contexted mode={mode}>{() => <ColorRoleList />}</Contexted>
+        </Group>
+        <Group title="글자" count={TEXT_ROLES.length}>
+          <Contexted mode={mode}>{() => <TypographyList />}</Contexted>
+        </Group>
+        <Group title="간격 · 모서리 · 선" count={3}>
+          <Contexted mode={mode}>{() => <ScaleList />}</Contexted>
+        </Group>
+        <Group title="버튼 · 필터" count={8}>
+          <Contexted mode={mode}>{() => <ActionCases />}</Contexted>
+        </Group>
+        <Group title="기록 수치" count={6}>
+          <Contexted mode={mode}>{() => <MetricCases />}</Contexted>
+        </Group>
+        <Group title="코스" count={6}>
+          <Contexted mode={mode}>{() => <CourseCases />}</Contexted>
+        </Group>
+        <Group title="GPS" count={GPS_STATES.length}>
+          <Contexted mode={mode}>
+            {() => (
+              <View style={styles.stack}>
+                {GPS_STATES.map((q) => (
+                  <Case key={q} label={q}>
+                    <View style={styles.row}>
+                      <GpsStatus quality={q} />
+                      <GpsStatus quality={q} variant="pill" />
+                    </View>
+                  </Case>
+                ))}
+              </View>
+            )}
+          </Contexted>
+        </Group>
+        <Group title="경쟁 차이" count={7}>
+          <Contexted mode={mode}>{() => <GapCases />}</Contexted>
+        </Group>
+        <Group title="랭킹" count={9}>
+          <Contexted mode={mode}>{() => <RankingCases />}</Contexted>
+        </Group>
+        <Group title="기록 인증" count={VERIFICATION_STATES.length}>
+          <Contexted mode={mode}>
+            {() => (
+              <View style={styles.stack}>
+                {VERIFICATION_STATES.map((s) => (
+                  <Case key={s} label={s}>
+                    <VerificationBadge status={s} />
+                  </Case>
+                ))}
+              </View>
+            )}
+          </Contexted>
+        </Group>
+        <Group title="함께 달리기 참가자" count={PARTICIPANT_STATES.length + 1}>
+          <Contexted mode={mode}>
+            {() => (
+              <View>
+                {PARTICIPANT_STATES.map(({ status, progress }) => (
+                  <ParticipantChip key={status} name="민수" status={status} progress={progress} />
+                ))}
                 <ParticipantChip name={LONG_NICK} status="running" progress={0.07} />
-              </Case>
-            </View>
-          )}
-        </ContextPair>
-      </Section>
-
-      <Section title="Stress">
-        <StressCases />
-      </Section>
+              </View>
+            )}
+          </Contexted>
+        </Group>
+        <Group title="극단값 · 오프라인" count={4}>
+          <Contexted mode={mode}>{() => <StressCases />}</Contexted>
+        </Group>
+      </View>
     </ScrollView>
   );
 }
@@ -191,11 +154,10 @@ export function DesignSystemPlayground() {
 function ActionCases() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({ '3~5km': true });
-  const toggle = (k: string) => setSelected((s) => ({ ...s, [k]: !s[k] }));
 
   return (
     <View style={styles.stack}>
-      <Case label="PrimaryRunButton · ready (누르면 loading 전환)">
+      <Case label="ready · 누르면 loading 전환">
         <PrimaryRunButton label="이 코스 달리기" loading={loading} onPress={() => setLoading((v) => !v)} />
       </Case>
       <Case label="disabledGPS">
@@ -204,20 +166,18 @@ function ActionCases() {
       <Case label="disabledPermission">
         <PrimaryRunButton label="이 코스 달리기" availability="disabledPermission" />
       </Case>
-      <Case label="loading">
-        <PrimaryRunButton label="이 코스 달리기" loading />
-      </Case>
       <Case label="긴 라벨">
         <PrimaryRunButton label="수성못 둘레길 야간 코스 달리기 시작하기" />
       </Case>
-      <DarkBlock label="dark · Run Ready 컨텍스트">
-        <PrimaryRunButton label="시작" />
-        <PrimaryRunButton label="시작" availability="disabledGPS" />
-      </DarkBlock>
-      <Case label="FilterChip · default / selected / disabled (누르면 토글)">
+      <Case label="필터 · 누르면 토글 · disabled · 긴 라벨">
         <View style={styles.wrap}>
           {['3~5km', '평지', '야간'].map((k) => (
-            <FilterChip key={k} label={k} selected={!!selected[k]} onPress={() => toggle(k)} />
+            <FilterChip
+              key={k}
+              label={k}
+              selected={!!selected[k]}
+              onPress={() => setSelected((s) => ({ ...s, [k]: !s[k] }))}
+            />
           ))}
           <FilterChip label="화장실 있음" disabled />
           <FilterChip label="신호등 적은 코스만 보기" />
@@ -227,20 +187,26 @@ function ActionCases() {
   );
 }
 
-function DarkRunMetrics() {
+function MetricCases() {
   return (
-    <View style={styles.stackLg}>
-      <GpsStatus quality="good" />
-      <MetricBlock label="거리" value={formatDistanceKm(3720)} unit="km" size="hero" align="center" />
-      <View style={styles.row}>
-        <MetricBlock label="시간" value={formatDuration(1122)} style={styles.flex} />
-        <MetricBlock label="평균 페이스" value={formatPace(301)} style={styles.flex} />
-      </View>
-      <GapIndicator direction="ahead" delta={8} label="목표" />
-      <View style={styles.row}>
-        <MetricBlock label="현재 페이스" value={formatPace(null)} status="unavailable" style={styles.flex} />
-        <MetricBlock label="남은 거리" value={formatDistanceKm(1300)} unit="km" status="emphasized" style={styles.flex} />
-      </View>
+    <View style={styles.stack}>
+      <Case label="default · emphasized · warning · unavailable">
+        <View style={styles.grid}>
+          <MetricBlock label="거리" value={formatDistanceKm(5020)} unit="km" />
+          <MetricBlock label="평균 페이스" value={formatPace(303)} status="emphasized" />
+          <MetricBlock label="현재 페이스" value={formatPace(412)} status="warning" />
+          <MetricBlock label="고도 상승" value="" unit="m" status="unavailable" />
+        </View>
+      </Case>
+      <Case label="hero">
+        <MetricBlock label="거리" value={formatDistanceKm(3720)} unit="km" size="hero" align="center" />
+      </Case>
+      <Case label="labelPosition top · medium">
+        <View style={styles.grid}>
+          <MetricBlock label="시간" value={formatDuration(1521)} size="medium" labelPosition="top" />
+          <MetricBlock label="거리" value={formatDistanceKm(5020)} unit="km" size="medium" labelPosition="top" />
+        </View>
+      </Case>
     </View>
   );
 }
@@ -250,65 +216,60 @@ function CourseCases() {
 
   return (
     <View>
-      <Case label="default · selected (누르면 선택 이동)" flush>
-        <CourseCard
-          title="한강 야간 5K"
-          distanceM={5200}
-          tags={['평지', '신호 적음']}
-          proximityM={1300}
-          recordContext="내 PB 25:42 · 주간 18위"
-          selected={selectedId === 'a'}
-          onPress={() => setSelectedId('a')}
-        />
-        <AppDivider inset="lg" />
-        <CourseCard
-          title="대구스타디움 루프"
-          distanceM={4800}
-          tags={['초보 추천']}
-          proximityM={3400}
-          selected={selectedId === 'b'}
-          onPress={() => setSelectedId('b')}
-        />
-        <AppDivider inset="lg" />
-        <CourseCard title={LONG_COURSE} distanceM={5100} tags={['야간 밝음', '아스팔트', '화장실 2곳']} proximityM={250} />
-      </Case>
-      <Case label="no metadata" flush>
-        <CourseCard title="이름만 있는 코스" distanceM={3000} />
-      </Case>
-      <Case label="compact · 긴 제목" flush>
-        <CourseCard variant="compact" title={LONG_COURSE} distanceM={5100} tags={['평지']} />
-      </Case>
-      <Case label="loading · default / compact" flush>
-        <CourseCard loading title="" distanceM={0} />
-        <CourseCard loading variant="compact" title="" distanceM={0} />
-      </Case>
+      <CourseCard
+        title="한강 야간 5K"
+        distanceM={5200}
+        tags={['평지', '신호 적음']}
+        proximityM={1300}
+        recordContext="내 PB 25:42 · 주간 18위"
+        selected={selectedId === 'a'}
+        onPress={() => setSelectedId('a')}
+      />
+      <CourseCard
+        title="대구스타디움 루프"
+        distanceM={4800}
+        tags={['초보 추천']}
+        proximityM={3400}
+        selected={selectedId === 'b'}
+        onPress={() => setSelectedId('b')}
+      />
+      <CourseCard title={LONG_COURSE} distanceM={5100} tags={['야간 밝음', '아스팔트', '화장실 2곳']} proximityM={250} />
+      <CourseCard title="이름만 있는 코스" distanceM={3000} />
+      <CourseCard variant="compact" title={LONG_COURSE} distanceM={42195} tags={['평지']} />
+      <CourseCard loading title="" distanceM={0} />
+    </View>
+  );
+}
+
+function GapCases() {
+  return (
+    <View style={styles.stack}>
+      <GapIndicator direction="ahead" delta={8} label="목표" />
+      <GapIndicator direction="behind" delta={72} label="PB" />
+      <GapIndicator direction="tied" label="민수" />
+      <GapIndicator direction="tied" label="지훈" />
+      <GapIndicator direction="noData" label="PB" />
+      <GapIndicator direction="ahead" delta={72} unit="m" label="민수" size="compact" />
+      <GapIndicator direction="behind" delta={110} unit="m" label="선두" size="compact" />
     </View>
   );
 }
 
 function RankingCases() {
   return (
-    <ContextPair>
-      {() => (
-        <View>
-          <Case label="podium 1~3" flush>
-            <RankingRow rank={1} name="지수" timeSec={1398} />
-            <RankingRow rank={2} name="민수" timeSec={1402} relation="friend" />
-            <RankingRow rank={3} name="러너 박" timeSec={1411} />
-          </Case>
-          <Case label="nearby · self 전후 · rankChange" flush>
-            <RankingRow rank={17} name="하늘" timeSec={1531} />
-            <RankingRow rank={18} name="나" timeSec={1542} relation="self" rankChange={9} />
-            <RankingRow rank={19} name="도윤" timeSec={1549} relation="friend" rankChange={-2} />
-          </Case>
-          <Case label="4~5자리 순위 · 긴 닉네임 · unranked" flush>
-            <RankingRow rank={1234} name={LONG_NICK} timeSec={2621} relation="self" />
-            <RankingRow rank={12345} name="서울숲러닝크루_주말장거리" timeSec={3599} />
-            <RankingRow rank={null} name="나" timeSec={2710} relation="self" />
-          </Case>
-        </View>
-      )}
-    </ContextPair>
+    <View>
+      <RankingRow rank={1} name="지수" timeSec={1398} paceSecPerKm={274} />
+      <RankingRow rank={2} name="민수" timeSec={1402} paceSecPerKm={275} relation="friend" />
+      <RankingRow rank={3} name="러너 박" timeSec={1411} paceSecPerKm={277} />
+      <AppDivider inset="md" />
+      <RankingRow rank={17} name="하늘" timeSec={1531} paceSecPerKm={300} />
+      <RankingRow rank={18} name="나" timeSec={1542} paceSecPerKm={302} relation="self" isPB rankChange={9} />
+      <RankingRow rank={19} name="도윤" timeSec={1549} paceSecPerKm={304} relation="friend" rankChange={-2} />
+      <AppDivider inset="md" />
+      <RankingRow rank={1234} name={LONG_NICK} timeSec={2621} relation="self" />
+      <RankingRow rank={12345} name="서울숲러닝크루_주말장거리" timeSec={3599} />
+      <RankingRow rank={null} name="나" timeSec={2710} relation="self" />
+    </View>
   );
 }
 
@@ -317,62 +278,55 @@ function StressCases() {
 
   return (
     <View style={styles.stack}>
-      <Case label="extreme values · light">
-        <View style={styles.grid}>
-          <MetricBlock label="거리" value={formatDistanceKm(100000)} unit="km" />
-          <MetricBlock label="시간" value={formatDuration(35999)} />
-          <MetricBlock label="평균 페이스" value={formatPace(3599)} />
-          <MetricBlock label="마라톤" value={formatDistanceKm(42195)} unit="km" />
-        </View>
-      </Case>
-      <DarkBlock label="extreme values · dark hero">
-        <MetricBlock label="거리" value={formatDistanceKm(100000)} unit="km" size="hero" align="center" />
-        <MetricBlock label="시간" value={formatDuration(35999)} size="hero" align="center" />
-      </DarkBlock>
-      <Case label="offline · 기록 보존 안내 (73장: 네트워크 문제와 기록 유실을 혼동시키지 않음)">
-        <AppSurface level="surface" radius="card" style={[styles.notice, { borderColor: colors.border.subtle }]}>
-          <AppIcon name="disconnected" size={18} color={colors.status.warning} />
-          <AppText role="body" style={styles.flex}>
-            오프라인 상태예요. 기록은 이 기기에 계속 저장되고, 연결되면 자동으로 올라가요.
-          </AppText>
-        </AppSurface>
-      </Case>
-      <DarkBlock label="offline · dark">
-        <OfflineNoticeDark />
-      </DarkBlock>
+      <View style={styles.grid}>
+        <MetricBlock label="거리" value={formatDistanceKm(100000)} unit="km" />
+        <MetricBlock label="시간" value={formatDuration(35999)} />
+        <MetricBlock label="평균 페이스" value={formatPace(3599)} />
+      </View>
+      <MetricBlock label="거리" value={formatDistanceKm(100000)} unit="km" size="hero" align="center" />
+      <AppSurface level="surface" radius="card" style={[styles.notice, { borderColor: colors.border.subtle }]}>
+        <AppIcon name="disconnected" size={18} color={colors.status.warning} />
+        <AppText role="body" style={styles.flex}>
+          오프라인 상태예요. 기록은 이 기기에 계속 저장되고, 연결되면 자동으로 올라가요.
+        </AppText>
+      </AppSurface>
     </View>
-  );
-}
-
-function OfflineNoticeDark() {
-  const { colors } = useTheme();
-  return (
-    <AppSurface level="surface" radius="card" style={[styles.notice, { borderColor: colors.border.subtle }]}>
-      <AppIcon name="disconnected" size={18} color={colors.status.warning} />
-      <AppText role="body" style={styles.flex}>
-        연결이 끊겼어요. 러닝은 계속 기록되고 있어요.
-      </AppText>
-    </AppSurface>
   );
 }
 
 // ---- 레이아웃 도우미 ----
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Group({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.section}>
-      <AppText role="screenTitle" accessibilityRole="header">
-        {title}
-      </AppText>
-      {children}
+    <View style={[styles.group, { borderColor: colors.border.subtle }]}>
+      <AppPressable
+        onPress={() => setOpen((v) => !v)}
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${title}, ${count}개 상태`}
+        style={styles.groupHeader}
+      >
+        <View style={styles.groupHeaderRow}>
+          <AppText role="sectionTitle" style={styles.flex}>
+            {title}
+          </AppText>
+          <AppText role="label" tone="secondary" tabular>
+            {count}
+          </AppText>
+          <AppIcon name={open ? 'expand' : 'collapse'} size={18} color={colors.text.secondary} />
+        </View>
+      </AppPressable>
+      {open ? <View style={styles.groupBody}>{children}</View> : null}
     </View>
   );
 }
 
-function Case({ label, children, flush }: { label: string; children: ReactNode; flush?: boolean }) {
+function Case({ label, children }: { label: string; children: ReactNode }) {
   return (
     <View style={styles.case}>
-      <AppText role="caption" tone="secondary" style={flush && styles.flushLabel}>
+      <AppText role="caption" tone="secondary">
         {label}
       </AppText>
       {children}
@@ -380,38 +334,26 @@ function Case({ label, children, flush }: { label: string; children: ReactNode; 
   );
 }
 
-// light와 dark 컨텍스트를 같은 화면에서 비교한다 (111.1장).
-function ContextPair({ children }: { children: () => ReactNode }) {
+// 111.1장: light와 dark 컨텍스트를 같은 화면에서 비교한다.
+function Contexted({ mode, children }: { mode: ContextMode; children: () => ReactNode }) {
+  const schemes = mode === 'both' ? (['light', 'dark'] as const) : ([mode] as const);
   return (
     <View style={styles.stack}>
-      <AppSurface level="canvas" radius="card" style={[styles.contextBox, styles.lightBox]}>
-        <AppText role="label" tone="secondary">
-          light
-        </AppText>
-        {children()}
-      </AppSurface>
-      <ThemeProvider scheme="dark">
-        <AppSurface level="canvas" radius="card" style={styles.contextBox}>
-          <AppText role="label" tone="secondary">
-            dark
-          </AppText>
-          {children()}
-        </AppSurface>
-      </ThemeProvider>
+      {schemes.map((s) => (
+        <ThemeProvider key={s} scheme={s}>
+          <ContextBox>{children()}</ContextBox>
+        </ThemeProvider>
+      ))}
     </View>
   );
 }
 
-function DarkBlock({ label, children }: { label: string; children: ReactNode }) {
+function ContextBox({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
   return (
-    <ThemeProvider scheme="dark">
-      <AppSurface level="canvas" radius="card" style={[styles.contextBox, styles.stackLg]}>
-        <AppText role="caption" tone="secondary">
-          {label}
-        </AppText>
-        {children}
-      </AppSurface>
-    </ThemeProvider>
+    <AppSurface level="surface" radius="card" style={[styles.contextBox, { borderColor: colors.border.subtle }]}>
+      {children}
+    </AppSurface>
   );
 }
 
@@ -447,18 +389,38 @@ function TypographyList() {
             {r}
           </AppText>
           <AppText role={r} tabular={r.startsWith('metric')} numberOfLines={2}>
-            {r.startsWith('metric') ? '3.72' : '오늘 달릴 코스를 찾고 같이 달려요 5.2 km'}
+            {r.startsWith('metric') ? '3.72 18:42' : '오늘 달릴 코스를 찾고 같이 달려요 5.2 km'}
           </AppText>
         </View>
       ))}
+      <View style={styles.row}>
+        <View>
+          <AppText role="metricLarge" tabular>
+            1:11:11
+          </AppText>
+          <AppText role="metricLarge" tabular>
+            8:48:08
+          </AppText>
+          <AppText role="caption" tone="secondary">
+            tabular
+          </AppText>
+        </View>
+        <View>
+          <AppText role="metricLarge">1:11:11</AppText>
+          <AppText role="metricLarge">8:48:08</AppText>
+          <AppText role="caption" tone="secondary">
+            기본
+          </AppText>
+        </View>
+      </View>
     </View>
   );
 }
 
-function SpacingScale() {
+function ScaleList() {
   const { colors } = useTheme();
   return (
-    <Case label="spacing">
+    <View style={styles.stack}>
       {Object.entries(spacing).map(([k, v]) => (
         <View key={k} style={styles.swatchRow}>
           <AppText role="caption" tone="secondary" style={styles.scaleLabel}>
@@ -467,14 +429,6 @@ function SpacingScale() {
           <View style={{ width: v, height: spacing.sm, backgroundColor: colors.action.primary }} />
         </View>
       ))}
-    </Case>
-  );
-}
-
-function RadiusScale() {
-  const { colors } = useTheme();
-  return (
-    <Case label="radius · stroke">
       <View style={styles.wrap}>
         {Object.entries(radius).map(([k, v]) => (
           <View key={k} style={styles.radiusItem}>
@@ -489,18 +443,13 @@ function RadiusScale() {
               }}
             />
             <AppText role="caption" tone="secondary">
-              {k}
+              {k} {v}
             </AppText>
           </View>
         ))}
-        <View style={styles.radiusItem}>
-          <View style={{ width: spacing.huge, height: stroke.signal, backgroundColor: colors.action.primary }} />
-          <AppText role="caption" tone="secondary">
-            signal line
-          </AppText>
-        </View>
       </View>
-    </Case>
+      <SignalRail progress={0.6} showHead />
+    </View>
   );
 }
 
@@ -510,22 +459,31 @@ const styles = StyleSheet.create({
     gap: spacing.huge,
   },
   section: {
-    gap: spacing.lg,
+    gap: spacing.md,
+  },
+  group: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  groupHeader: {
+    paddingVertical: spacing.sm,
+  },
+  groupHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  groupBody: {
+    paddingBottom: spacing.lg,
   },
   case: {
     gap: spacing.sm,
   },
-  flushLabel: {
-    paddingHorizontal: spacing.lg,
-  },
   stack: {
     gap: spacing.md,
   },
-  stackLg: {
-    gap: spacing.xxl,
-  },
   row: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xxl,
   },
   grid: {
@@ -544,10 +502,7 @@ const styles = StyleSheet.create({
   contextBox: {
     padding: spacing.lg,
     gap: spacing.md,
-  },
-  lightBox: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colorRoles.light.border.subtle,
   },
   swatchRow: {
     flexDirection: 'row',

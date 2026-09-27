@@ -1,8 +1,8 @@
 // DESIGN-SYSTEM.md 88.2장: radius는 control/card/sheet 3단계로 제한, 114장: control/card/sheet/pill.
-// 값은 v0 후보값이다.
+// 값은 v0 후보값이다. 국내 레퍼런스(Runnect 버튼 10, bottom sheet 20)와 맞췄다.
 export const radius = {
-  control: 8,
-  card: 12,
+  control: 10,
+  card: 14,
   sheet: 20,
   pill: 999,
 } as const;

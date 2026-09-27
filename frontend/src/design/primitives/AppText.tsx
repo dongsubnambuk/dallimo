@@ -3,7 +3,7 @@ import { StyleSheet, Text, type TextProps } from 'react-native';
 import { typography, type TextRole } from '../tokens';
 import { useTheme } from '../theme';
 
-export type TextTone = 'primary' | 'secondary' | 'inverse' | 'success' | 'warning' | 'danger';
+export type TextTone = 'primary' | 'secondary' | 'inverse' | 'accent' | 'success' | 'warning' | 'danger';
 
 // 112.1장 API의 role은 타이포그래피 역할이다. RN의 ARIA role prop 대신 accessibilityRole을 쓴다.
 export type AppTextProps = Omit<TextProps, 'role'> & {
@@ -17,7 +17,11 @@ export function AppText({ role = 'body', tone = 'primary', tabular, style, maxFo
   const { colors } = useTheme();
   const { maxFontSizeMultiplier: roleMax, ...roleStyle } = typography[role];
   const color =
-    tone === 'primary' || tone === 'secondary' || tone === 'inverse' ? colors.text[tone] : colors.status[tone];
+    tone === 'accent'
+      ? colors.action.primary
+      : tone === 'primary' || tone === 'secondary' || tone === 'inverse'
+        ? colors.text[tone]
+        : colors.status[tone];
 
   return (
     <Text
