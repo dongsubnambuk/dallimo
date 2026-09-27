@@ -1,13 +1,24 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Link } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
-// Bootstrap placeholder. 실제 화면은 UI Foundation(Design System Playground) 이후 구현한다.
+import { AppText } from '@/design/primitives';
+import { spacing } from '@/design/tokens';
+
+// Bootstrap placeholder. 실제 화면은 UI Foundation 승인 후 구현한다.
 export default function Index() {
   return (
     <View style={styles.container}>
-      <Text accessibilityRole="header" style={styles.title}>
+      <AppText role="screenTitle" accessibilityRole="header">
         달리모
-      </Text>
-      <Text style={styles.subtitle}>DALLIMO</Text>
+      </AppText>
+      <AppText role="label" tone="secondary">
+        DALLIMO
+      </AppText>
+      {__DEV__ ? (
+        <Link href="/design-system" style={styles.devLink}>
+          <AppText role="label">Design System Playground (개발용)</AppText>
+        </Link>
+      ) : null}
     </View>
   );
 }
@@ -17,13 +28,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  subtitle: {
-    marginTop: 4,
-    fontSize: 14,
+  devLink: {
+    marginTop: spacing.xxl,
+    padding: spacing.md,
   },
 });

@@ -1,0 +1,57 @@
+# 레퍼런스 조사 기록 (2026-09)
+
+명세서 58.2장 "실제 앱 구현 전 각 레퍼런스의 최신 화면은 App Store/Play Store/공식 사이트에서 다시 확인한다"에 따라 조사했다.
+원본 이미지는 저작권 때문에 저장소에 넣지 않는다. 출처와 추출한 패턴만 기록한다.
+명세서 원칙(CLAUDE.md 4항)대로 화면을 복제하지 않고 정보 계층·패턴만 가져온다.
+
+## 1. 조사 범위
+
+| 구분 | 대상 | 출처 |
+| --- | --- | --- |
+| 국내 러닝 앱 (59장) | 런데이, Runnect, RUNPLE, 고스트러너, 랭킹마라톤, RunPlash, Runky, 먼데이런클럽, 러닝라이프, 런투유 | App Store 한국 스크린샷 |
+| 국내 앱 구현 코드 | Runnect Android | github.com/Runnect/Runnect-Android |
+| 글로벌 (60·61장) | Nike Run Club, AllTrails, komoot | App Store 한국 스크린샷 |
+| 디자인 레퍼런스 | Pinterest 검색 6종 (running app ui, map route ui, dark ui, 러닝 앱 디자인, workout summary, leaderboard) 72개 핀 | kr.pinterest.com |
+
+조사하지 못한 것: TrackUs, Runnertic, 루티니스트, 달림은 App Store 페이지가 비어 있었다 (앱 ID 변경 또는 내려감). Strava, Runna는 한국 App Store 페이지를 가져오지 못했다.
+
+Pinterest 결과의 상당수는 실제 앱이 아닌 컨셉 시안(dribbble류)이다. 검정 배경 + 형광 카드 조합이 많고, 그 자체가 흔한 AI 시안 문법이다. 그래서 실제 출시 앱 화면을 우선 근거로 삼았다.
+
+## 2. 실제 앱에서 반복되는 패턴
+
+| # | 패턴 | 보인 앱 | 달리모 적용 | 근거 장 |
+| --- | --- | --- | --- | --- |
+| P1 | 코스는 항상 **지도 위 경로 선**으로 보인다. 굵은 단색 선 + 출발/도착 점, "출발" 깃발 태그, A/B 표시 | Runnect, 고스트러너, 런투유, komoot, AllTrails, RunPlash | `CourseMapPreview`로 경로 geometry를 그린다. 지도 SDK 결정 전에는 배경 없이 경로만 | 67.1 CourseMapPreview, 88.2 route line |
+| P2 | 러닝 중·기록 화면은 **어두운 지도 + 형광 단색 경로** | 고스트러너(라임), RunPlash(주황), RUNPLE(흑백) | dark 컨텍스트에서 signal bright 경로 | 87 ROUTE SIGNAL dark |
+| P3 | 경로 위 **말풍선 라벨**: "오늘의 나", "나의 이전 기록", "출발" | 고스트러너, Runnect | 경로 진행 지점에 라벨을 올리는 annotation | 62 PB/Rival, 83 Signal |
+| P4 | 기록 숫자는 **굵은 기울임꼴** 한 덩어리 | 런데이, NRC, Runky, RunPlash, 런투유 | metricHero/metricLarge를 기울임(oblique)으로 | 83 "fast", 95 MetricBlock |
+| P5 | 요약은 **라벨+값 3~4칸 한 줄**, 카드로 감싸지 않음. 비교값(델타)은 값 위에 작게 | 고스트러너, NRC, Runnect, komoot, AllTrails | 요약 행, GapIndicator 델타 | 63.1, 91 |
+| P6 | 코스 상세는 **지도 → 제목/평점 → 요약 수치 → 고도 그래프 → 세부** | AllTrails, komoot | 91장 배치 + 고도 프로필 선 | 61.1, 91 |
+| P7 | 목록 항목은 카드 대신 **작은 경로 썸네일 + 제목 + 수치** 또는 구분선 목록 | NRC 기록, 런투유, Runnect 보관함 | CourseCard는 95장대로 썸네일 없는 목록이 기본, 선택은 route mark로 | 95 |
+| P8 | 시작 버튼은 **크고 한 개** (원형 또는 전폭) | NRC, RUNPLE, 런투유, Runky | PrimaryRunButton 전폭 유지 (89장 "하단 넓은 Start") | 89, 95 |
+| P9 | 러닝 고유 사물을 UI로 씀: 레이스 배번("BIB. 1234"), 체크무늬 깃발, D-day | 러닝라이프, RUNPLE | Together 레이스 헤더, 완주 표시에 활용 후보 | 94 |
+| P10 | 섹션 구분은 두꺼운 띠 또는 여백, 선택 강조는 채움 대신 선·굵기 | Runnect, NRC | AppDivider section, 선택은 signal line | 88.2 |
+
+## 3. AI 시안처럼 보였던 원인 (v0.1 미리보기 기준)
+
+- 지도 자리를 빈 회색 상자로 둠 → P1 위반. 실제 앱은 이 자리에 항상 경로가 있다.
+- 선택 카드, 칩, 버튼, 프레임이 모두 둥근 상자 → P10 위반.
+- 숫자가 곧은 글꼴이라 기록이 무게감 없이 읽힘 → P4.
+- 모든 블록이 제목·숫자·회색 설명 3줄로 같은 리듬 → P5처럼 수치는 한 줄로 모은다.
+
+## 4. 채택하지 않은 것
+
+| 항목 | 이유 |
+| --- | --- |
+| 보라 브랜드색 (런데이, Runnect, 러닝라이프) | 83장 teal 고정, 75장 보라 계열 회피 |
+| 땅따먹기 영역 색칠 (랭킹마라톤, RunPlash) | 79장: 영토 점령 메타게임 복제 금지 |
+| 캐릭터·포인트·기프티콘 (런투유, 랭킹마라톤, Runky) | 79장: 캐릭터 경제 제외 |
+| 금·은·동 메달 배지 | 89장: podium 과장 금지 |
+| 사진 배경 코스 카드 (AllTrails) | 95장: thumbnail 없는 CourseCard가 기본 |
+| 정밀 위치 공유 지도 (Runky) | 62·94장: Together는 위치 대신 진행 상태 |
+
+## 5. 출처
+
+- App Store (한국): 런데이 id1042937618, Runnect id1663884202, RUNPLE id6475159516, 고스트러너 id6747737877, 랭킹마라톤 id6449415129, RunPlash id6790391778, Runky id6753214440, 먼데이런클럽 id6737470364, 러닝라이프 id6503121199, 런투유 id6768350528, Nike Run Club id387771637, AllTrails id405075943, komoot id447374873
+- GitHub: Runnect/Runnect-Android
+- Pinterest 검색: kr.pinterest.com/search/pins/?q= "running app ui", "running app map route ui", "running app dark ui", "러닝 앱 디자인", "workout summary app ui", "leaderboard app ui mobile"
