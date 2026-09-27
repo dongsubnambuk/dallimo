@@ -38,6 +38,15 @@ frontend/
   - iOS: `ios.infoPlist.CFBundleDisplayName`
   - Android: `plugins/with-android-display-name.js`가 `app_name`을 설정
 
+## Claude Code 플러그인과 스킬
+
+- 공식 플러그인 (`.claude/settings.json`, project scope)
+  - `expo@claude-plugins-official` 1.13.6
+  - `frontend-design@claude-plugins-official` (marketplace commit `fa59bc9037741ecfa131aa27938272605710d7b2`)
+- project-local 스킬: `.claude/skills/`
+  - 외부 스킬의 출처와 설치 커밋: `.claude/skills/THIRD-PARTY-SKILLS.md`
+  - 프로젝트 스킬: `running-ui-orchestrator`
+
 ## 다음 단계
 
 UI 작업은 `CLAUDE-UI-PREFLIGHT-PROMPT.md` → `CLAUDE-MASTER-UI-BOOTSTRAP.md` 순서로 진행합니다.
