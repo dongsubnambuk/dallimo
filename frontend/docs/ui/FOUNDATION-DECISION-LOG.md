@@ -160,3 +160,21 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 - 2.2장의 모든 v0 값
 - 지도 위 route 색 구분 (지도 SDK 결정 후)
 - OS dark mode 대응 방식. 현재는 화면 컨텍스트(light 탐색 / dark 러닝)만 쓰고 OS 설정은 따르지 않는다 (110.1장)
+
+## 7. Explore Home (SCR-E01) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 하단 탭 4개 | 탐색 / 달리기 / 함께 / 마이. 탐색 외 3개 탭은 구현 순서가 오기 전까지 안내 화면 | 65장, 72장 |
+| 지도 경계 | `features/explore/components/ExploreMap.tsx`. SDK 결정 후 구현만 교체. 지금은 코스 경로 geometry를 SVG로 그리는 기능형 placeholder | VISUAL-IMPLEMENTATION Phase 2, 97장 |
+| 지도 맞춤 | 선택 코스(+2.5km 안이면 내 위치)에 맞추고, 상단 검색·하단 시트가 가리는 높이를 비워 둔다 | 8항 Maps "지도 위 UI가 중요한 내용을 가리지 않게" |
+| 경로 탭 선택 | SVG 요소에 터치 핸들러를 달지 않고 눌린 좌표와 가장 가까운 경로(24px 안)를 계산 | web/native 동작 통일 |
+| 코스 상세 진입 | 목록에서 코스 선택(1) → 지도 하단 "자세히 보기" 또는 선택된 코스 다시 누름(2) | 73장 "2~3 tap 이내" |
+| 데이터 | `CourseRepository` 인터페이스 + mock 구현, TanStack Query | 119장, 9.1장 |
+| 위치 | `LocationSource`(49.2장) 중 권한·현재 위치만. mock 구현 | 러닝 기록용 수신은 Running Engine 단계 |
+| 권한 거부 | 빈 화면 대신 기본 지역(대구 수성구) 코스를 보여주고 권한 안내 | LOC-002 "검색/조회 기능 유지" |
+| 검색창 | 불러온 코스를 이름·태그로 바로 좁힌다. 지역 검색(CRS-003, SCR-E02)은 API가 생기면 연결 | 119.1장 |
+| 빠른 필터 | 3~5km, 평지, 야간 밝음, 초보 추천 | 90장, CRS-004 |
+| 개발용 상태 전환 | 개발 빌드에서 `/?scenario=loading|denied|empty|error` | 74장 상태 QA |
+| 새 컴포넌트 | `SecondaryButton`(src/components, Playground와 탐색에서 사용), `StateNotice`(탐색 전용, 다른 화면에서 쓰이면 승격) | CLAUDE.md 13항 |
+| 의존성 | `@tanstack/react-query` 5.104.0 | 9.1장 Server State |

@@ -17,6 +17,8 @@ export type CourseCardProps = {
   variant?: 'default' | 'compact';
   loading?: boolean;
   onPress?: () => void;
+  // 누르면 무엇이 일어나는지 스크린 리더에 알려준다
+  accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -34,6 +36,7 @@ export function CourseCard({
   variant = 'default',
   loading = false,
   onPress,
+  accessibilityHint,
   style,
 }: CourseCardProps) {
   const compact = variant === 'compact';
@@ -50,6 +53,7 @@ export function CourseCard({
   return (
     <AppPressable
       onPress={onPress}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ selected }}
       accessibilityLabel={[title, `${distance}킬로미터`, ...tags, secondary, selected ? '선택됨' : null]
         .filter(Boolean)

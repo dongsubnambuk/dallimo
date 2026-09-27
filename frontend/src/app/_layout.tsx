@@ -1,16 +1,18 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { lightTheme, ThemeProvider } from '@/design/theme';
-import { fontAssets } from '@/design/tokens';
+import { fontAssets, fontFamily } from '@/design/tokens';
 
 SplashScreen.preventAutoHideAsync();
 
 // 앱 기본 컨텍스트는 탐색(light)이다. 러닝 화면은 하위에서 dark ThemeProvider로 감싼다 (110.1장).
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontAssets);
+  const [queryClient] = useState(() => new QueryClient());
   const ready = fontsLoaded || !!fontError;
 
   useEffect(() => {
@@ -21,8 +23,18 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <ThemeProvider scheme="light">
-      <Stack screenOptions={{ contentStyle: { backgroundColor: lightTheme.colors.bg.canvas } }} />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider scheme="light">
+        <Stack
+          screenOptions={{
+            contentStyle: { backgroundColor: lightTheme.colors.bg.canvas },
+            headerTitleStyle: { fontFamily: fontFamily.semibold },
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
