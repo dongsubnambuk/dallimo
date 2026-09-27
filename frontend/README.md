@@ -26,7 +26,7 @@ frontend/
 ├─ plugins/            # 로컬 config plugin
 ├─ assets/
 ├─ docs/ui/            # Claude UI/UX pack 문서
-├─ CLAUDE.md           # UI/UX 구현 규칙 (AGENTS.md import 포함)
+├─ CLAUDE.md           # UI/UX 구현 규칙 (Claude UI/UX pack 원문)
 ├─ AGENTS.md           # Expo 템플릿 에이전트 가이드
 └─ CLAUDE-*.md         # 단계별 Claude 작업 프롬프트
 ```

@@ -251,9 +251,3 @@ Before implementing health import, training, or gamification, read:
 - `docs/ui/GAMIFICATION-SPEC.md`
 
 Do not move roadmap-later features into the current UI Foundation scope.
-
-# Expo Agent Guidance (create-expo-app template)
-
-Expo SDK 버전별 규칙과 명령은 아래 파일을 따른다.
-
-@AGENTS.md
