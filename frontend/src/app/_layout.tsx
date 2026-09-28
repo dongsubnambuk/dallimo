@@ -75,6 +75,9 @@ export default function RootLayout() {
             {/* SCR-M07 설정, 프로필 수정 */}
             <Stack.Screen name="settings/index" options={{ headerShown: false }} />
             <Stack.Screen name="settings/profile" options={{ headerShown: false }} />
+            {/* SCR-R05 공유 카드, SHR-004 공유 링크 열기 */}
+            <Stack.Screen name="share/compose" options={{ headerShown: false, presentation: 'modal' }} />
+            <Stack.Screen name="share/[code]" options={{ headerShown: false, animation: 'fade' }} />
           </Stack.Protected>
           {/* SCR-A01 로그인 (dark) */}
           <Stack.Protected guard={auth === 'signedOut'}>

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
-import { ScrollView, Share, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLoader } from '@/components/Brand';
@@ -220,7 +220,8 @@ function StatRow({ label, value, accent = false, muted = false, icon }: { label:
 
 // 63장: 결과가 공유 → 다시 도전으로 이어진다. 버튼은 공유(보조) + 다시 도전(핵심 하나)
 function Actions({ result: r, outcome }: { result: RunResult; outcome: Outcome }) {
-  const share = () => shareResult(r, outcome);
+  // SCR-R05 공유 카드로 간다
+  const share = () => router.push({ pathname: '/share/compose', params: { runId: r.id } });
   if (!r.course) {
     return (
       <View style={styles.actions}>
@@ -252,21 +253,6 @@ function Actions({ result: r, outcome }: { result: RunResult; outcome: Outcome }
       />
     </View>
   );
-}
-
-// RST-005 결과 공유. 공유 카드(SCR-R05)는 다음 단계이며, 지금은 기록 요약 + 코스 딥링크를 보낸다 (SHR-004).
-async function shareResult(r: RunResult, outcome: Outcome) {
-  const time = formatDuration(r.course?.timeSec ?? r.activeSec);
-  const lines = [
-    [outcome.headline, r.course?.name].filter(Boolean).join(' · '),
-    `${time} · ${formatDistanceKm(r.distanceM)}km · ${formatPace(r.avgPaceSec)}/km`,
-    r.course ? `달리모에서 이 코스 같이 달려요\ndallimo://course/${r.course.id}` : '달리모에서 달렸어요',
-  ];
-  try {
-    await Share.share({ message: lines.join('\n') });
-  } catch {
-    // 사용자가 취소했거나 공유를 지원하지 않는 환경
-  }
 }
 
 function useCourse(id: string | null): CourseDetail | null {
