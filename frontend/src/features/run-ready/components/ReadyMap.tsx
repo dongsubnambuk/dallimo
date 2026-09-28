@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { MapBaseLayer } from '@/components/MapBaseLayer';
@@ -9,6 +8,8 @@ import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing } from '@/design/tokens';
 import { makeProjection, type GeoPoint } from '@/shared/geo';
 import type { MapBase } from '@/shared/map/mockMapBase';
+
+import { MyDot } from './MyDot';
 
 export type ReadyMapProps = {
   base: MapBase;
@@ -27,8 +28,6 @@ export type ReadyMapProps = {
 
 // 내 위치만 있을 때 보여줄 최소 범위(m)
 const FREE_SPAN_M = 700;
-const PULSE_MS = 1800;
-const DOT = 16;
 
 // Run Ready 가운데 지도 (89장 dark pre-run canvas). 어두운 지도 위에 코스(민트)·출발점·내 위치만 올린다.
 // 지도 SDK 결정 전 placeholder이며 SDK 도입 시 구현만 바꾼다.
@@ -87,29 +86,6 @@ export function ReadyMap({ base, route, position, fallbackCenter, showWayToStart
   );
 }
 
-// 내 위치: 흰 점 + 퍼지는 링. GPS를 찾는 중이면 점을 흐리게 한다. 동작 줄이기 설정이면 링을 멈춘다.
-function MyDot({ x, y, locating }: { x: number; y: number; locating: boolean }) {
-  const { colors } = useTheme();
-  const reduced = useReducedMotion();
-  const t = useSharedValue(0);
-
-  useEffect(() => {
-    if (!reduced) t.value = withRepeat(withTiming(1, { duration: PULSE_MS, easing: Easing.out(Easing.quad) }), -1);
-  }, [reduced, t]);
-
-  const ring = useAnimatedStyle(() => ({
-    transform: [{ scale: reduced ? 1.8 : 1 + t.value * 2.4 }],
-    opacity: reduced ? 0.25 : 0.45 * (1 - t.value),
-  }));
-
-  return (
-    <View pointerEvents="none" style={[styles.dotAnchor, { left: x - DOT / 2, top: y - DOT / 2 }]}>
-      <Animated.View style={[styles.ring, { backgroundColor: colors.action.primary }, ring]} />
-      <View style={[styles.dot, { backgroundColor: colors.route.actual, borderColor: colors.bg.canvas, opacity: locating ? 0.5 : 1 }]} />
-    </View>
-  );
-}
-
 function withMinSpan(frame: GeoPoint[][], minM: number): GeoPoint[][] {
   const pts = frame.flat();
   const lats = pts.map((p) => p.latitude);
@@ -149,25 +125,6 @@ const styles = StyleSheet.create({
   },
   pinText: {
     fontFamily: fontFamily.extrabold,
-  },
-  dotAnchor: {
-    position: 'absolute',
-    width: DOT,
-    height: DOT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ring: {
-    position: 'absolute',
-    width: DOT,
-    height: DOT,
-    borderRadius: DOT / 2,
-  },
-  dot: {
-    width: DOT,
-    height: DOT,
-    borderRadius: DOT / 2,
-    borderWidth: 3,
   },
   attribution: {
     position: 'absolute',

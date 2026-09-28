@@ -9,9 +9,11 @@ import { AppIcon, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing } from '@/design/tokens';
 import { formatCount } from '@/shared/format';
-import { distanceM, makeProjection, pointToPolylinePx, type GeoPoint } from '@/shared/geo';
+import { makeProjection, pointToPolylinePx, type GeoPoint } from '@/shared/geo';
 
 import type { MapBase } from '@/shared/map/mockMapBase';
+
+import { frameFor, MIN_SPAN_M, MIN_SPAN_VERTICAL_M, withMinSpan } from './exploreFrame';
 
 export type ExploreMapProps = {
   courses: CourseSummary[];
@@ -30,11 +32,6 @@ export type ExploreMapProps = {
   obscured: { top: number; bottom: number };
 };
 
-// 선택 코스에서 이 거리 안이면 내 위치도 화면에 함께 맞춘다
-const USER_IN_FRAME_M = 1200;
-const USER_FOCUS_RADIUS_M = 900;
-const MIN_SPAN_M = 1300;
-const MIN_SPAN_VERTICAL_M = 500;
 const TAP_TOLERANCE_PX = 24;
 const SIDE_PAD = spacing.xxl;
 
@@ -183,37 +180,6 @@ export function ExploreMap({
       ) : null}
     </View>
   );
-}
-
-// 코스 하나만 맞추면 너무 확대돼 주변 길이 안 보인다. 가로로 약 1.3km(세로 0.5km)보다 더 확대하지 않는다.
-// 세로는 작은 화면에서 보이는 지도 높이가 짧아 크게 잡지 않는다.
-function withMinSpan(frame: GeoPoint[][], minM: number, minVerticalM: number): GeoPoint[][] {
-  const pts = frame.flat();
-  const lats = pts.map((p) => p.latitude);
-  const lngs = pts.map((p) => p.longitude);
-  const c = { latitude: (Math.min(...lats) + Math.max(...lats)) / 2, longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2 };
-  const dLat = minVerticalM / 2 / 111_320;
-  const dLng = minM / 2 / 111_320 / Math.cos((c.latitude * Math.PI) / 180);
-  return [...frame, [{ latitude: c.latitude - dLat, longitude: c.longitude - dLng }, { latitude: c.latitude + dLat, longitude: c.longitude + dLng }]];
-}
-
-function around(c: GeoPoint): GeoPoint[][] {
-  const d = USER_FOCUS_RADIUS_M / 111_320;
-  return [[{ latitude: c.latitude - d, longitude: c.longitude - d }, { latitude: c.latitude + d, longitude: c.longitude + d }]];
-}
-
-function frameFor(
-  focus: ExploreMapProps['focus'],
-  selected: CourseSummary | null,
-  courses: CourseSummary[],
-  user: GeoPoint | null,
-  fallback: GeoPoint,
-): GeoPoint[][] {
-  if (focus === 'user' && user) return around(user);
-  if (courses.length === 0) return around(user ?? fallback);
-  const frame: GeoPoint[][] = selected ? [selected.displayRoute] : courses.map((c) => c.displayRoute);
-  if (user && (!selected || distanceM(user, selected.displayRoute[0]) < USER_IN_FRAME_M)) frame.push([user]);
-  return frame;
 }
 
 // 경로 시작점 위의 작은 말풍선 (레퍼런스 P3, 쏘카·카카오T 지도 위 검정 가격 핀)

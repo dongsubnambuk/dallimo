@@ -103,3 +103,40 @@ wwit.design에는 러닝 앱이 없어서 운동 앱인 플랜핏을 봤다. uib
 - uibowl.io 공개 API: `/api/v2/apps/patterns?categoryCodes=[24]`(운동&건강), `patternCodes=[62]`(지도뷰·내주변), `[69]`(랭킹), `[259]`(통계·리포트)
 - wwit.design/2023/07/24/planfit/
 - kr.pinterest.com/search/pins/?q= "strava app redesign ui", "running route app ui design", "running app ui light minimal"
+
+## 7. 3차 조사: Nike Run Club 러닝 흐름 · 지도 UX (2026-09, 애플 지도 도입 때)
+
+사용자 요청으로 NRC를 다시 봤다. REFERENCE-MATRIX가 정한 NRC 참고 범위(Run Ready, Active Run, Pause, Voice)에 맞춰 흐름과 지도 사용법만 봤다.
+공개 자료로 확인한 것과 실기기에서 다시 확인해야 할 것을 나눠 적는다. 화면은 복제하지 않는다 (CLAUDE.md 4항).
+
+### 7.1 흐름별 패턴
+
+| # | 단계 | NRC 패턴 | 확인 | 달리모 지금 | 판단 |
+| --- | --- | --- | --- | --- | --- |
+| N1 | 시작 전 | 목표(거리 · 시간 · 속도)를 고른 뒤 큰 시작 버튼 하나 | 공개 자료 (MakeUseOf) | Play Mode에서 목표, Run Ready 전폭 "시작" | 이미 같은 흐름 (P8) |
+| N2 | 카운트다운 | 설정에서 켜고 끄는 카운트다운 | 공개 자료 (HealthUnlocked) | 3초 카운트다운 고정 (69장) | 그대로. 끄는 설정은 명세에 없음 |
+| N3 | 러닝 중 수치 | 거리 · 평균 페이스 · 시간이 중심, 지도는 보조 화면 | 공개 자료 (MakeUseOf) | giant 거리 + 페이스 · 시간, 위 버튼으로 지도 전환 | 이미 같은 위계 (92장) |
+| N4 | 러닝 중 지도 | 지도는 내 위치와 지나온 길을 보여주는 확인용 | 공개 자료 + 실기기 확인 필요 | 확인용 지도 (62.2장) | **이번에 반영**: iOS 러닝 중 지도는 제스처를 끄고 내 위치를 따라간다. 장소 표시(POI)는 끈다 |
+| N5 | 끝내기 | 멈춘 뒤 "끝내기"는 **길게 눌러야** 끝난다 | 공개 자료 (MakeUseOf) | 일시정지 → 종료 → 확인 sheet (SCR-R03) | 제안만: 길게 누르기로 바꾸면 한 단계 줄어든다. SCR-R03 "종료 확인"을 어떻게 볼지 결정 필요 |
+| N6 | 결과 | 지도 · 거리 · 평균 페이스 · 시간 · 고도 · 케이던스 · 구간, 맨 아래 메모 · 노력 기록 | 공개 자료 (MakeUseOf, App Store) | 결과: 감정 피드백 → 수치 → 지도 → 검증 → PB/순위 → 공유 → 구간 · 고도 | 순서는 63.1장 유지. 메모 · 노력 기록은 명세에 없어 넣지 않음 |
+| N7 | 기록 목록 | 기록마다 작은 경로 모양 + 날짜 + 수치 | 1차 조사 (P7) | 히스토리 월별 + 경로 썸네일 | 이미 반영 |
+| N8 | 음성 안내 | 구간마다 거리 · 시간 · 페이스 안내, 가이드런 코칭 | 공개 자료 (App Store) | 코스 이탈 · 완주만 안내 | 제안만: km 안내는 AUD-001(기본 안내, P1) 범위인지 결정 필요. 코칭 콘텐츠는 제외 |
+| N9 | 홈 | 가이드런 · 챌린지 등 콘텐츠 중심 | 공개 자료 | 코스 탐색이 홈 | 제외 (REFERENCE-MATRIX "콘텐츠 중심 홈은 제외") |
+| N10 | 트로피 · 배지 | 달성 기록 게이미피케이션 | 공개 자료 (GoodUX) | 없음 | 제외 (GAMIFICATION-SPEC는 이후 범위) |
+
+### 7.2 이번 애플 지도 작업에 반영한 것
+
+| 화면 | 반영 | 근거 |
+| --- | --- | --- |
+| 러닝 중 | 어두운 지도, 제스처 끔, 내 위치 따라감(자유 달리기), 코스 전체 + 내 위치 맞춤(코스 러닝), 장소 표시 끔 | N4, 62.2장, CLAUDE.md 6항 |
+| 러닝 준비 | 어두운 지도, 제스처 끔, 코스 · 출발점 · 내 위치만 | N1, 89장 |
+| 결과 · 러닝 상세 · 코스 등록 | 정적 지도(스크롤과 제스처 충돌 방지), 코스 + 달린 길 + 출발 · 도착 | N6, CLAUDE.md 8항 |
+| 탐색 | 장소 표시를 켠다(주변을 보는 화면). 러너 수 핀을 눌러 코스 선택 | 90장 |
+
+### 7.3 출처
+
+- MakeUseOf, "How to Make the Most of the Nike Run Club App": makeuseof.com/make-the-most-of-nike-run-club-app
+- App Store, Nike Run Club id387771637 (미국)
+- HealthUnlocked Couch to 5K 게시판 (카운트다운 설정)
+- GoodUX, "Nike Run Club's gamified approach to fitness training"
+- 러닝 중 화면 전환 방식, 결과 지도 색 표현은 공개 자료로 확인하지 못했다. 실기기에서 다시 본다.
