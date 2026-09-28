@@ -5,7 +5,22 @@ import type { GpsQuality } from '@/shared/location/locationSource';
 // 명세서 49.1장 Run Engine interface. UI는 expo-location·SQLite를 직접 부르지 않고 이 경계만 쓴다.
 // 실제 구현(GPS 수신, SQLite 선저장, Batch Sync, 백그라운드 기록)은 GPS PoC(WBS 1) 단계에서 같은 인터페이스로 만든다.
 
-export type RunPrepareInput = { mode: RunMode; courseId?: string; targetSec?: number };
+export type RunPrepareInput = {
+  mode: RunMode;
+  // 코스 러닝(COURSE / PB / CHALLENGE)이면 기준 코스 경로
+  course?: { id: string; route: GeoPoint[] };
+  targetSec?: number;
+};
+
+// CRUN-001~003 코스 러닝 상태. FREE면 null.
+export type CourseRunState = {
+  lengthM: number;
+  progressM: number;
+  // 지속 이탈 중이면 코스 선까지 거리(m), 아니면 null
+  offRouteM: number | null;
+  // 코스 끝에 닿은 시점의 active 경과(ms). 아직이면 null.
+  completedActiveMs: number | null;
+};
 
 // 화면이 구독하는 러닝 상태. 초 단위로 바뀌는 경과 시간은 넣지 않고 기준값만 둔다 (VISUAL-QA: metric state 분리).
 export type ActiveRunSnapshot = {
@@ -27,6 +42,7 @@ export type ActiveRunSnapshot = {
   runningSince: number | null;
   // 앱이 꺼졌다 켜져 이어서 기록 중이면 true (RECOVERY를 거친 러닝)
   recovered: boolean;
+  course: CourseRunState | null;
 };
 
 export type RunFinishResult = {
@@ -37,6 +53,8 @@ export type RunFinishResult = {
   splits: RunSplit[];
   // 서버 동기화 전이면 false (local-only 결과)
   synced: boolean;
+  // 코스 러닝: 코스 끝에 닿은 시점까지 걸린 시간(초). 완주하지 못했으면 null.
+  courseTimeSec: number | null;
 };
 
 export interface RunningEngine {

@@ -1,12 +1,14 @@
+import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppText } from '@/design/primitives';
+import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { fontFamily, motion, spacing } from '@/design/tokens';
 import { ActiveRunScreen } from '@/features/active-run/ActiveRunScreen';
@@ -45,12 +47,33 @@ function RunStart({ params, scenario, speed }: Props) {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
+  // 코스 러닝이면 기준 코스 경로를 받아 엔진에 넘긴다 (CRUN-001). 코스 상세·러닝 준비에서 이미 받은 값을 다시 쓴다.
+  const courseId = plan.kind === 'course' ? plan.plan.courseId : null;
+  const repo = useMemo(() => createMockCourseRepository('normal'), []);
+  const courseQuery = useQuery({
+    queryKey: ['course', 'detail', courseId, 'normal'],
+    queryFn: () => repo.getDetail(courseId as string),
+    enabled: courseId != null,
+    retry: false,
+  });
+  const courseReady = courseId == null || !courseQuery.isPending;
+
   useEffect(() => {
-    if (recovering) engine.recover();
-    else engine.prepare({ mode: plan.kind === 'free' ? 'FREE' : plan.plan.mode, ...(plan.kind === 'course' ? { courseId: plan.plan.courseId, targetSec: plan.plan.targetSec } : {}) });
+    if (recovering) {
+      engine.recover();
+      return;
+    }
+    if (!courseReady) return;
+    const detail = courseQuery.data;
+    engine.prepare({
+      mode: plan.kind === 'free' ? 'FREE' : plan.plan.mode,
+      // 코스를 받지 못하면 코스 없이 기록만 한다 (진행률·이탈 안내 없음)
+      ...(detail ? { course: { id: detail.id, route: detail.route } } : {}),
+      ...(plan.kind === 'course' ? { targetSec: plan.plan.targetSec } : {}),
+    });
     // 계획은 이 화면에 들어올 때 한 번만 읽는다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine, recovering]);
+  }, [engine, recovering, courseReady]);
 
   useEffect(() => {
     if (count < 0) return;
@@ -86,7 +109,13 @@ function RunStart({ params, scenario, speed }: Props) {
     return (
       <>
         <StatusBar style="light" />
-        <ActiveRunScreen engine={engine} summary={summary} />
+        <ActiveRunScreen
+          engine={engine}
+          summary={summary}
+          courseName={courseQuery.data?.name ?? params.courseName ?? null}
+          courseRoute={courseQuery.data?.route ?? null}
+          target={plan.kind === 'course' && plan.plan.targetSec != null ? { sec: plan.plan.targetSec, label: plan.plan.targetLabel ?? '목표' } : null}
+        />
       </>
     );
   }

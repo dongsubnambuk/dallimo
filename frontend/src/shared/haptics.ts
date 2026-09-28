@@ -24,4 +24,6 @@ export const haptics = {
   runControl: () => run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
   // GPS 약함처럼 기록에 영향을 주는 상태 변화 경고
   warning: () => run(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
+  // 69장 Finish: 완주 햅틱
+  complete: () => run(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
 };

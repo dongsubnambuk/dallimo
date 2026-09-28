@@ -7,9 +7,22 @@ import { formatDistanceKm, formatDuration, formatPace } from '@/shared/format';
 
 // SCR-R04 러닝 결과는 72장 8번 단계. 그 전까지 Active Run이 넘긴 결과를 표시해 흐름을 확인한다.
 export default function RunResultRoute() {
-  const p = useLocalSearchParams<{ mode?: string; distanceM?: string; activeSec?: string; avgPaceSec?: string; synced?: string }>();
+  const p = useLocalSearchParams<{
+    mode?: string;
+    distanceM?: string;
+    activeSec?: string;
+    avgPaceSec?: string;
+    synced?: string;
+    courseName?: string;
+    courseTimeSec?: string;
+    targetSec?: string;
+    targetLabel?: string;
+  }>();
   const summary = [
+    p.courseName,
     MODE_TITLE[(p.mode as RunMode) ?? 'FREE'] ?? p.mode,
+    p.courseName ? (p.courseTimeSec ? `완주 ${formatDuration(Number(p.courseTimeSec))}` : '완주 못 함') : null,
+    p.targetSec ? `목표(${p.targetLabel ?? ''}) ${formatDuration(Number(p.targetSec))}` : null,
     `${formatDistanceKm(Number(p.distanceM))}km`,
     formatDuration(Number(p.activeSec)),
     `평균 ${formatPace(p.avgPaceSec ? Number(p.avgPaceSec) : null)}`,

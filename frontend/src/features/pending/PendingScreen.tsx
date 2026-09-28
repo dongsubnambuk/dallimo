@@ -77,6 +77,20 @@ export function PendingScreen({
               </AppText>
             </Link>
           ))}
+          {(
+            [
+              ['완주', { mode: 'COURSE', courseId: 'c-suseongmot' }],
+              ['PB 어택', { mode: 'PB', courseId: 'c-suseongmot', targetSec: '602', targetLabel: '내 PB −10초' }],
+              ['PB 어택 · 뒤처짐', { mode: 'PB', courseId: 'c-suseongmot', targetSec: '602', targetLabel: '내 PB −10초', scenario: 'behind' }],
+              ['라이벌 · 이탈', { mode: 'CHALLENGE', courseId: 'c-deuran', targetSec: '700', targetLabel: '지수', scenario: 'offRoute' }],
+            ] as const
+          ).map(([name, q]) => (
+            <Link key={`course-${name}`} href={{ pathname: '/run/active', params: { ...q, speed: '20' } }}>
+              <AppText role="label" tone="accent">
+                코스 러닝 · {name} (20배속)
+              </AppText>
+            </Link>
+          ))}
         </View>
       ) : null}
     </View>

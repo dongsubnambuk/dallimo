@@ -9,18 +9,23 @@ import { spacing } from '@/design/tokens';
 import { makeProjection, type GeoPoint } from '@/shared/geo';
 import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
 
-// 62.2장: 러닝 중 지도는 상세 탐색용이 아니라 경로 확인용. 어두운 지도 위에 지나온 길(흰 선)과 내 위치만 그린다.
+// 62.2장: 러닝 중 지도는 상세 탐색용이 아니라 경로 확인/이탈 판단용. 어두운 지도 위에 지나온 길(흰 선)과 내 위치만 그린다.
+// 코스 러닝이면 기준 코스(두꺼운 민트 + 번짐)를 아래에 깔아 실제 경로(가는 흰 선)와 색·굵기 둘 다로 구분한다 (CRUN-001, CLAUDE.md 8항).
 // 지도 SDK 결정 전 placeholder이며 SDK 도입 시 구현만 바꾼다.
 const MIN_SPAN_M = 600;
 
-export function RunPathMap({ path, position }: { path: GeoPoint[]; position: GeoPoint | null }) {
+export function RunPathMap({ path, position, course = null }: { path: GeoPoint[]; position: GeoPoint | null; course?: GeoPoint[] | null }) {
   const { colors } = useTheme();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const onLayout = (e: LayoutChangeEvent) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height });
 
   const pts = position ? [...path, position] : path;
   const { width, height } = size;
-  const project = width > 0 && pts.length > 0 ? makeProjection([pts, span(pts[pts.length - 1])], width, height, spacing.xxxl) : null;
+  // 코스가 있으면 코스 전체와 내 위치가 들어오게, 없으면 내 위치 둘레
+  const frame = course && course.length > 1 ? [course, ...(position ? [[position]] : [])] : pts.length ? [pts, span(pts[pts.length - 1])] : [];
+  const project = width > 0 && frame.length > 0 ? makeProjection(frame, width, height, spacing.xxxl) : null;
+  const courseLine = project && course ? course.map(project).map((p) => p.join(',')).join(' ') : null;
+  const end = project && course && course.length > 1 ? project(course[course.length - 1]) : null;
   const line = project ? pts.map(project).map((p) => p.join(',')).join(' ') : '';
   const me = project && position ? project(position) : null;
   const start = project && path.length ? project(path[0]) : null;
@@ -30,17 +35,25 @@ export function RunPathMap({ path, position }: { path: GeoPoint[]; position: Geo
       onLayout={onLayout}
       accessible
       accessibilityRole="image"
-      accessibilityLabel="지나온 경로와 내 위치 지도"
+      accessibilityLabel={course ? '기준 코스와 지나온 경로, 내 위치 지도' : '지나온 경로와 내 위치 지도'}
       style={[styles.root, { backgroundColor: colors.mapBase.land }]}
     >
       {project ? (
         <Svg width={width} height={height}>
           <MapBaseLayer base={MOCK_MAP_BASE} project={project} />
+          {courseLine ? (
+            <>
+              <Polyline points={courseLine} fill="none" stroke={colors.route.course} strokeOpacity={0.22} strokeWidth={20} strokeLinecap="round" strokeLinejoin="round" />
+              <Polyline points={courseLine} fill="none" stroke={colors.route.course} strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" />
+            </>
+          ) : null}
+          {end ? <Circle cx={end[0]} cy={end[1]} r={7} fill={colors.route.course} stroke={colors.bg.canvas} strokeWidth={3} /> : null}
           {pts.length > 1 ? (
-            <Polyline points={line} fill="none" stroke={colors.route.actual} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+            <Polyline points={line} fill="none" stroke={colors.route.actual} strokeWidth={course ? 3 : 5} strokeLinecap="round" strokeLinejoin="round" />
           ) : null}
           {start ? <Circle cx={start[0]} cy={start[1]} r={6} fill={colors.bg.canvas} stroke={colors.route.actual} strokeWidth={3} /> : null}
-          {me ? <Circle cx={me[0]} cy={me[1]} r={9} fill={colors.action.primary} stroke={colors.bg.canvas} strokeWidth={3} /> : null}
+          {/* 코스 러닝에서는 민트 코스 선 위에서도 보이도록 내 위치를 흰 점으로 */}
+          {me ? <Circle cx={me[0]} cy={me[1]} r={9} fill={course ? colors.route.actual : colors.action.primary} stroke={colors.bg.canvas} strokeWidth={3} /> : null}
         </Svg>
       ) : null}
       <AppText role="caption" tone="secondary" style={styles.attribution}>
