@@ -2,6 +2,8 @@ import type { LiveMemberState, LiveResult } from '../types';
 
 // 46장 WebSocket 메시지 계약 중 화면에 필요한 부분.
 // C→S RUN_STATE: 내 거리·경과·페이스·상태. S→C MEMBER_STATE / MEMBER_CONNECTION / ROOM_FINISHED.
+// 실제 채널 구현이 46장 필드로 바꿔 보낸다: elapsedSec → elapsedMs(×1000), paceSec → currentPace,
+// roomId · memberSeq · sentAt은 채널이 붙인다. runId는 실제로는 시작 때(POST /runs) 이미 있으므로 매번 보낸다.
 export type MyRunState = {
   distanceM: number;
   elapsedSec: number;

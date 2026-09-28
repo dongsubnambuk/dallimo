@@ -127,7 +127,7 @@ function LiveRun({ room, scenario, speed }: { room: LiveRoom; scenario: LiveRunS
     if (kind === 'FINISHED') haptics.complete();
     const r = await engine.finish();
     const runId = await runResultRepository.saveFinished(
-      { mode: room.mode, distanceM: r.distanceM, activeSec: r.activeSec, avgPaceSec: r.avgPaceSec, splits: r.splits, path: r.path, course: null, target: null },
+      { clientRunUuid: r.clientRunUuid, startedAt: r.startedAt, mode: room.mode, distanceM: r.distanceM, activeSec: r.activeSec, avgPaceSec: r.avgPaceSec, splits: r.splits, path: r.path, course: null, target: null },
       r.synced,
     );
     channel.sendState({ distanceM: room.targetDistanceM != null && kind === 'FINISHED' ? room.targetDistanceM : r.distanceM, elapsedSec: r.activeSec, paceSec: r.avgPaceSec, status: kind, runId });

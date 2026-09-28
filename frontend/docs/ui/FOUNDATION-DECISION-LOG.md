@@ -649,3 +649,13 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 마이 탭 | 누적 통계 아래 "내 코스" 입구 | 65장 My: Profile / Runs / Records / Courses |
 | 데이터 | `CourseRepository.setBookmark` · `getMine(kind)`(MY-005, 경로는 OpenAPI 확정 시), `CourseRegistrationRepository.create`(POST /courses: sourceRunId, name, description, tags + 추천 시간) | 43장 |
 | 개발용 | `/course/new?runId=…&scenario=` rejected / error, `/my/courses?scenario=` loading / empty / error, `?tab=` created / saved / finished | |
+
+## 25. Mock · API 계약 대조 (119장 9번)
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 결과 문서 | `docs/api/MOCK-CONTRACT-CHECK.md`: API마다 일치 / 변환 / 명세 없음 / 미구현 / 이번에 고침과 백엔드에 정할 목록 | 119장 9번 "frontend 상태/Mock contract 검증" |
+| 기준 | 앞쪽 장과 뒤쪽 계약 장이 다르면 뒤쪽 계약(42 · 46장)을 따른다. 다른 곳은 문서 11항에 모았다 | 42 · 46장이 OpenAPI 계약 |
+| 앱 모델 이름 | 앱 모델 이름(epoch ms, 소문자 검증 상태, `entries` 등)은 그대로 두고 API 클라이언트가 바꾼다 | 119장 "UI를 서버 응답 구조에 묶지 않는다" |
+| 이번에 고친 것 | 공통 응답 · 오류 코드 · cursor 타입(`shared/api/contract.ts`), Run API 요청 · 응답 타입과 point 변환(`entities/run/api/runApi.ts`), 엔진이 `clientRunUuid` 생성, RunPointStore 서명을 49.1장대로(runUuid), 기록에 `startedAt` · `clientRunUuid`(히스토리 시작 시각을 계산하지 않고 저장값 사용), 평균 페이스 정수, Together 방장은 `cancel`(POST /cancel) | 42.1 · 42.2 · 49.1 · 7.4 · 45장 |
+| 고치지 않은 것 | 명세에 없는 API(탈퇴, 닉네임 확인, 내 주변 순위, 내 코스, 방 목록 등)는 앱에 두고 문서 12항에 모아 결정을 받는다 | 문서에 없는 API를 임의로 명세에 넣지 않음 |

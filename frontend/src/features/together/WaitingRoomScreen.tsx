@@ -55,7 +55,11 @@ function WaitingRoom({ roomId, scenario }: { roomId: string; scenario: LiveScena
   const setRoom = (r: LiveRoom) => qc.setQueryData(key, r);
   const ready = useMutation({ mutationFn: (v: boolean) => repo.setReady(roomId, v), onSuccess: setRoom });
   const join = useMutation({ mutationFn: () => repo.join(roomId), onSuccess: setRoom });
-  const leave = useMutation({ mutationFn: () => repo.leave(roomId), onSuccess: () => router.dismissTo('/together') });
+  // 방장은 방을 취소(POST /cancel), 참가자는 나가기(POST /leave)
+  const leave = useMutation({
+    mutationFn: () => (room.data?.members.find((m) => m.isMe)?.isHost ? repo.cancel(roomId) : repo.leave(roomId)),
+    onSuccess: () => router.dismissTo('/together'),
+  });
   const [confirmLeave, setConfirmLeave] = useState(false);
   const gps = useMyGps();
 

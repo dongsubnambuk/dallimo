@@ -10,7 +10,10 @@ export interface LiveRoomRepository {
   get(roomId: string): Promise<LiveRoom>;
   join(roomId: string): Promise<LiveRoom>;
   setReady(roomId: string, ready: boolean): Promise<LiveRoom>;
+  // POST /live-runs/{roomId}/leave: 참가자 나가기 (러닝 중이면 DNF)
   leave(roomId: string): Promise<void>;
+  // POST /live-runs/{roomId}/cancel: 방장이 시작 전에 방을 취소
+  cancel(roomId: string): Promise<void>;
   // SCR-T05 최종 결과 (서버 finalization 값)
   getResult(roomId: string): Promise<LiveResult>;
   // TGT-012 재대결: 같은 조건·같은 사람으로 새 방

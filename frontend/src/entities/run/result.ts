@@ -12,10 +12,15 @@ export type RunVerification = 'none' | 'pending' | 'verified' | 'unverified' | '
 
 export type RunResult = {
   id: string;
+  // 42.1장 clientRunUuid (기기 저장 키, POST /runs 멱등 키)
+  clientRunUuid: string;
   mode: RunMode;
+  // 시작 · 종료 시각(epoch ms). API는 ISO-8601 offset 포함 값 (7.4장). 히스토리 정렬 기준은 started_at (6.4장)
+  startedAt: number;
   finishedAt: number;
   distanceM: number;
   activeSec: number;
+  // sec/km 정수 (7.4장)
   avgPaceSec: number | null;
   splits: RunSplit[];
   // 지도 표시용 실제 경로
