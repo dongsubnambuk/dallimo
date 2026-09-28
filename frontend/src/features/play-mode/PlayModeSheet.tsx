@@ -85,8 +85,8 @@ function SheetBody({ course, onClose }: { course: CourseDetail; onClose: () => v
   const start = () => {
     setRecentPlayMode(mode);
     if (mode === 'TOGETHER') {
-      // Together Lobby는 72장 10번 단계. 코스를 들고 함께 탭으로 간다.
-      router.dismissTo({ pathname: '/together', params: { courseId: course.id } });
+      // 코스로 함께 달릴 방을 만든다 (SCR-T02). 뒤로 가면 코스 상세로 돌아온다.
+      router.replace({ pathname: '/together/new', params: { courseId: course.id } });
       return;
     }
     const plan: RunPlan =

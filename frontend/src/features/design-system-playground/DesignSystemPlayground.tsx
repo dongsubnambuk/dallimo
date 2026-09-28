@@ -32,6 +32,7 @@ const GPS_STATES: GpsQuality[] = ['acquiring', 'good', 'fair', 'poor', 'unavaila
 const VERIFICATION_STATES: VerificationStatus[] = ['pending', 'verified', 'unverified', 'rejected'];
 const PARTICIPANT_STATES: { status: ParticipantStatus; progress?: number }[] = [
   { status: 'invited' },
+  { status: 'waiting' },
   { status: 'ready' },
   { status: 'running', progress: 0.64 },
   { status: 'disconnected', progress: 0.41 },

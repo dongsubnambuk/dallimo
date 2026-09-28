@@ -45,6 +45,13 @@ export default function RootLayout() {
             name="run/active"
             options={{ headerShown: false, gestureEnabled: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }}
           />
+          {/* Together: 방 만들기(light) → 대기실(dark) → Live(dark, 뒤로 밀기 막음) */}
+          <Stack.Screen name="together/new" options={{ headerShown: false }} />
+          <Stack.Screen name="together/[roomId]/index" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
+          <Stack.Screen
+            name="together/[roomId]/live"
+            options={{ headerShown: false, gestureEnabled: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }}
+          />
           {/* Result는 light로 돌아온다 (89장) */}
           <Stack.Screen name="run/result" options={{ headerShown: false, animation: 'fade' }} />
         </Stack>
