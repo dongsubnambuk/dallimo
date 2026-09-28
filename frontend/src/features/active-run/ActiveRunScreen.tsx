@@ -11,6 +11,7 @@ import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { runResultRepository } from '@/entities/run/api';
 import { endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSession';
+import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import type { RunFinishResult, RunningEngine } from '@/features/run/engine/runningEngine';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import type { GeoPoint } from '@/shared/geo';
@@ -42,6 +43,7 @@ export function ActiveRunScreen({ engine, summary, course, target }: Props) {
   const [finished, setFinished] = useState<{ result: RunFinishResult; id: string } | null>(null);
   const completed = useRunSnapshot(engine, (s) => s.course?.completedActiveMs != null);
   useCourseAlerts(engine, target);
+  useSplitAnnouncer(engine);
 
   // 러닝 중 Android 뒤로 가기로 화면을 벗어나지 않게 한다 (종료는 일시정지 → 종료 확인으로만)
   useEffect(() => {

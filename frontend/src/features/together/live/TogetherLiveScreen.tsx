@@ -20,6 +20,7 @@ import { runResultRepository } from '@/entities/run/api';
 import { getRunPolicySync } from '@/entities/run/policy';
 import { useElapsedSec } from '@/features/active-run/useElapsedSec';
 import { beginActiveRun, endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSession';
+import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { activeMs } from '@/features/run/engine/runningEngine';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import { haptics } from '@/shared/haptics';
@@ -81,6 +82,8 @@ function LiveRun({ room, scenario, speed }: { room: LiveRoom; scenario: LiveRunS
   const distanceM = useRunSnapshot(engine, (s) => s.distanceM);
   const avgPace = useRunSnapshot(engine, (s) => s.avgPaceSec);
   const elapsed = useElapsedSec(engine);
+  // Together에서도 내 구간 안내는 같다 (AUD-001)
+  useSplitAnnouncer(engine);
   const ending = useRef(false);
 
   // 러닝 중 뒤로 가기로 빠지지 않게 한다

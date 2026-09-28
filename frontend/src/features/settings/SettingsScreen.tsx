@@ -17,7 +17,7 @@ import { useMe } from '@/features/my/useMy';
 import { setPreference, usePreferences } from '@/shared/preferences';
 
 import { ConfirmSheet } from './components/ConfirmSheet';
-import { SettingRow, SettingSection } from './components/SettingRow';
+import { SettingChoice, SettingRow, SettingSection } from './components/SettingRow';
 
 const PROVIDER_NAME: Record<MyProfile['provider'], string> = { APPLE: 'Apple', GOOGLE: 'Google', KAKAO: '카카오' };
 
@@ -93,7 +93,20 @@ export function SettingsScreen() {
 
         <SettingSection title="러닝">
           <SettingRow kind="toggle" label="자동 일시정지" caption="멈춰 서면 기록을 잠시 멈춰요" value={prefs.autoPause} onChange={(v) => setPreference('autoPause', v)} />
-          <SettingRow kind="toggle" label="음성 안내" caption="코스 이탈과 완주를 소리로 알려요" value={prefs.voice} onChange={(v) => setPreference('voice', v)} />
+          <SettingRow kind="toggle" label="음성 안내" caption="구간 기록 · 코스 이탈 · 완주를 소리로 알려요" value={prefs.voice} onChange={(v) => setPreference('voice', v)} />
+          {/* AUD-003 구간 안내 빈도 */}
+          <SettingChoice
+            label="구간 안내"
+            caption="거리 · 시간 · 평균 페이스를 읽어 줘요"
+            value={prefs.voiceSplitKm}
+            options={[
+              { value: 1, label: '1km마다' },
+              { value: 2, label: '2km마다' },
+              { value: 0, label: '끔' },
+            ]}
+            disabled={!prefs.voice}
+            onChange={(v) => setPreference('voiceSplitKm', v)}
+          />
           <SettingRow kind="toggle" label="진동" caption="출발 · 일시정지 · GPS 약함 · 완주를 진동으로 알려요" value={prefs.haptics} onChange={(v) => setPreference('haptics', v)} />
         </SettingSection>
 

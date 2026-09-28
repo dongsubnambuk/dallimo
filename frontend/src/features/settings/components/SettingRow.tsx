@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 
+import { FilterChip } from '@/components/FilterChip';
 import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
@@ -74,6 +75,43 @@ export function SettingRow(props: Props) {
   );
 }
 
+// 몇 가지 중 하나를 고르는 설정 (예: 구간 안내 1km · 2km · 끔)
+export function SettingChoice<T extends string | number>({
+  label,
+  caption,
+  value,
+  options,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  caption?: string;
+  value: T;
+  options: { value: T; label: string }[];
+  disabled?: boolean;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <View style={[styles.choice, disabled && styles.disabled]} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      <View style={styles.text}>
+        <AppText role="body" style={styles.label}>
+          {label}
+        </AppText>
+        {caption ? (
+          <AppText role="caption" tone="secondary">
+            {disabled ? '음성 안내를 켜면 고를 수 있어요' : caption}
+          </AppText>
+        ) : null}
+      </View>
+      <View style={styles.chips}>
+        {options.map((o) => (
+          <FilterChip key={String(o.value)} label={o.label} selected={o.value === value} disabled={disabled} onPress={() => onChange(o.value)} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export function SettingSection({ title, footer, children }: { title: string; footer?: string; children: ReactNode }) {
   const { colors } = useTheme();
   return (
@@ -109,6 +147,19 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.sm,
+  },
+  choice: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  disabled: {
+    opacity: 0.5,
   },
   sectionTitle: {
     fontFamily: fontFamily.bold,
