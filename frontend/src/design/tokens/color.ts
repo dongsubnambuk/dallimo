@@ -17,6 +17,8 @@ export const palette = {
   signalPressed: '#1FD4A8',
   // 흰 배경 위 강조 글자용 민트 잉크 (대비 5.3)
   signalInk: '#007A62',
+  // 밝은 지도에서 형광 민트 선을 받쳐 주는 짙은 민트 테두리
+  signalDeep: '#0A6E5A',
 
   successLight: '#137F48',
   warningLight: '#9A6500',
@@ -25,17 +27,21 @@ export const palette = {
   warningDark: '#D99500',
   dangerDark: '#F06262',
 
-  // placeholder 지도 바탕 (지도 SDK 전까지). 국내 지도 앱처럼 회색 땅 + 흰 길.
-  mapLandLight: '#EEF0EC',
-  mapWaterLight: '#CDE3EE',
-  mapParkLight: '#DCEDD5',
+  // placeholder 지도 바탕 (지도 SDK 전까지). 국내 지도 앱처럼 연회색 땅 + 회색 테두리 흰 길 + 채도 낮은 물·공원.
+  mapLandLight: '#F1F1EE',
+  mapWaterLight: '#B8D8EE',
+  mapParkLight: '#D3E9C8',
   mapRoadLight: '#FFFFFF',
   mapRoadMajorLight: '#FFFFFF',
+  mapRoadCasingLight: '#DCDDD7',
+  mapPathLight: '#A9B8A2',
   mapLandDark: '#17181A',
   mapWaterDark: '#10222B',
   mapParkDark: '#14241B',
   mapRoadDark: '#26282B',
   mapRoadMajorDark: '#33363B',
+  mapRoadCasingDark: '#101113',
+  mapPathDark: '#3A4A3E',
 } as const;
 
 export type ColorScheme = 'light' | 'dark';
@@ -61,7 +67,7 @@ export type ColorRoles = {
   route: { course: string; casing: string; actual: string; target: string };
   border: { subtle: string; strong: string };
   // 지도 SDK 결정 전 placeholder 지도 바탕색. SDK 도입 시 SDK 지도 스타일로 대체한다.
-  mapBase: { land: string; water: string; park: string; road: string; roadMajor: string };
+  mapBase: { land: string; water: string; park: string; road: string; roadMajor: string; roadCasing: string; path: string };
 };
 
 // hex 뒤 두 자리는 alpha
@@ -87,8 +93,8 @@ export const colorRoles: Record<ColorScheme, ColorRoles> = {
     status: { success: palette.successLight, warning: palette.warningLight, danger: palette.dangerLight },
     gps: { good: palette.successLight, fair: palette.warningLight, poor: palette.dangerLight },
     ranking: { up: palette.successLight, down: palette.dangerLight },
-    // 밝은 지도: 검정 테두리 + 민트 선, 실제 이동은 검정, 목표(PB·ghost)는 민트 잉크
-    route: { course: palette.signal, casing: palette.ink, actual: palette.ink, target: palette.signalInk },
+    // 밝은 지도: 짙은 민트 테두리 + 형광 민트 선, 실제 이동은 검정, 목표(PB·ghost)는 민트 잉크
+    route: { course: palette.signal, casing: palette.signalDeep, actual: palette.ink, target: palette.signalInk },
     border: { subtle: alpha(palette.ink, '14'), strong: alpha(palette.ink, '40') },
     mapBase: {
       land: palette.mapLandLight,
@@ -96,6 +102,8 @@ export const colorRoles: Record<ColorScheme, ColorRoles> = {
       park: palette.mapParkLight,
       road: palette.mapRoadLight,
       roadMajor: palette.mapRoadMajorLight,
+      roadCasing: palette.mapRoadCasingLight,
+      path: palette.mapPathLight,
     },
   },
   dark: {
@@ -118,7 +126,7 @@ export const colorRoles: Record<ColorScheme, ColorRoles> = {
     gps: { good: palette.successDark, fair: palette.warningDark, poor: palette.dangerDark },
     ranking: { up: palette.successDark, down: palette.dangerDark },
     // 어두운 지도: 민트 선, 실제 이동 흰색, 목표는 반투명 민트
-    route: { course: palette.signal, casing: palette.ink, actual: palette.white, target: alpha(palette.signal, '99') },
+    route: { course: palette.signal, casing: palette.signalDeep, actual: palette.white, target: alpha(palette.signal, '99') },
     border: { subtle: alpha(palette.white, '1F'), strong: alpha(palette.white, '52') },
     mapBase: {
       land: palette.mapLandDark,
@@ -126,6 +134,8 @@ export const colorRoles: Record<ColorScheme, ColorRoles> = {
       park: palette.mapParkDark,
       road: palette.mapRoadDark,
       roadMajor: palette.mapRoadMajorDark,
+      roadCasing: palette.mapRoadCasingDark,
+      path: palette.mapPathDark,
     },
   },
 };

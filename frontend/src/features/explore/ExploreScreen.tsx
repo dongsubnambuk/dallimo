@@ -32,6 +32,7 @@ const MAP_RATIO = 0.6;
 const SHEET_OVERLAP = spacing.xxl;
 const CHIP_HEIGHT = 36;
 const SORT_HEIGHT = 32;
+const SORT_SHADOW = '0 1px 3px rgba(0, 0, 0, 0.12)';
 const SELECTED_CARD_HEIGHT = 84;
 
 type QuickFilter = { key: string; label: string; match: (c: CourseSummary) => boolean };
@@ -341,7 +342,7 @@ function SheetBody({
   );
 }
 
-// 정렬: NRC 기간 선택처럼 회색 트랙 위 선택 칸을 검정으로 채운다.
+// 정렬: iOS·토스 segmented control처럼 회색 트랙 위 선택 칸만 흰색으로 띄운다.
 function SortTabs({ value, onChange, options }: { value: SortKey; onChange: (s: SortKey) => void; options: typeof SORTS }) {
   const { colors } = useTheme();
   return (
@@ -355,9 +356,9 @@ function SortTabs({ value, onChange, options }: { value: SortKey; onChange: (s: 
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
             hitSlop={(touchTarget.min - SORT_HEIGHT) / 2}
-            style={[styles.sort, on && { backgroundColor: colors.action.secondary }]}
+            style={[styles.sort, on && { backgroundColor: colors.bg.elevated, boxShadow: SORT_SHADOW }]}
           >
-            <AppText role="label" style={[styles.sortText, { color: on ? colors.action.onSecondary : colors.text.secondary }]}>
+            <AppText role="label" style={[on ? styles.sortTextOn : styles.sortText, { color: on ? colors.text.primary : colors.text.secondary }]}>
               {s.label}
             </AppText>
           </AppPressable>
@@ -368,18 +369,15 @@ function SortTabs({ value, onChange, options }: { value: SortKey; onChange: (s: 
 }
 
 function SheetHeader({ title, count, sub }: { title: string; count?: number; sub?: string }) {
-  const { colors } = useTheme();
   return (
     <View style={styles.sheetHeader}>
       <AppText role="sectionTitle" accessibilityRole="header" style={styles.sheetTitle}>
         {title}
       </AppText>
       {count != null ? (
-        <View style={[styles.count, { backgroundColor: colors.action.primary }]}>
-          <AppText role="label" tabular style={[styles.countText, { color: colors.action.onPrimary }]}>
-            {count}
-          </AppText>
-        </View>
+        <AppText role="sectionTitle" tone="secondary" tabular style={styles.countText}>
+          {count}
+        </AppText>
       ) : null}
       {sub ? (
         <AppText role="caption" tone="secondary" style={styles.sheetSub}>
@@ -462,9 +460,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs / 2,
   },
   statValue: {
-    fontFamily: fontFamily.black,
-    fontSize: 20,
-    letterSpacing: -0.5,
+    fontFamily: fontFamily.extrabold,
+    fontSize: 19,
+    letterSpacing: -0.4,
     transform: [{ skewX: OBLIQUE_SKEW }],
   },
   sheet: {
@@ -488,20 +486,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sheetTitle: {
-    fontFamily: fontFamily.extrabold,
-    fontSize: 21,
+    fontSize: 20,
     lineHeight: 28,
   },
-  count: {
-    minWidth: 24,
-    height: 22,
-    paddingHorizontal: spacing.sm - 1,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   countText: {
-    fontFamily: fontFamily.black,
+    fontSize: 20,
+    lineHeight: 28,
   },
   sheetSub: {
     marginLeft: 'auto',
@@ -521,6 +511,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   sortText: {
+    fontFamily: fontFamily.medium,
+  },
+  sortTextOn: {
     fontFamily: fontFamily.bold,
   },
   listContent: {

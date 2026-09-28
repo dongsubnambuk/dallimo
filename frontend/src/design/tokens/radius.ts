@@ -12,7 +12,7 @@ export type RadiusToken = keyof typeof radius;
 // 88.2장: elevation은 bottom sheet와 map overlay에만 분명히 쓴다.
 export const elevation = {
   sheet: '0 -6px 24px rgba(0, 0, 0, 0.08)',
-  mapOverlay: '0 2px 12px rgba(0, 0, 0, 0.14)',
+  mapOverlay: '0 3px 14px rgba(0, 0, 0, 0.10)',
 } as const;
 
 // 88.2장: route line, progress rail, 선택/본인 표시를 같은 'signal line' 두께로 연결한다. v0.3 후보값.

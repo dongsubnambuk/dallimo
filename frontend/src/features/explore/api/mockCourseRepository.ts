@@ -1,70 +1,73 @@
 import type { CourseSummary, NearbyCourseQuery } from '@/entities/course/types';
-import { distanceM, legRoute, loopRoute, type GeoPoint } from '@/shared/geo';
+import { distanceM, loopRoute, type GeoPoint } from '@/shared/geo';
 
 import { CourseRepositoryError, type CourseRepository } from './courseRepository';
+import { MOCK_COURSE_ROUTES } from './mockCourseRoutes';
 import type { ExploreScenario } from './scenario';
 
 // 실제 API 전까지 쓰는 예시 데이터. 대구 수성못 주변 (명세서 91장 예시 지역).
+// 경로는 OpenStreetMap의 실제 호안·강변·도로를 따른다 (mockCourseRoutes.ts). 거리는 경로 길이에서 계산한다.
 type MockCourse = Omit<CourseSummary, 'startDistanceM'>;
+
+const route = (id: string): GeoPoint[] => MOCK_COURSE_ROUTES[id].route.map(([latitude, longitude]) => ({ latitude, longitude }));
+// 100m 단위로 반올림한 경로 길이
+const lengthOf = (id: string) => Math.round(MOCK_COURSE_ROUTES[id].lengthM / 100) * 100;
+// 6'00"/km 기준 예상 시간
+const estimateOf = (id: string) => Math.round((lengthOf(id) / 1000) * 360);
 
 const MOCK_COURSES: MockCourse[] = [
   {
     id: 'c-suseongmot',
     name: '수성못 둘레길',
-    distanceM: 2300,
+    distanceM: lengthOf('c-suseongmot'),
     tags: ['평지', '야간 밝음'],
-    displayRoute: loopRoute({ latitude: 35.8286, longitude: 128.6176 }, 420, 300, 48, 0.08),
-    myBestSec: 702,
-    estimatedSec: 840,
+    displayRoute: route('c-suseongmot'),
+    myBestSec: 612,
+    estimatedSec: estimateOf('c-suseongmot'),
     finisherCount: 1284,
     weeklyRunnerCount: 128,
   },
   {
     id: 'c-deuran',
-    name: '수성못–들안길 왕복',
-    distanceM: 5100,
+    name: '들안로 왕복',
+    distanceM: lengthOf('c-deuran'),
     tags: ['신호 적음'],
-    // 수성못 남동쪽에서 들안길 방향으로 갔다가 돌아오는 굽은 왕복
-    displayRoute: legRoute({ latitude: 35.8262, longitude: 128.6214 }, [
-      [60, -90], [80, -110], [90, -90], [70, -120], [40, -130], [10, -140], [-20, -120], [10, -100], [-40, 20], [-70, 110], [-90, 130], [-60, 140], [-40, 120], [-50, 100],
-    ]),
+    displayRoute: route('c-deuran'),
     myBestSec: null,
-    estimatedSec: 1860,
+    estimatedSec: estimateOf('c-deuran'),
     finisherCount: 412,
     weeklyRunnerCount: 37,
   },
   {
     id: 'c-beomeo',
     name: '범어공원 언덕 루프',
-    distanceM: 3400,
+    distanceM: lengthOf('c-beomeo'),
     tags: ['오르막'],
-    displayRoute: loopRoute({ latitude: 35.8398, longitude: 128.6262 }, 260, 330, 32, 0.12, 1.2),
+    displayRoute: route('c-beomeo'),
     myBestSec: null,
-    estimatedSec: 1320,
+    estimatedSec: estimateOf('c-beomeo'),
     finisherCount: 236,
     weeklyRunnerCount: 21,
   },
   {
     id: 'c-sincheon',
-    name: '신천 강변 5K',
-    distanceM: 5000,
+    name: '신천 강변 왕복',
+    distanceM: lengthOf('c-sincheon'),
     tags: ['평지', '강변'],
-    displayRoute: legRoute({ latitude: 35.8342, longitude: 128.6008 }, [
-      [-60, 220], [-40, 300], [-30, 320], [-50, 280], [-20, 240],
-    ]),
-    myBestSec: 1611,
-    estimatedSec: 1740,
+    displayRoute: route('c-sincheon'),
+    myBestSec: 1480,
+    estimatedSec: estimateOf('c-sincheon'),
     finisherCount: 2051,
     weeklyRunnerCount: 215,
   },
   {
     id: 'c-dusan',
     name: '두산오거리 야간 3K',
-    distanceM: 3000,
+    distanceM: lengthOf('c-dusan'),
     tags: ['야간 밝음', '초보 추천'],
-    displayRoute: loopRoute({ latitude: 35.8245, longitude: 128.6105 }, 230, 170, 28, 0.06, 2),
+    displayRoute: route('c-dusan'),
     myBestSec: null,
-    estimatedSec: 1080,
+    estimatedSec: estimateOf('c-dusan'),
     finisherCount: 96,
     weeklyRunnerCount: 12,
   },
@@ -99,4 +102,4 @@ export function createMockCourseRepository(scenario: ExploreScenario): CourseRep
 }
 
 /** 위치 권한이 없을 때 지도 기본 위치 */
-export const DEFAULT_REGION_CENTER: GeoPoint = { latitude: 35.8286, longitude: 128.6176 };
+export const DEFAULT_REGION_CENTER: GeoPoint = { latitude: 35.8274, longitude: 128.618 };
