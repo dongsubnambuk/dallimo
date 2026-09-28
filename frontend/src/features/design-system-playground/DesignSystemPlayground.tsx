@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLoader, BrandSymbol, Wordmark } from '@/components/Brand';
 import { CourseCard } from '@/components/CourseCard';
+import { PlayModeCard } from '@/components/PlayModeCard';
 import { FilterChip } from '@/components/FilterChip';
 import { GapIndicator } from '@/components/GapIndicator';
 import { GpsStatus, type GpsQuality } from '@/components/GpsStatus';
@@ -93,6 +94,9 @@ export function DesignSystemPlayground() {
         </Group>
         <Group title="버튼 · 필터" count={8}>
           <Contexted mode={mode}>{() => <ActionCases />}</Contexted>
+        </Group>
+        <Group title="플레이 모드" count={4}>
+          <Contexted mode={mode}>{() => <PlayModeCases />}</Contexted>
         </Group>
         <Group title="기록 수치" count={6}>
           <Contexted mode={mode}>{() => <MetricCases />}</Contexted>
@@ -184,6 +188,22 @@ function BrandCases() {
   );
 }
 
+// 67.1장 PlayModeCard: default / selected / locked (+ 최근 사용)
+function PlayModeCases() {
+  return (
+    <View style={styles.stack}>
+      <Case label="default · selected · locked · 최근">
+        <View style={[styles.row, { flexWrap: 'nowrap' }]}>
+          <PlayModeCard icon="modeCourse" title="완주" caption="끝까지 달리기" />
+          <PlayModeCard icon="modePB" title="PB 어택" caption="내 기록 깨기" state="selected" />
+          <PlayModeCard icon="modeRival" title="라이벌" caption="기록에 도전" state="locked" lockedReason="랭킹을 불러오지 못했어요" />
+          <PlayModeCard icon="modeTogether" title="함께" caption="친구와 동시에" recent />
+        </View>
+      </Case>
+    </View>
+  );
+}
+
 function ActionCases() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({ '3~5km': true });
@@ -198,6 +218,9 @@ function ActionCases() {
       </Case>
       <Case label="disabledPermission">
         <PrimaryRunButton label="이 코스 달리기" availability="disabledPermission" />
+      </Case>
+      <Case label="disabledStartPoint">
+        <PrimaryRunButton label="시작" availability="disabledStartPoint" reason="출발점까지 420m 남았어요. 출발점 근처에서 시작할 수 있어요" />
       </Case>
       <Case label="긴 라벨">
         <PrimaryRunButton label="수성못 둘레길 야간 코스 달리기 시작하기" />

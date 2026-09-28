@@ -1,5 +1,10 @@
-import { PendingScreen } from '@/features/pending/PendingScreen';
+import { useLocalSearchParams } from 'expo-router';
+
+import type { RunPlanParams } from '@/features/run-ready/runPlanParams';
+import { RunReadyScreen } from '@/features/run-ready/RunReadyScreen';
+import { parseRunReadyScenario } from '@/features/run-ready/scenario';
 
 export default function RunTab() {
-  return <PendingScreen title="달리기" order="Run Ready·Active Run 단계(72장 5~7번)" />;
+  const { scenario, ...params } = useLocalSearchParams<RunPlanParams & { scenario?: string }>();
+  return <RunReadyScreen params={params} scenario={parseRunReadyScenario(scenario)} />;
 }

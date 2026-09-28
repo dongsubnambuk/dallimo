@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { View, type ColorValue } from 'react-native';
 
 import { AppIcon, type IconName } from '@/design/primitives';
-import { useTheme } from '@/design/theme';
+import { darkTheme, useTheme } from '@/design/theme';
 import { fontFamily } from '@/design/tokens';
 
 // 65장 정보 구조 최종안: 하단 탭 4개 (Explore / Run / Together / My). 탭 구조는 임의로 바꾸지 않는다 (115.1장).
@@ -29,12 +29,24 @@ export default function TabsLayout() {
         <Tabs.Screen
           key={t.name}
           name={t.name}
-          options={{ title: t.title, tabBarIcon: ({ color, focused }) => <TabIcon name={t.icon} color={color} focused={focused} /> }}
+          options={{
+            title: t.title,
+            tabBarIcon: ({ color, focused }) => <TabIcon name={t.icon} color={color} focused={focused} />,
+            // 달리기 탭은 러닝 컨텍스트(dark)라 탭 바도 어둡게 맞춘다 (110.1장, FOUNDATION-DECISION-LOG 14항)
+            ...(t.name === 'run' ? darkTabBar : null),
+          }}
         />
       ))}
     </Tabs>
   );
 }
+
+const dark = darkTheme.colors;
+const darkTabBar = {
+  tabBarActiveTintColor: dark.text.primary,
+  tabBarInactiveTintColor: dark.text.secondary,
+  tabBarStyle: { backgroundColor: dark.bg.canvas, borderTopColor: dark.border.subtle },
+};
 
 // 선택된 탭 아이콘 오른쪽 위에 민트 출발점을 찍는다 (브랜드 심볼 "모"의 출발점 모티프, FOUNDATION-DECISION-LOG 11항).
 function TabIcon({ name, color, focused }: { name: IconName; color: ColorValue; focused: boolean }) {
@@ -53,7 +65,7 @@ function TabIcon({ name, color, focused }: { name: IconName; color: ColorValue; 
             borderRadius: 5,
             backgroundColor: colors.action.primary,
             borderWidth: 2,
-            borderColor: colors.text.primary,
+            borderColor: color,
           }}
         />
       ) : null}

@@ -4,7 +4,8 @@ import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 
-export type RunAvailability = 'ready' | 'disabledGPS' | 'disabledPermission';
+// disabledStartPoint: 74장 Run Ready 'course start too far' 상태 (FOUNDATION-DECISION-LOG 14항)
+export type RunAvailability = 'ready' | 'disabledGPS' | 'disabledPermission' | 'disabledStartPoint';
 
 export type PrimaryRunButtonProps = {
   label: string;
@@ -20,6 +21,7 @@ export type PrimaryRunButtonProps = {
 const defaultReason: Record<Exclude<RunAvailability, 'ready'>, string> = {
   disabledGPS: 'GPS 신호가 약해 아직 시작할 수 없어요',
   disabledPermission: '위치 권한을 허용해야 시작할 수 있어요',
+  disabledStartPoint: '코스 출발점 근처에서 시작할 수 있어요',
 };
 
 // 95장: signal accent를 가장 강하게 쓰는 핵심 action. 한 화면에 하나만 둔다.
