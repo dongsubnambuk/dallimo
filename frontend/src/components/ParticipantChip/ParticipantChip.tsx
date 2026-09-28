@@ -6,7 +6,8 @@ import { useTheme } from '@/design/theme';
 import type { ColorRoles } from '@/design/tokens';
 import { spacing } from '@/design/tokens';
 
-export type ParticipantStatus = 'invited' | 'ready' | 'running' | 'disconnected' | 'finished' | 'dnf';
+// waiting: 방에 들어왔지만 아직 준비 전 (SCREEN-SPECS Together "waiting", FOUNDATION-DECISION-LOG 19항)
+export type ParticipantStatus = 'invited' | 'waiting' | 'ready' | 'running' | 'disconnected' | 'finished' | 'dnf';
 
 export type ParticipantChipProps = {
   name: string;
@@ -21,6 +22,7 @@ export type ParticipantChipProps = {
 // 113장: state first. 62장/94장: 상대의 정밀 위치 대신 진행 상태를 signal rail로 공유한다.
 const config: Record<ParticipantStatus, { icon: IconName; copy: string; color: (c: ColorRoles) => string }> = {
   invited: { icon: 'invited', copy: '초대됨', color: (c) => c.text.secondary },
+  waiting: { icon: 'pending', copy: '준비 전', color: (c) => c.text.secondary },
   ready: { icon: 'ready', copy: '준비 완료', color: (c) => c.status.success },
   running: { icon: 'running', copy: '달리는 중', color: (c) => c.text.accent },
   disconnected: { icon: 'disconnected', copy: '연결 끊김', color: (c) => c.status.warning },

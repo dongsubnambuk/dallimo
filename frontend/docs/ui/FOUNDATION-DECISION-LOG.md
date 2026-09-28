@@ -516,3 +516,26 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 데이터 | `entities/ranking`: `RankingRepository.getPage(scope, period, cursor, size)`, `getMyStanding`(RNK-005). 공식 랭킹은 사용자별 최고 VERIFIED 기록 | 43장, 23.1장, 1장 |
 | mock | 1위 기록과 내 기록(코스 상세의 이번 주 순위)을 지나는 곡선으로 순위표를 만든다. 이번 주 1~3위와 내 순위는 코스 상세와 같게, 친구 최고 기록은 기록이 맞는 자리에 둔다 | mock 전용. 실제 순위는 서버 값 |
 | 개발용 | `?scenario=` normal / loading / empty / unranked / error, `?tab=` weekly / monthly / all / friends. 마이 탭 개발용 링크 | |
+
+## 19. Together Lobby (SCR-T01~T03) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 범위 | 함께 탭 = Together 홈(SCR-T01), `/together/new` 방 만들기(SCR-T02), `/together/[roomId]` 대기실(SCR-T03). 출발 뒤 Live(SCR-T04)·결과(SCR-T05)는 11번 단계 | 72장 10번 Together Lobby, SCREEN-SPECS SCR-T01~T05 |
+| 홈 | 예정된 방 카드(모드 설명 · 목표 · 시작 시각 · 준비 인원, 나를 초대한 방은 "초대 받음"), 최근 결과 줄(순위/완주). 위에 "방 만들기"(검정) | SCR-T01 "예정 방, 최근 결과, 새 방 생성". 민트는 달리기 시작에만 쓴다 |
+| 모드 | 레이스(LIVE_RACE, 먼저 도착하면 승리) · 타임 어택(TIME_ATTACK, 시간 안에 더 멀리) · 함께(TOGETHER, 승패 없이). Play Mode와 같은 `PlayModeCard` 타일 | 45.1장 모드 불변식, 89장 "설정 화면 같은 radio list 금지" |
+| 목표 | 레이스·함께: 3 / 5 / 10km, 타임 어택: 20 / 30 / 60분. 코스로 만든 방은 코스 거리가 목표이고 타임 어택은 잠김("코스는 거리로만") | 45.1장 LIVE_RACE는 targetDistanceM, TIME_ATTACK은 targetSeconds |
+| 시작 시각 | 모두 준비되면 / 10분 뒤 / 30분 뒤 / 1시간 뒤. 예약 시각은 방을 만드는 순간 기준 | SCR-T02 "시작시간" |
+| 친구 | 체크 목록에서 한 명 이상 골라야 방을 만들 수 있다. "서로의 위치는 공유되지 않아요" 안내 | TGT-002, 823행 정확한 GPS 비공개 |
+| 코스에서 함께 | Play Mode "함께" → `/together/new?courseId=`로 바로 연다(시트 자리를 바꿔 뒤로 가면 코스 상세). 13항의 "함께 탭으로 courseId" 대신 | 탭에서 자동 이동하면 딥링크 진입 때 내비게이터 준비 전에 이동해 오류가 났다 |
+| 대기실 | dark. 모드 배지 → 목표 값 크게(10km) → 시작 시각 → 내 GPS·서버 연결 → 참가자(상태 먼저, 나·방장 표시) → 아래 내 행동 | 89장 "room goal + participant readiness가 핵심, 채팅창 없음, 메신저 room처럼 구성하지 않음". Run Ready와 같은 dark pre-run canvas |
+| 내 행동 | 초대 받음: 참가하기 / 참가: 준비 완료(GPS가 잡혀야 누를 수 있음) / 준비됨: 안내 + 준비 취소 | TGT-003 Ready |
+| 출발 | 참가한 사람(2명 이상)이 모두 준비하고 예약 시각이 되면 서버가 출발 시각을 정한다(mock 5초 뒤). 대기실이 큰 숫자로 세고 숫자마다 약한 햅틱, 출발 강한 햅틱 → Live | 45.1장 "방 상태 전이는 서버가 결정", SCR-T03 카운트다운, 69장 Run Start |
+| 갱신 | WebSocket ROOM_SNAPSHOT 연동 전까지 방 snapshot을 1초마다 다시 읽는다. 받아 둔 방이 있는데 읽기에 실패하면 "다시 연결하는 중" | 9장 "방 생성·참가·Ready·조회는 REST", 46장 |
+| 나가기 | ✕ → 확인 sheet. 방장은 "방을 취소할까요?", 참가자는 "방에서 나갈까요?" | 45장 leave · cancel |
+| 초대 링크 | 오른쪽 위 공유: 목표 · 시작 시각 + `dallimo://together/{roomId}` | SHR-004 딥링크 |
+| 상태 | 로딩 / 비어 있음 / 오류 / 초대 받음 / 준비 전(waiting) / 준비 완료 / 연결 끊김 / 다시 연결 중 / 카운트다운 / 취소됨 / 방 없음 | SCREEN-SPECS Together "invite, waiting, ready, disconnected, reconnecting" |
+| `ParticipantChip` | 상태 `waiting`("준비 전", 시계 아이콘) 추가. 67.1장 상태(invited/ready/running/disconnected/finished/DNF)는 그대로 | SCREEN-SPECS Together 상태의 waiting |
+| 데이터 | `entities/live`: `LiveRoom`(모드·목표·예약·상태·출발 시각·참가자, GPS 좌표 없음), `LiveRoomRepository`(listUpcoming/listRecent/listFriends/create/get/join/setReady/leave). mock은 초대한 친구가 차례로 들어와 준비하는 흐름을 시간으로 흉내 | 45장 REST, 6.3장 LiveRoomStatus/LiveMemberStatus |
+| `useNow` | 렌더 중 `Date.now()`를 부르지 않도록 현재 시각을 주기적으로 갱신하는 hook | React 순수성 규칙(lint) |
+| 개발용 | `/together?scenario=` normal / loading / empty / error, `/together/demo?scenario=` normal / disconnected / canceled | |

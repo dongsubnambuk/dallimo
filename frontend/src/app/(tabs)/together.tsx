@@ -1,8 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { PendingScreen } from '@/features/pending/PendingScreen';
+import { parseLiveScenario } from '@/entities/live/api/mockLiveRoomRepository';
+import { TogetherHomeScreen } from '@/features/together/TogetherHomeScreen';
 
 export default function TogetherTab() {
-  const { courseId } = useLocalSearchParams<{ courseId?: string }>();
-  return <PendingScreen title="함께 달리기" order="Together 단계(72장 10번)" handoff={courseId ? `코스 ${courseId}로 방 만들기` : null} />;
+  const { scenario } = useLocalSearchParams<{ scenario?: string }>();
+  return <TogetherHomeScreen scenario={parseLiveScenario(scenario)} />;
 }
