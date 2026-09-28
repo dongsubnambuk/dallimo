@@ -1,22 +1,24 @@
-// ROUTE SIGNAL v0.1 후보값. production lock 아님.
-// 88장 v0에서 출발했고, 대비 검증 결과에 따라 signal과 status를 light/dark 컨텍스트별로 나눴다 (FOUNDATION-DECISION-LOG.md).
+// ROUTE SIGNAL v0.3 후보값 (민트 네온 + 흑백). production lock 아님.
+// 83장 Aqua/teal 계열 signal 안에서 레퍼런스(플랜핏 민트, NRC 흑백 대비)를 따라 다시 정했다 (FOUNDATION-DECISION-LOG.md 8항).
 // 화면과 컴포넌트는 palette를 직접 쓰지 않고 semantic role(ColorRoles)만 사용한다.
 export const palette = {
-  canvasLight: '#F7F8F6',
-  surfaceLight: '#FFFFFF',
-  canvasDark: '#101312',
-  surfaceDark: '#181C1B',
+  white: '#FFFFFF',
+  grayFill: '#F3F4F2',
+  ink: '#0B0B0C',
+  inkSurface: '#1B1C1E',
+  inkElevated: '#242528',
 
-  textPrimaryLight: '#111514',
-  textSecondaryLight: '#68716E',
-  textPrimaryDark: '#F5F8F7',
-  textSecondaryDark: '#A8B1AE',
+  textSecondaryLight: '#666A68',
+  textPrimaryDark: '#F4F5F4',
+  textSecondaryDark: '#9A9E9C',
 
-  // 83장: Aqua/teal 계열 고채도 signal. 어두운 러닝 화면용(bright)과 밝은 탐색 화면용(ink)으로 나눈다.
-  signalBright: '#1FE0C4',
-  signalBrightPressed: '#17C4AB',
-  signalInk: '#00796B',
-  signalInkPressed: '#006B5F',
+  // signal: 채움 전용 형광 민트. 흰 배경 위 글자로는 쓰지 않는다 (대비 1.47).
+  signal: '#2BF0C0',
+  signalPressed: '#1FD4A8',
+  // 흰 배경 위 강조 글자용 민트 잉크 (대비 5.3)
+  signalInk: '#007A62',
+  // 밝은 지도에서 형광 민트 선을 받쳐 주는 짙은 민트 테두리
+  signalDeep: '#0A6E5A',
 
   successLight: '#137F48',
   warningLight: '#9A6500',
@@ -25,33 +27,48 @@ export const palette = {
   warningDark: '#D99500',
   dangerDark: '#F06262',
 
-  // placeholder 지도 바탕 (지도 SDK 전까지)
-  mapLandLight: '#ECEEEC',
-  mapWaterLight: '#C9DEE4',
-  mapParkLight: '#D9E8D6',
+  // placeholder 지도 바탕 (지도 SDK 전까지). 브랜드 지도: 채도를 뺀 회색조 바탕 위에 형광 민트 코스만 색으로 보이게 한다
+  // (스트라바 히트맵·NRC 경로 화면처럼 지도는 무채색, 경로가 주인공).
+  mapLandLight: '#ECEDEA',
+  mapWaterLight: '#D3DCE2',
+  mapParkLight: '#E0E5DD',
   mapRoadLight: '#FFFFFF',
-  mapLandDark: '#1A1F1E',
-  mapWaterDark: '#17282E',
-  mapParkDark: '#1B2A21',
-  mapRoadDark: '#2B3230',
-
-  routeActual: '#FFFFFF',
-  routeTarget: '#86E7D8',
+  mapRoadMajorLight: '#FFFFFF',
+  mapRoadCasingLight: '#DDDEDA',
+  mapPathLight: '#C3C8C1',
+  mapLandDark: '#17181A',
+  mapWaterDark: '#10222B',
+  mapParkDark: '#14241B',
+  mapRoadDark: '#26282B',
+  mapRoadMajorDark: '#33363B',
+  mapRoadCasingDark: '#101113',
+  mapPathDark: '#3A4A3E',
 } as const;
 
 export type ColorScheme = 'light' | 'dark';
 
 export type ColorRoles = {
+  // canvas: 화면 바탕, surface: 묶음 칸 채움(회색 블록), elevated: 지도 위·bottom sheet
   bg: { canvas: string; surface: string; elevated: string };
-  text: { primary: string; secondary: string; inverse: string };
-  action: { primary: string; primaryPressed: string; onPrimary: string; secondary: string; tint: string };
+  // accent: 강조 글자. light에서는 signal 대신 대비를 통과하는 민트 잉크
+  text: { primary: string; secondary: string; inverse: string; accent: string };
+  // primary: signal 채움(핵심 action 하나), secondary: 흑/백 채움(보조 action), tint: 선택·본인 연한 배경
+  action: {
+    primary: string;
+    primaryPressed: string;
+    onPrimary: string;
+    secondary: string;
+    onSecondary: string;
+    tint: string;
+  };
   status: { success: string; warning: string; danger: string };
   gps: { good: string; fair: string; poor: string };
   ranking: { up: string; down: string };
-  route: { course: string; actual: string; target: string };
+  // casing: 경로 선 바깥 테두리. 밝은 지도에서 민트 선이 묻히지 않게 한다.
+  route: { course: string; casing: string; actual: string; target: string };
   border: { subtle: string; strong: string };
   // 지도 SDK 결정 전 placeholder 지도 바탕색. SDK 도입 시 SDK 지도 스타일로 대체한다.
-  mapBase: { land: string; water: string; park: string; road: string; roadMajor: string };
+  mapBase: { land: string; water: string; park: string; road: string; roadMajor: string; roadCasing: string; path: string };
 };
 
 // hex 뒤 두 자리는 alpha
@@ -59,47 +76,67 @@ const alpha = (hex: string, a: string) => hex + a;
 
 export const colorRoles: Record<ColorScheme, ColorRoles> = {
   light: {
-    bg: { canvas: palette.canvasLight, surface: palette.surfaceLight, elevated: palette.surfaceLight },
+    bg: { canvas: palette.white, surface: palette.grayFill, elevated: palette.white },
     text: {
-      primary: palette.textPrimaryLight,
+      primary: palette.ink,
       secondary: palette.textSecondaryLight,
       inverse: palette.textPrimaryDark,
+      accent: palette.signalInk,
     },
     action: {
-      primary: palette.signalInk,
-      primaryPressed: palette.signalInkPressed,
-      onPrimary: palette.surfaceLight,
-      secondary: palette.textPrimaryLight,
-      tint: alpha(palette.signalInk, '14'),
+      primary: palette.signal,
+      primaryPressed: palette.signalPressed,
+      onPrimary: palette.ink,
+      secondary: palette.ink,
+      onSecondary: palette.white,
+      tint: alpha(palette.signal, '33'),
     },
     status: { success: palette.successLight, warning: palette.warningLight, danger: palette.dangerLight },
     gps: { good: palette.successLight, fair: palette.warningLight, poor: palette.dangerLight },
     ranking: { up: palette.successLight, down: palette.dangerLight },
-    // 밝은 지도 위: 경로는 signal ink, 실제 이동은 기본 글자색, 목표(PB·ghost)는 반투명 signal
-    route: { course: palette.signalInk, actual: palette.textPrimaryLight, target: alpha(palette.signalInk, '66') },
-    border: { subtle: alpha(palette.textSecondaryLight, '29'), strong: alpha(palette.textSecondaryLight, '66') },
-    mapBase: { land: palette.mapLandLight, water: palette.mapWaterLight, park: palette.mapParkLight, road: palette.mapRoadLight, roadMajor: palette.mapRoadLight },
+    // 밝은 지도: 짙은 민트 테두리 + 형광 민트 선, 실제 이동은 검정, 목표(PB·ghost)는 민트 잉크
+    route: { course: palette.signal, casing: palette.signalDeep, actual: palette.ink, target: palette.signalInk },
+    border: { subtle: alpha(palette.ink, '14'), strong: alpha(palette.ink, '40') },
+    mapBase: {
+      land: palette.mapLandLight,
+      water: palette.mapWaterLight,
+      park: palette.mapParkLight,
+      road: palette.mapRoadLight,
+      roadMajor: palette.mapRoadMajorLight,
+      roadCasing: palette.mapRoadCasingLight,
+      path: palette.mapPathLight,
+    },
   },
   dark: {
-    bg: { canvas: palette.canvasDark, surface: palette.surfaceDark, elevated: palette.surfaceDark },
+    bg: { canvas: palette.ink, surface: palette.inkSurface, elevated: palette.inkElevated },
     text: {
       primary: palette.textPrimaryDark,
       secondary: palette.textSecondaryDark,
-      inverse: palette.textPrimaryLight,
+      inverse: palette.ink,
+      accent: palette.signal,
     },
     action: {
-      primary: palette.signalBright,
-      primaryPressed: palette.signalBrightPressed,
-      onPrimary: palette.canvasDark,
+      primary: palette.signal,
+      primaryPressed: palette.signalPressed,
+      onPrimary: palette.ink,
       secondary: palette.textPrimaryDark,
-      tint: alpha(palette.signalBright, '1A'),
+      onSecondary: palette.ink,
+      tint: alpha(palette.signal, '26'),
     },
     status: { success: palette.successDark, warning: palette.warningDark, danger: palette.dangerDark },
     gps: { good: palette.successDark, fair: palette.warningDark, poor: palette.dangerDark },
     ranking: { up: palette.successDark, down: palette.dangerDark },
-    // 어두운 지도 위: 88장 route 후보 계열 (course는 signal bright, actual 흰색, target 연한 청록)
-    route: { course: palette.signalBright, actual: palette.routeActual, target: palette.routeTarget },
-    border: { subtle: alpha(palette.textSecondaryDark, '29'), strong: alpha(palette.textSecondaryDark, '66') },
-    mapBase: { land: palette.mapLandDark, water: palette.mapWaterDark, park: palette.mapParkDark, road: palette.mapRoadDark, roadMajor: palette.mapRoadDark },
+    // 어두운 지도: 민트 선, 실제 이동 흰색, 목표는 반투명 민트
+    route: { course: palette.signal, casing: palette.signalDeep, actual: palette.white, target: alpha(palette.signal, '99') },
+    border: { subtle: alpha(palette.white, '1F'), strong: alpha(palette.white, '52') },
+    mapBase: {
+      land: palette.mapLandDark,
+      water: palette.mapWaterDark,
+      park: palette.mapParkDark,
+      road: palette.mapRoadDark,
+      roadMajor: palette.mapRoadMajorDark,
+      roadCasing: palette.mapRoadCasingDark,
+      path: palette.mapPathDark,
+    },
   },
 };

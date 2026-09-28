@@ -33,6 +33,8 @@ const icons = {
   expand: { ios: 'chevron.down', android: 'expand_more' },
   collapse: { ios: 'chevron.right', android: 'chevron_right' },
   search: { ios: 'magnifyingglass', android: 'search' },
+  close: { ios: 'xmark', android: 'close' },
+  swap: { ios: 'arrow.up.arrow.down', android: 'swap_vert' },
   tabExplore: { ios: 'map', android: 'map' },
   tabRun: { ios: 'figure.run', android: 'directions_run' },
   tabTogether: { ios: 'person.2', android: 'group' },

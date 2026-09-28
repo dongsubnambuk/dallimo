@@ -1,7 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
-import Svg, { Circle, Polygon, Polyline } from 'react-native-svg';
+import { Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import Svg, { Circle, G, Path, Polygon, Polyline } from 'react-native-svg';
 
+import { BrandLoader } from '@/components/Brand';
 import type { CourseSummary } from '@/entities/course/types';
 import { AppIcon, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
@@ -28,8 +29,11 @@ export type ExploreMapProps = {
   obscured: { top: number; bottom: number };
 };
 
-const USER_IN_FRAME_M = 2500;
+// 선택 코스에서 이 거리 안이면 내 위치도 화면에 함께 맞춘다
+const USER_IN_FRAME_M = 1200;
 const USER_FOCUS_RADIUS_M = 900;
+const MIN_SPAN_M = 1300;
+const MIN_SPAN_VERTICAL_M = 500;
 const TAP_TOLERANCE_PX = 24;
 const SIDE_PAD = spacing.xxl;
 
@@ -54,19 +58,48 @@ export function ExploreMap({
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
   const selected = courses.find((c) => c.id === selectedId) ?? null;
-  const frame = frameFor(focus, selected, courses, userPosition, fallbackCenter);
+  const frame = withMinSpan(frameFor(focus, selected, courses, userPosition, fallbackCenter), MIN_SPAN_M, MIN_SPAN_VERTICAL_M);
   const canDraw = width > 0 && frame.flat().length > 1;
   const project = canDraw
-    ? makeProjection(frame, width, height, { top: obscured.top + spacing.xl, bottom: obscured.bottom + spacing.xl, left: SIDE_PAD, right: SIDE_PAD })
+    ? makeProjection(frame, width, height, { top: obscured.top + BUBBLE_SPACE, bottom: obscured.bottom + spacing.xl, left: SIDE_PAD, right: SIDE_PAD })
     : null;
   const screen = (pts: GeoPoint[]) => (project ? pts.map(project) : []);
   const toPoints = (pts: GeoPoint[]) => screen(pts).map((p) => p.join(',')).join(' ');
+  // 같은 위계의 선을 하나의 path로 묶어 SVG 요소 수를 줄인다 (8항: 지도 렌더링 부담)
+  const toPath = (lines: GeoPoint[][]) =>
+    lines
+      .map((l) => screen(l).map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''))
+      .join('');
   const start = selected && project ? project(selected.displayRoute[0]) : null;
   const me = userPosition && project ? project(userPosition) : null;
   const b = colors.mapBase;
   // 상단 검색·하단 카드에 가려지거나 가장자리에서 잘리는 위치의 라벨·말풍선은 숨긴다
   const inView = ([x, y]: [number, number]) =>
-    x > EDGE && x < width - EDGE && y > obscured.top + BUBBLE_HEIGHT && y < height - obscured.bottom;
+    x > EDGE && x < width - EDGE && y > obscured.top + PIN_HEIGHT && y < height - obscured.bottom;
+
+  // 핀·지명 겹침 정리: "출발" 핀 → 러너가 많은 코스 핀 → 지명 순으로 자리를 잡고, 이미 잡힌 자리와 겹치면 숨긴다.
+  const placed: Rect[] = [];
+  const take = (r: Rect) => {
+    if (placed.some((q) => r.l < q.r && q.l < r.r && r.t < q.b && q.t < r.b)) return false;
+    placed.push(r);
+    return true;
+  };
+  const showStart = !!start && inView(start) && take(pinRect(start, START_PIN_W));
+  const pins = project
+    ? courses
+        .filter((c) => c.id !== selectedId)
+        .map((c) => ({ c, p: project(c.displayRoute[0]) }))
+        .filter(({ p }) => inView(p))
+        .sort((a, z) => z.c.weeklyRunnerCount - a.c.weeklyRunnerCount)
+        .filter(({ c, p }) => take(pinRect(p, RUNNER_PIN_BASE_W + formatCount(c.weeklyRunnerCount).length * DIGIT_W)))
+    : [];
+  const labels =
+    project && base
+      ? base.labels
+          .map((l) => ({ l, p: project(l.at) }))
+          .filter(({ p }) => inView(p))
+          .filter(({ l, p: [x, y] }) => take({ l: x - (l.text.length * LABEL_CHAR_W) / 2, r: x + (l.text.length * LABEL_CHAR_W) / 2, t: y - spacing.sm, b: y + spacing.sm }))
+      : [];
 
   // 경로 탭 판정: locationX는 web에서 눌린 SVG 자식 기준이라 쓰지 않고, 화면 좌표에서 지도 위치를 뺀다.
   const onPress = (e: GestureResponderEvent) => {
@@ -90,93 +123,100 @@ export function ExploreMap({
           <Svg width={width} height={height}>
             {base ? (
               <>
-                {base.minorRoads.map((r, i) => (
-                  <Polyline key={`mr${i}`} points={toPoints(r)} fill="none" stroke={b.road} strokeWidth={2} />
-                ))}
+                {/* 지도 바탕: 공원 → 물 → 보행로 → 골목 → 보조 → 간선. 도로는 회색 테두리 위 흰 선 (국내 지도 앱 표현) */}
                 {base.parks.map((p, i) => (
                   <Polygon key={`pk${i}`} points={toPoints(p)} fill={b.park} />
                 ))}
                 {base.water.map((w, i) => (
                   <Polygon key={`wt${i}`} points={toPoints(w)} fill={b.water} />
                 ))}
-                {base.rivers.map((r, i) => (
-                  <Polyline key={`rv${i}`} points={toPoints(r)} fill="none" stroke={b.water} strokeWidth={18} strokeLinecap="round" strokeLinejoin="round" />
-                ))}
-                {base.majorRoads.map((r, i) => (
-                  <Polyline key={`MR${i}`} points={toPoints(r)} fill="none" stroke={b.roadMajor} strokeWidth={7} />
-                ))}
+                <Path d={toPath(base.path)} fill="none" stroke={b.path} strokeWidth={1.2} strokeDasharray="3 3" />
+                <Path d={toPath(base.minor)} fill="none" stroke={b.roadCasing} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d={toPath(base.mid)} fill="none" stroke={b.roadCasing} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d={toPath(base.major)} fill="none" stroke={b.roadCasing} strokeWidth={8.5} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d={toPath(base.minor)} fill="none" stroke={b.road} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d={toPath(base.mid)} fill="none" stroke={b.road} strokeWidth={4.4} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d={toPath(base.major)} fill="none" stroke={b.roadMajor} strokeWidth={6.5} strokeLinecap="round" strokeLinejoin="round" />
               </>
             ) : null}
+            {/* 모든 코스를 형광 민트 선으로: 무채색 지도 위에서 '달릴 수 있는 길'이 먼저 보인다 (83장 route signal) */}
             {courses
               .filter((c) => c.id !== selectedId)
               .map((c) => (
-                <Polyline key={c.id} points={toPoints(c.displayRoute)} fill="none" stroke={colors.text.secondary} strokeOpacity={0.55} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
+                <G key={c.id}>
+                  <Polyline points={toPoints(c.displayRoute)} fill="none" stroke={colors.route.casing} strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round" strokeOpacity={0.9} />
+                  <Polyline points={toPoints(c.displayRoute)} fill="none" stroke={colors.route.course} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                </G>
               ))}
             {selected ? (
               <>
-                {/* 선택 코스: 흰 테두리 위 signal 선으로 지도 위에서 먼저 보이게 (83장 route signal) */}
-                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.bg.surface} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
-                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.course} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
-                {start ? <Circle cx={start[0]} cy={start[1]} r={7} fill={colors.bg.surface} stroke={colors.route.course} strokeWidth={3} /> : null}
+                {/* 선택 코스: 넓은 민트 번짐 + 짙은 민트 테두리 + 굵은 형광 민트 */}
+                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.course} strokeOpacity={0.28} strokeWidth={20} strokeLinecap="round" strokeLinejoin="round" />
+                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.casing} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
+                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.course} strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round" />
+                {start ? <Circle cx={start[0]} cy={start[1]} r={7} fill={colors.bg.elevated} stroke={colors.route.casing} strokeWidth={3.5} /> : null}
               </>
             ) : null}
             {me ? (
               <>
-                <Circle cx={me[0]} cy={me[1]} r={14} fill={colors.action.tint} />
-                <Circle cx={me[0]} cy={me[1]} r={6} fill={colors.text.primary} stroke={colors.bg.surface} strokeWidth={2.5} />
+                <Circle cx={me[0]} cy={me[1]} r={18} fill={colors.route.casing} fillOpacity={0.14} />
+                <Circle cx={me[0]} cy={me[1]} r={7.5} fill={colors.route.casing} stroke={colors.bg.elevated} strokeWidth={3} />
               </>
             ) : null}
           </Svg>
         ) : null}
       </Pressable>
 
-      {project && base
-        ? base.labels
-            .map((l) => ({ l, p: project(l.at) }))
-            .filter(({ p }) => inView(p))
-            .map(({ l, p: [x, y] }) => {
-              return (
-              <View key={l.text} pointerEvents="none" style={[styles.labelAnchor, { left: x - LABEL_ANCHOR / 2, top: y - spacing.sm }]}>
-                <AppText role="caption" tone="secondary" style={styles.placeLabel}>
-                  {l.text}
-                </AppText>
-              </View>
-            );
-          })
-        : null}
+      {labels.map(({ l, p: [x, y] }) => (
+        <View key={l.text} pointerEvents="none" style={[styles.labelAnchor, { left: x - LABEL_ANCHOR / 2, top: y - spacing.sm }]}>
+          <AppText role="caption" tone="secondary" style={styles.placeLabel}>
+            {l.text}
+          </AppText>
+        </View>
+      ))}
 
-      {project
-        ? courses
-            .filter((c) => c.id !== selectedId)
-            .map((c) => ({ c, p: project(c.displayRoute[0]) }))
-            .filter(({ p }) => inView(p))
-            .map(({ c, p: [x, y] }) => {
-              return (
-                <Bubble key={c.id} x={x} y={y}>
-                  <AppIcon name="running" size={12} color={colors.text.secondary} />
-                  <AppText role="caption" tabular style={styles.bubbleText}>
-                    {formatCount(c.weeklyRunnerCount)}
-                  </AppText>
-                </Bubble>
-              );
-            })
-        : null}
+      {pins.map(({ c, p: [x, y] }) => (
+        <Bubble key={c.id} x={x} y={y}>
+          <AppIcon name="running" size={12} color={colors.text.secondary} />
+          <AppText role="caption" tabular style={styles.bubbleText}>
+            {formatCount(c.weeklyRunnerCount)}
+          </AppText>
+        </Bubble>
+      ))}
 
-      {start && selected ? (
-        <Bubble x={start[0]} y={start[1]} fill={colors.route.course}>
+      {start && showStart ? (
+        <Bubble x={start[0]} y={start[1]} fill={colors.action.primary}>
           <AppText role="caption" style={[styles.bubbleText, { color: colors.action.onPrimary }]}>
             출발
           </AppText>
         </Bubble>
       ) : null}
 
+      {base ? (
+        <AppText role="caption" tone="secondary" style={[styles.attribution, { bottom: obscured.bottom + spacing.xs }]} accessibilityElementsHidden>
+          {base.attribution}
+        </AppText>
+      ) : null}
+
       {loading ? (
-        <View pointerEvents="none" style={styles.loading} accessibilityLabel="지도 불러오는 중">
-          <ActivityIndicator color={colors.text.secondary} />
+        <View pointerEvents="none" style={styles.loading}>
+          <BrandLoader size={44} label="지도 불러오는 중" />
         </View>
       ) : null}
     </View>
   );
+}
+
+// 코스 하나만 맞추면 너무 확대돼 주변 길이 안 보인다. 가로로 약 1.3km(세로 0.5km)보다 더 확대하지 않는다.
+// 세로는 작은 화면에서 보이는 지도 높이가 짧아 크게 잡지 않는다.
+function withMinSpan(frame: GeoPoint[][], minM: number, minVerticalM: number): GeoPoint[][] {
+  const pts = frame.flat();
+  const lats = pts.map((p) => p.latitude);
+  const lngs = pts.map((p) => p.longitude);
+  const c = { latitude: (Math.min(...lats) + Math.max(...lats)) / 2, longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2 };
+  const dLat = minVerticalM / 2 / 111_320;
+  const dLng = minM / 2 / 111_320 / Math.cos((c.latitude * Math.PI) / 180);
+  return [...frame, [{ latitude: c.latitude - dLat, longitude: c.longitude - dLng }, { latitude: c.latitude + dLat, longitude: c.longitude + dLng }]];
 }
 
 function around(c: GeoPoint): GeoPoint[][] {
@@ -198,19 +238,38 @@ function frameFor(
   return frame;
 }
 
-// 경로 시작점 위의 작은 말풍선 (레퍼런스 P3)
+// 경로 시작점 위의 작은 말풍선 (레퍼런스 P3, 쏘카·카카오T 지도 위 검정 가격 핀)
 function Bubble({ x, y, fill, children }: { x: number; y: number; fill?: string; children: ReactNode }) {
   const { colors } = useTheme();
+  const bg = fill ?? colors.bg.elevated;
   return (
     <View pointerEvents="none" style={[styles.bubbleAnchor, { left: x - BUBBLE_ANCHOR / 2, top: y }]}>
-      <View style={[styles.bubble, { backgroundColor: fill ?? colors.bg.elevated, boxShadow: elevation.mapOverlay }]}>{children}</View>
+      <View style={[styles.bubble, { backgroundColor: bg, boxShadow: elevation.mapOverlay }]}>{children}</View>
+      <View style={[styles.bubbleTail, { borderTopColor: bg }]} />
     </View>
   );
 }
 
 const BUBBLE_ANCHOR = 120;
 const EDGE = spacing.xxl;
-const BUBBLE_HEIGHT = 22;
+const BUBBLE_HEIGHT = 24;
+const TAIL = 5;
+// 핀이 기준점 위로 차지하는 높이 (말풍선 + 꼬리 + 간격)
+const PIN_HEIGHT = BUBBLE_HEIGHT + TAIL + 8;
+// 경로 맨 위 점 위에 말풍선이 들어갈 자리
+const BUBBLE_SPACE = BUBBLE_HEIGHT + TAIL + spacing.lg;
+// 겹침 판정용 대략 크기 (px)
+const START_PIN_W = 48;
+const RUNNER_PIN_BASE_W = 34;
+const DIGIT_W = 8;
+const LABEL_CHAR_W = 12;
+
+type Rect = { l: number; r: number; t: number; b: number };
+
+// 점 위에 꼬리를 두고 떠 있는 핀이 차지하는 영역
+function pinRect([x, y]: [number, number], w: number): Rect {
+  return { l: x - w / 2, r: x + w / 2, t: y - PIN_HEIGHT, b: y };
+}
 const LABEL_ANCHOR = 100;
 
 const styles = StyleSheet.create({
@@ -228,12 +287,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   placeLabel: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.bold,
+    textShadowColor: 'rgba(255, 255, 255, 0.9)',
+    textShadowRadius: 3,
+  },
+  attribution: {
+    position: 'absolute',
+    left: spacing.sm,
+    fontSize: 9,
+    lineHeight: 12,
+    opacity: 0.8,
   },
   bubbleAnchor: {
     position: 'absolute',
     width: BUBBLE_ANCHOR,
-    marginTop: -BUBBLE_HEIGHT - 10,
+    marginTop: -PIN_HEIGHT,
     alignItems: 'center',
   },
   bubble: {
@@ -241,10 +309,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs / 2,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.sm + 2,
     borderRadius: radius.pill,
   },
+  bubbleTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: TAIL,
+    borderRightWidth: TAIL,
+    borderTopWidth: TAIL,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
   bubbleText: {
-    fontFamily: fontFamily.semibold,
+    fontFamily: fontFamily.extrabold,
   },
 });

@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Wordmark } from '@/components/Brand';
 import { AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { spacing } from '@/design/tokens';
@@ -11,7 +12,10 @@ export function PendingScreen({ title, order, showDevLinks }: { title: string; o
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg.canvas, paddingTop: insets.top + spacing.xl }]}>
+    <View style={[styles.root, { backgroundColor: colors.bg.canvas, paddingTop: insets.top + spacing.lg }]}>
+      <View style={styles.brand}>
+        <Wordmark height={24} />
+      </View>
       <AppText role="screenTitle" accessibilityRole="header">
         {title}
       </AppText>
@@ -46,6 +50,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
+  },
+  brand: {
+    marginBottom: spacing.xl,
   },
   dev: {
     marginTop: spacing.xxl,

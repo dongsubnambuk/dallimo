@@ -24,8 +24,8 @@ export type RankingRowProps = {
 const PODIUM_MAX = 3;
 const BADGE = 28;
 
-// 113장: self anchor over decoration. 89장: podium은 과장하지 않는다 (금·은·동 색 대신 signal 연한 배경만).
-// 배치는 국내 러닝 앱 랭킹 패턴: 순위 배지 · 이름 · 기록(아래 페이스). 본인 행은 둥근 signal tint 배경.
+// 113장: self anchor over decoration. 89장: podium은 과장하지 않는다 (금·은·동 색 대신 검정 원 배지만).
+// 레퍼런스: 토스증권·열품타·워크온 랭킹 — 순위 · 이름 · 기록(아래 페이스). 본인 행은 민트 연한 배경 + "나" 표시.
 export function RankingRow({
   rank,
   name,
@@ -61,12 +61,12 @@ export function RankingRow({
       accessibilityLabel={a11y}
       style={[styles.root, isSelf && [styles.self, { backgroundColor: colors.action.tint }], style]}
     >
-      <View style={[styles.badge, isPodium && !isSelf && { backgroundColor: colors.action.tint }]}>
+      <View style={[styles.badge, isPodium && { backgroundColor: colors.action.secondary }]}>
         <AppText
           role="label"
           tabular
-          tone={strong ? 'accent' : 'secondary'}
-          style={strong && styles.extrabold}
+          tone={strong ? 'primary' : 'secondary'}
+          style={[strong && styles.extrabold, isPodium && { color: colors.action.onSecondary }]}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.7}
@@ -75,10 +75,11 @@ export function RankingRow({
         </AppText>
       </View>
       <View style={styles.nameBlock}>
-        <AppText role="body" numberOfLines={1} tone={isSelf ? 'accent' : 'primary'} style={styles.name}>
+        <AppText role="body" numberOfLines={1} style={styles.name}>
           {name}
         </AppText>
-        {isPB ? <Pill text="PB" filled /> : null}
+        {isSelf ? <Pill text="나" filled="ink" /> : null}
+        {isPB ? <Pill text="PB" filled="signal" /> : null}
         {relation === 'friend' ? <Pill text="친구" /> : null}
       </View>
       {rankChange ? (
@@ -94,7 +95,7 @@ export function RankingRow({
         </View>
       ) : null}
       <View style={styles.record}>
-        <AppText role="label" tabular tone={isSelf ? 'accent' : 'primary'} style={styles.extrabold}>
+        <AppText role="label" tabular style={styles.extrabold}>
           {time}
         </AppText>
         {pace ? (
@@ -107,18 +108,13 @@ export function RankingRow({
   );
 }
 
-function Pill({ text, filled = false }: { text: string; filled?: boolean }) {
+function Pill({ text, filled }: { text: string; filled?: 'signal' | 'ink' }) {
   const { colors } = useTheme();
+  const bg = filled === 'signal' ? colors.action.primary : filled === 'ink' ? colors.action.secondary : undefined;
+  const fg = filled === 'signal' ? colors.action.onPrimary : filled === 'ink' ? colors.action.onSecondary : colors.text.secondary;
   return (
-    <View
-      style={[
-        styles.pill,
-        filled
-          ? { backgroundColor: colors.action.primary }
-          : { borderColor: colors.border.strong, borderWidth: StyleSheet.hairlineWidth },
-      ]}
-    >
-      <AppText role="caption" style={{ color: filled ? colors.action.onPrimary : colors.text.secondary }}>
+    <View style={[styles.pill, bg ? { backgroundColor: bg } : { borderColor: colors.border.strong, borderWidth: StyleSheet.hairlineWidth }]}>
+      <AppText role="caption" style={[styles.pillText, { color: fg }]}>
         {text}
       </AppText>
     </View>
@@ -148,7 +144,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   extrabold: {
-    fontFamily: fontFamily.extrabold,
+    fontFamily: fontFamily.black,
   },
   nameBlock: {
     flex: 1,
@@ -158,7 +154,7 @@ const styles = StyleSheet.create({
   },
   name: {
     flexShrink: 1,
-    fontFamily: fontFamily.semibold,
+    fontFamily: fontFamily.bold,
   },
   change: {
     flexDirection: 'row',
@@ -170,5 +166,8 @@ const styles = StyleSheet.create({
   pill: {
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xs + spacing.xs / 2,
+  },
+  pillText: {
+    fontFamily: fontFamily.bold,
   },
 });

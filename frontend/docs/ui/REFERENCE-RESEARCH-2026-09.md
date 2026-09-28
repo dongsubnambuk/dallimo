@@ -55,3 +55,51 @@ Pinterest 결과의 상당수는 실제 앱이 아닌 컨셉 시안(dribbble류)
 - App Store (한국): 런데이 id1042937618, Runnect id1663884202, RUNPLE id6475159516, 고스트러너 id6747737877, 랭킹마라톤 id6449415129, RunPlash id6790391778, Runky id6753214440, 먼데이런클럽 id6737470364, 러닝라이프 id6503121199, 런투유 id6768350528, Nike Run Club id387771637, AllTrails id405075943, komoot id447374873
 - GitHub: Runnect/Runnect-Android
 - Pinterest 검색: kr.pinterest.com/search/pins/?q= "running app ui", "running app map route ui", "running app dark ui", "러닝 앱 디자인", "workout summary app ui", "leaderboard app ui mobile"
+
+## 6. 2차 조사: 시각 스타일 (v0.3 전면 교체)
+
+사용자 지시: "구조 배치가 아니라 색상·디자인·스타일까지 레퍼런스를 최대한 활용하라. 핀터레스트, uibowl.io, wwit.design 참고."
+1차 조사가 정보 계층을 봤다면, 2차 조사는 색·글자 굵기·모양·표면 처리를 봤다.
+
+### 6.1 조사 범위
+
+| 출처 | 대상 | 본 화면 수 |
+| --- | --- | --- |
+| uibowl.io (앱 > 운동&건강) | Nike Run Club, 워크온, 플랜핏, 인아웃, 필라이즈, Gentler Streak, Sweatcoin, Nike | 운동&건강 전체 859개 패턴 중 약 300장 |
+| uibowl.io (UI 패턴) | 지도뷰·내주변(토스, 캐시워크, 카카오T, 쏘카, Kia 다크, 당근, 여기어때), 랭킹(토스증권, 열품타, 말해보카, Forest), 통계·리포트(워크온, 앳플리, 신한 SOL) | 약 250장 |
+| wwit.design | 플랜핏 전체 흐름(온보딩·홈·운동·분석·커뮤니티·마이) | 121장 |
+| Pinterest | 1차 6종 + "strava app redesign ui", "running route app ui design", "running app ui light minimal" | 36핀 추가 |
+
+wwit.design에는 러닝 앱이 없어서 운동 앱인 플랜핏을 봤다. uibowl의 앱 상세 페이지는 로그인이 필요해 공개된 패턴 목록으로 화면을 모았다.
+
+### 6.2 시각 패턴
+
+| # | 패턴 | 보인 앱 | 달리모 적용 |
+| --- | --- | --- | --- |
+| S1 | **흑백 대비 + 형광 한 색**. 화면 대부분은 흰색/검정이고 형광색은 핵심 버튼·진행·선택 한두 곳에만 | NRC(흰 바탕·검정 버튼·볼트), 플랜핏(차콜·민트), 스트라바(흰 바탕·주황) | signal을 형광 민트 `#2BF0C0`로. 채움 전용, 글자는 흑/백 |
+| S2 | **검정 알약 버튼**이 보조 행동, 형광 채움은 화면당 하나 | NRC "제출·다음", 플랜핏 "추천 운동 시작하기" | `SecondaryButton` 강조 = 검정 채움, `PrimaryRunButton` = 민트 채움 알약 |
+| S3 | 카드 대신 **연회색 블록**(테두리·그림자 없음, 모서리 16 안팎) | 플랜핏 세트 입력·기록, NRC 활동 통계, 토스 | `bg.surface` = 회색 채움, 테두리 제거 |
+| S4 | **큰 화면 제목** 28 안팎 굵게, 왼쪽 정렬 | NRC "러닝·활동", 플랜핏 "분석·커뮤니티" | screenTitle 28 ExtraBold |
+| S5 | 기록 숫자는 **아주 굵은 기울임 + 좁은 자간** | NRC 1.21 / 143.0, 스트라바 연간 기록 | metric 역할을 Pretendard Black + 기울임 -9° |
+| S6 | 지도 화면: **알약 검색창 + 흰 칩이 지도 위에 떠 있고**, 아래 흰 시트에 목록 | 토스 적립 매장, 셀레트립, 여기어때 | 탐색 화면 상단 구성 |
+| S7 | 지도 핀은 **검정(짙은) 알약 + 흰 숫자**, 선택된 것만 브랜드 색 | 쏘카 주차 요금, 카카오T, 모두의주차장 | 러너 수 핀 검정, "출발" 핀 민트 |
+| S8 | 밝은 지도 위 경로는 **테두리가 있는 굵은 선** | 스트라바·NRC 경로, 핀터레스트 경로 시안 | 선택 코스 = 검정 테두리 11 + 민트 6 |
+| S9 | 기간·정렬 선택은 **회색 트랙 위 채운 칸** | NRC 주/월/년/전체, 열품타 일간/주간/월간 | 정렬 탭 |
+| S10 | 랭킹은 **순위 · 이름 · 기록** 한 줄, 1~3위는 원 배지, 본인 행은 연한 강조 배경 | 토스증권, 열품타, 워크온 챌린지 순위 | `RankingRow` 1~3위 검정 원, 본인 민트 연한 배경 + "나" |
+| S11 | 목록 썸네일은 **회색 칸 안 경로 모양**, 선택/완료는 칸 색을 뒤집음 | NRC 최근 활동, Pinterest "run receipt" | `CourseCard` 경로 칸, 선택 시 검정 칸 + 민트 경로 |
+
+### 6.3 채택하지 않은 것
+
+| 항목 | 이유 |
+| --- | --- |
+| 볼트(형광 연두), 스트라바 주황 | 사용자가 민트 네온 + 흑백을 선택. 83장 teal 계열 유지 |
+| 전체 다크(플랜핏식 탐색 화면) | 87장: 탐색은 밝게, 러닝은 어둡게 |
+| 별도 숫자 글꼴(NRC식 condensed) | 88.1장: 숫자를 위해 별도 장식 font를 추가하지 않음. Pretendard Black으로 대신 |
+| 사진 배너·캐릭터(워크온, Gentler Streak) | 95장 사진 thumbnail 없는 기본, 79장 캐릭터 경제 제외 |
+| 금·은·동 메달(열품타) | 89장 podium 과장 금지. 검정 원 배지만 |
+
+### 6.4 출처
+
+- uibowl.io 공개 API: `/api/v2/apps/patterns?categoryCodes=[24]`(운동&건강), `patternCodes=[62]`(지도뷰·내주변), `[69]`(랭킹), `[259]`(통계·리포트)
+- wwit.design/2023/07/24/planfit/
+- kr.pinterest.com/search/pins/?q= "strava app redesign ui", "running route app ui design", "running app ui light minimal"

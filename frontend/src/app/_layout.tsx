@@ -28,7 +28,7 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             contentStyle: { backgroundColor: lightTheme.colors.bg.canvas },
-            headerTitleStyle: { fontFamily: fontFamily.semibold },
+            headerTitleStyle: { fontFamily: fontFamily.bold },
             headerBackButtonDisplayMode: 'minimal',
           }}
         >

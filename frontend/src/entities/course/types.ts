@@ -14,6 +14,8 @@ export type CourseSummary = {
   displayRoute: GeoPoint[];
   // 내 최고 기록(초). 기록이 없으면 null.
   myBestSec: number | null;
+  // 코스 1위 인증 기록(초). 인증 기록이 없으면 null. (탐색에서 경쟁 동기를 보여준다, 64.1장 Competition-aware)
+  leaderSec: number | null;
   // 평균 완주 기준 예상 소요 시간(초)
   estimatedSec: number;
   // 인증된 완주자 수
