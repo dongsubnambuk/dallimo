@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import type { CourseSummary } from '@/entities/course/types';
 import { createMockLocationSource } from '@/shared/location/mockLocationSource';
 
-import { createMockCourseRepository, DEFAULT_REGION_CENTER } from './api/mockCourseRepository';
+import { createMockCourseRepository, DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
 import type { ExploreScenario } from './api/scenario';
 
 export type NearbyState =
@@ -21,7 +21,7 @@ export function useNearbyCourses(scenario: ExploreScenario, radiusM: number) {
   const services = useMemo(
     () => ({
       location: createMockLocationSource(scenario === 'denied' ? 'denied' : 'granted'),
-      courses: createMockCourseRepository(scenario),
+      courses: createMockCourseRepository(scenario === 'denied' ? 'normal' : scenario),
     }),
     [scenario],
   );

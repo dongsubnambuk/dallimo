@@ -13,11 +13,11 @@ import { ThemeProvider, useTheme } from '@/design/theme';
 import { elevation, fontFamily, OBLIQUE_SKEW, radius, spacing, touchTarget, typography } from '@/design/tokens';
 import { formatCount, formatDistanceKm, formatDuration } from '@/shared/format';
 
-import { DEFAULT_REGION_CENTER } from './api/mockCourseRepository';
-import { MOCK_MAP_BASE } from './api/mockMapBase';
+import { DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
+import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
 import { parseScenario } from './api/scenario';
 import { ExploreMap } from './components/ExploreMap';
-import { StateNotice } from './components/StateNotice';
+import { StateNotice } from '@/components/StateNotice';
 import { useNearbyCourses } from './useNearbyCourses';
 
 // SCR-E01 Explore 홈 (CRS-001 주변 코스, CRS-004 빠른 필터·정렬, LOC-001/002 위치 권한).
@@ -91,7 +91,7 @@ export function ExploreScreen() {
   const topObscured = insets.top + spacing.sm + TOP_BAR_HEIGHT;
   const bottomObscured = SHEET_OVERLAP + (selected ? TICKET_HEIGHT + spacing.md : 0);
 
-  const openDetail = (c: CourseSummary) => router.push({ pathname: '/course/[id]', params: { id: c.id, name: c.name } });
+  const openDetail = (c: CourseSummary) => router.push({ pathname: '/course/[id]', params: { id: c.id } });
   const select = (id: string) => {
     setSelectedId(id);
     setFocus('selection');

@@ -24,7 +24,7 @@ export function AppDivider({ variant = 'hairline', inset, style }: AppDividerPro
       style={[
         { alignSelf: 'stretch' },
         section
-          ? { height: SECTION_BAND, backgroundColor: colors.bg.canvas }
+          ? { height: SECTION_BAND, backgroundColor: colors.bg.surface }
           : { height: StyleSheet.hairlineWidth, backgroundColor: colors.border.subtle },
         !section && inset && { marginHorizontal: spacing[inset] },
         style,

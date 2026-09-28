@@ -1,8 +1,9 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
-import Svg, { Circle, G, Path, Polygon, Polyline } from 'react-native-svg';
+import Svg, { Circle, G, Polyline } from 'react-native-svg';
 
 import { BrandLoader } from '@/components/Brand';
+import { MapBaseLayer } from '@/components/MapBaseLayer';
 import type { CourseSummary } from '@/entities/course/types';
 import { AppIcon, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
@@ -10,7 +11,7 @@ import { elevation, fontFamily, radius, spacing } from '@/design/tokens';
 import { formatCount } from '@/shared/format';
 import { distanceM, makeProjection, pointToPolylinePx, type GeoPoint } from '@/shared/geo';
 
-import type { MapBase } from '../api/mockMapBase';
+import type { MapBase } from '@/shared/map/mockMapBase';
 
 export type ExploreMapProps = {
   courses: CourseSummary[];
@@ -65,14 +66,8 @@ export function ExploreMap({
     : null;
   const screen = (pts: GeoPoint[]) => (project ? pts.map(project) : []);
   const toPoints = (pts: GeoPoint[]) => screen(pts).map((p) => p.join(',')).join(' ');
-  // 같은 위계의 선을 하나의 path로 묶어 SVG 요소 수를 줄인다 (8항: 지도 렌더링 부담)
-  const toPath = (lines: GeoPoint[][]) =>
-    lines
-      .map((l) => screen(l).map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''))
-      .join('');
   const start = selected && project ? project(selected.displayRoute[0]) : null;
   const me = userPosition && project ? project(userPosition) : null;
-  const b = colors.mapBase;
   // 상단 검색·하단 카드에 가려지거나 가장자리에서 잘리는 위치의 라벨·말풍선은 숨긴다
   const inView = ([x, y]: [number, number]) =>
     x > EDGE && x < width - EDGE && y > obscured.top + PIN_HEIGHT && y < height - obscured.bottom;
@@ -117,28 +112,11 @@ export function ExploreMap({
   };
 
   return (
-    <View ref={rootRef} onLayout={onLayout} style={[styles.root, { height, backgroundColor: b.land }]}>
+    <View ref={rootRef} onLayout={onLayout} style={[styles.root, { height, backgroundColor: colors.mapBase.land }]}>
       <Pressable onPress={onPress} accessible={false} style={StyleSheet.absoluteFill}>
         {project ? (
           <Svg width={width} height={height}>
-            {base ? (
-              <>
-                {/* 지도 바탕: 공원 → 물 → 보행로 → 골목 → 보조 → 간선. 도로는 회색 테두리 위 흰 선 (국내 지도 앱 표현) */}
-                {base.parks.map((p, i) => (
-                  <Polygon key={`pk${i}`} points={toPoints(p)} fill={b.park} />
-                ))}
-                {base.water.map((w, i) => (
-                  <Polygon key={`wt${i}`} points={toPoints(w)} fill={b.water} />
-                ))}
-                <Path d={toPath(base.path)} fill="none" stroke={b.path} strokeWidth={1.2} strokeDasharray="3 3" />
-                <Path d={toPath(base.minor)} fill="none" stroke={b.roadCasing} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round" />
-                <Path d={toPath(base.mid)} fill="none" stroke={b.roadCasing} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
-                <Path d={toPath(base.major)} fill="none" stroke={b.roadCasing} strokeWidth={8.5} strokeLinecap="round" strokeLinejoin="round" />
-                <Path d={toPath(base.minor)} fill="none" stroke={b.road} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-                <Path d={toPath(base.mid)} fill="none" stroke={b.road} strokeWidth={4.4} strokeLinecap="round" strokeLinejoin="round" />
-                <Path d={toPath(base.major)} fill="none" stroke={b.roadMajor} strokeWidth={6.5} strokeLinecap="round" strokeLinejoin="round" />
-              </>
-            ) : null}
+            {base ? <MapBaseLayer base={base} project={project} /> : null}
             {/* 모든 코스를 형광 민트 선으로: 무채색 지도 위에서 '달릴 수 있는 길'이 먼저 보인다 (83장 route signal) */}
             {courses
               .filter((c) => c.id !== selectedId)
