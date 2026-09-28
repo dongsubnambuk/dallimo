@@ -3,12 +3,26 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Wordmark } from '@/components/Brand';
+import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { spacing } from '@/design/tokens';
 
 // 아직 구현 순서(72장)가 오지 않은 탭의 자리. 제품 화면이 아니다.
-export function PendingScreen({ title, order, showDevLinks, handoff }: { title: string; order: string; showDevLinks?: boolean; handoff?: string | null }) {
+export function PendingScreen({
+  title,
+  order,
+  showDevLinks,
+  handoff,
+  action,
+}: {
+  title: string;
+  order: string;
+  showDevLinks?: boolean;
+  handoff?: string | null;
+  // 흐름 확인용으로 앞 화면에 돌아가는 버튼
+  action?: { label: string; onPress: () => void };
+}) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
@@ -31,6 +45,7 @@ export function PendingScreen({ title, order, showDevLinks, handoff }: { title: 
           <AppText role="label">{handoff}</AppText>
         </View>
       ) : null}
+      {action ? <SecondaryButton label={action.label} emphasized onPress={action.onPress} style={styles.action} /> : null}
       {showDevLinks && __DEV__ ? (
         <View style={styles.dev}>
           <AppText role="caption" tone="secondary">
@@ -45,6 +60,13 @@ export function PendingScreen({ title, order, showDevLinks, handoff }: { title: 
             <Link key={s} href={{ pathname: '/', params: { scenario: s } }}>
               <AppText role="label" tone="accent">
                 탐색 화면 · {s}
+              </AppText>
+            </Link>
+          ))}
+          {(['normal', 'denied', 'acquiring', 'poor', 'far'] as const).map((s) => (
+            <Link key={`run-${s}`} href={{ pathname: '/run', params: { scenario: s, mode: 'PB', courseId: 'c-suseongmot', targetSec: '602', targetLabel: '내 PB −10초' } }}>
+              <AppText role="label" tone="accent">
+                달리기 준비 · {s}
               </AppText>
             </Link>
           ))}
@@ -68,6 +90,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: 12,
     gap: spacing.xs,
+  },
+  action: {
+    marginTop: spacing.xl,
+    alignSelf: 'flex-start',
   },
   dev: {
     marginTop: spacing.xxl,

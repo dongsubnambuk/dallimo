@@ -425,3 +425,22 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 다음 화면 | 달리기 탭으로 `mode·courseId·targetSec·targetLabel`을 넘긴다(`RunPlan`). 함께는 함께 탭으로 `courseId`. 두 탭은 아직 준비 중 화면이라 넘겨받은 선택을 표시해 흐름을 확인 | Run Ready 72장 5번, Together 10번 |
 | 라우트 | `app/course/[id].tsx` → `app/course/[id]/index.tsx`, `app/course/[id]/play.tsx` 추가. 헤더·표시 방식은 루트 `_layout`에서 지정 | |
 | 타입·아이콘 | `entities/run/types.ts`(RunMode, PlayModeKey, RunPlan), 아이콘 modeCourse·modePB·modeRival·modeTogether·lock | |
+
+## 14. Run Ready 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 화면 | 달리기 탭 = SCR-R01 Run 홈/준비. dark canvas 위에 어두운 지도(내 위치·코스·출발점) → 상태 한 줄(28pt) → 목표 카드 → 아래 넓은 "시작" | 89장 "dark pre-run canvas, 중앙 GPS 상태와 목표, 하단 넓은 Start", REFERENCE-MATRIX Run Ready(NRC + Runkeeper) |
+| 계획 없이 들어온 경우 | FREE(RUN-001 빠른 러닝)로 준비. 목표 카드 안에 "코스 달리기"(탐색 탭) · "함께 달리기"(함께 탭) 진입 | 125장 Run 탭 진입점 FREE / COURSE / TRAINING / TOGETHER. TRAINING은 FEATURE-FEEDBACK roadmap 후속이라 두지 않음. Quick Start(직전 모드)는 "제공할 수 있다"라 이번에는 두지 않음 |
+| 계획을 받은 경우 | Play Mode의 `RunPlan`(mode·courseId·targetSec·targetLabel)으로 모드 배지·코스명·거리·목표 기록(민트)·목표 페이스를 보여준다. 완주는 예상 시간. ✕는 계획을 버리고 FREE 준비로 | 13항 다음 화면, 89장 "여러 설정 chip과 작은 버튼" 회피 |
+| 확인 순서 | 권한 → GPS 품질 → (코스) 출발점 거리. 앞 단계가 막히면 그 이유 하나만 보여준다 | RUN-002, LOC-001~003, 73장 "준비되지 않으면 이유를 설명" |
+| 상태 | checking / permission denied(지도 흐리게 + 자물쇠 + "설정에서 위치 허용하기") / GPS acquiring / GPS poor / course start too far(내 위치→출발점 점선 + "417m 더 가야 출발점이에요") / ready | 74장 5개 상태. LOC-002 설정 이동, 탐색은 권한 없이 유지 |
+| 시작 막힘 | acquiring·poor는 `disabledGPS`, 권한 거부는 `disabledPermission`, 출발점이 멀면 `disabledStartPoint` | 73장. 출발점 밖에서 시작하면 StartPointVerifier(10.4장)에서 코스 기록으로 인정되지 않는다 |
+| `PrimaryRunButton` 확장 | availability에 `disabledStartPoint` 추가(기본 문구 "코스 출발점 근처에서 시작할 수 있어요"). COMPONENT-CONTRACTS의 ready / disabledGPS / disabledPermission / loading은 그대로 | 74장 course start too far를 GPS·권한과 다른 이유로 설명하기 위해 |
+| 정책값 | 출발 반경은 `entities/run/policy.ts`의 `getRunPolicy()`로 받는다(`course.start_radius_m`, 명세 후보 100m를 mock으로). GPS 정확도 기준(`gps.required_accuracy_m`)은 미확정이라 화면에 두지 않고 `LocationSource.getCurrentQuality()`가 품질을 돌려준다 | 10.5장 정책값, 명세 "정책값은 하드코딩하지 않는다" |
+| LocationSource | `getCurrentQuality(): Promise<GpsQuality>` 추가, `GpsQuality` 타입을 `shared/location`으로 옮김(`GpsStatus`는 다시 내보냄). mock은 처음 1.5초 acquiring 뒤 good | 49.2장 Location Adapter |
+| 카운트다운 | 시작 → `/run/active`(탭 없는 전체 화면, 뒤로 밀기 막음)에서 3-2-1 → "출발". 숫자 180pt Black 기울임 민트, scale 1.35→1 + fade. 동작 줄이기면 숫자만 바뀜. 카운트다운 중 "취소" | RUN-003, 69장 "3-2-1 countdown, 숫자 scale/fade", `motion.countdownStep` 1000ms |
+| 햅틱 | 각 숫자 약한 햅틱(impact Light), 출발 강한 햅틱(impact Heavy). `shared/haptics.ts`로 감싸고 끌 수 있게 함(설정 화면은 13번 단계, 그 전까지 앱을 켜 둔 동안만 기억). 웹은 건너뜀 | 69장, ACCESSIBILITY "햅틱은 끌 수 있어야 한다". `expo-haptics` 추가 |
+| 카운트다운 뒤 | Active Run(72장 6번) 전까지 준비 중 화면에 넘겨받은 계획을 표시하고 "준비 화면으로" 버튼 | 흐름 확인용 |
+| 탭 바 | 달리기 탭이 선택되면 탭 바도 dark. 선택 탭 민트 점 테두리를 탭 색에 맞춤 | 110.1장 러닝 컨텍스트 dark |
+| 개발용 | `/run?scenario=` normal / denied / acquiring / poor / far. 마이 탭 개발용 링크에 추가 | 탐색·코스 상세와 같은 방식 |

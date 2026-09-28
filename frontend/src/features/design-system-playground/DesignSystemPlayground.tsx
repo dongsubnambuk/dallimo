@@ -219,6 +219,9 @@ function ActionCases() {
       <Case label="disabledPermission">
         <PrimaryRunButton label="이 코스 달리기" availability="disabledPermission" />
       </Case>
+      <Case label="disabledStartPoint">
+        <PrimaryRunButton label="시작" availability="disabledStartPoint" reason="출발점까지 420m 남았어요. 출발점 근처에서 시작할 수 있어요" />
+      </Case>
       <Case label="긴 라벨">
         <PrimaryRunButton label="수성못 둘레길 야간 코스 달리기 시작하기" />
       </Case>

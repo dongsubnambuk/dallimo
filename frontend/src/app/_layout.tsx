@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 
-import { lightTheme, ThemeProvider } from '@/design/theme';
+import { darkTheme, lightTheme, ThemeProvider } from '@/design/theme';
 import { fontAssets, fontFamily } from '@/design/tokens';
 
 SplashScreen.preventAutoHideAsync();
@@ -38,6 +38,11 @@ export default function RootLayout() {
           <Stack.Screen
             name="course/[id]/play"
             options={{ headerShown: false, presentation: 'transparentModal', animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }}
+          />
+          {/* 카운트다운 → Active Run. 러닝 중에는 탭을 가리고 뒤로 밀기로 빠지지 않게 한다 */}
+          <Stack.Screen
+            name="run/active"
+            options={{ headerShown: false, gestureEnabled: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }}
           />
         </Stack>
       </ThemeProvider>

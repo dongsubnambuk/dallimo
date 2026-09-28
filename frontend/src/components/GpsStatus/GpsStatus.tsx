@@ -4,8 +4,9 @@ import { AppIcon, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import type { ColorRoles } from '@/design/tokens';
 import { elevation, radius, spacing } from '@/design/tokens';
+import type { GpsQuality } from '@/shared/location/locationSource';
 
-export type GpsQuality = 'acquiring' | 'good' | 'fair' | 'poor' | 'unavailable';
+export type { GpsQuality };
 
 export type GpsStatusProps = {
   quality: GpsQuality;
