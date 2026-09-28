@@ -55,6 +55,9 @@ export default function RootLayout() {
           <Stack.Screen name="together/[roomId]/result" options={{ headerShown: false, animation: 'fade' }} />
           {/* Result는 light로 돌아온다 (89장) */}
           <Stack.Screen name="run/result" options={{ headerShown: false, animation: 'fade' }} />
+          {/* My: 러닝 기록 목록 → 러닝 상세 (light) */}
+          <Stack.Screen name="my/runs/index" options={{ headerShown: false }} />
+          <Stack.Screen name="my/runs/[id]" options={{ headerShown: false }} />
         </Stack>
       </ThemeProvider>
     </QueryClientProvider>

@@ -64,7 +64,7 @@ export function LiveResultScreen({ roomId }: { roomId: string }) {
             <SecondaryButton
               label="내 러닝 기록 자세히"
               size="sm"
-              onPress={() => router.push({ pathname: '/run/result', params: { id: result.data!.myRunId! } })}
+              onPress={() => router.push({ pathname: '/my/runs/[id]', params: { id: result.data!.myRunId! } })}
               style={styles.selfStart}
             />
           ) : null}
