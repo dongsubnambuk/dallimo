@@ -1,4 +1,5 @@
 import { MOCK_COURSE_ROUTES } from '@/entities/course/api/mockCourseRoutes';
+import { advanceCourse, createCourseTrack, initialCourseProgress, type CourseProgressState, type CourseTrack } from '@/entities/run/courseProgress';
 import { addPoint, averagePace, breakSegment, currentPace, initialMetrics, type MetricsState } from '@/entities/run/metrics';
 import { getRunPolicySync } from '@/entities/run/policy';
 import type { RunMode, RunPoint } from '@/entities/run/types';
@@ -8,8 +9,8 @@ import { createMemoryRunPointStore } from './memoryRunPointStore';
 import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine, type RunPrepareInput } from './runningEngine';
 
 // 개발 빌드에서 Active Run 상태를 만들어 QA하기 위한 값 (SCREEN-SPECS: running, paused, GPS poor, offline, recovering, finish pending).
-// route deviation은 COURSE 모드(72장 7번)에서 다룬다.
-export const ACTIVE_RUN_SCENARIOS = ['normal', 'poorGps', 'offline', 'recovering', 'finishPending'] as const;
+// 코스 러닝: offRoute(코스를 벗어났다 돌아옴), behind(목표보다 느리게 달림).
+export const ACTIVE_RUN_SCENARIOS = ['normal', 'poorGps', 'offline', 'recovering', 'finishPending', 'offRoute', 'behind'] as const;
 export type ActiveRunScenario = (typeof ACTIVE_RUN_SCENARIOS)[number];
 
 export function parseActiveRunScenario(value: unknown): ActiveRunScenario {
@@ -23,16 +24,30 @@ type MockOptions = {
   speed: number;
 };
 
-// 가짜 러너: 수성못 호안 한 바퀴를 5'15"/km 안팎으로 계속 돈다.
+// 가짜 러너: 5'15"/km 안팎으로 달린다. FREE면 수성못 호안을 계속 돌고, 코스 러닝이면 코스 출발점부터 코스를 따라간다.
 const LOOP: GeoPoint[] = MOCK_COURSE_ROUTES['c-suseongmot'].route.map(([latitude, longitude]) => ({ latitude, longitude }));
 const LOOP_M = LOOP.slice(1).reduce((a, p, i) => a + distanceM(LOOP[i], p), 0);
 const BASE_MPS = 1000 / 315;
 // GPS 약함 구간(엔진 시각 기준 출발 후 초)
 const POOR_FROM_SEC = 20;
 const POOR_TO_SEC = 45;
+// 코스 이탈 구간(출발 후 초)과 벗어나는 거리(m)
+const OFF_FROM_SEC = 30;
+const OFF_TO_SEC = 70;
+const OFF_M = 90;
 // Batch Sync 간격(초). 명세에 값이 없어 mock에서만 쓴다.
 const SYNC_EVERY_SEC = 5;
 const PATH_EVERY = 5;
+
+// 진행 방향의 오른쪽 수직으로 m만큼 옮긴 점 (코스를 벗어나는 흉내)
+function sideStep(p: GeoPoint, ahead: GeoPoint, m: number): GeoPoint {
+  const k = Math.cos((p.latitude * Math.PI) / 180);
+  const dx = (ahead.longitude - p.longitude) * k;
+  const dy = ahead.latitude - p.latitude;
+  const len = Math.hypot(dx, dy) || 1;
+  const deg = m / 111_320;
+  return { latitude: p.latitude - (dx / len) * deg, longitude: p.longitude + ((dy / len) * deg) / k };
+}
 
 export function createMockRunningEngine({ scenario, speed }: MockOptions): RunningEngine {
   const policy = getRunPolicySync();
@@ -50,6 +65,12 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
   let lastSyncAt = 0;
   let acceptedCount = 0;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let path: GeoPoint[] = LOOP;
+  let pathM = LOOP_M;
+  let loopPath = true;
+  let track: CourseTrack | null = null;
+  let courseState: CourseProgressState = initialCourseProgress();
+  const pace = scenario === 'behind' ? 0.9 : 1;
   let snap: ActiveRunSnapshot = {
     status: 'PREPARING',
     mode,
@@ -65,6 +86,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     activeMsBase: 0,
     runningSince: null,
     recovered: false,
+    course: null,
   };
 
   const emit = (patch: Partial<ActiveRunSnapshot>) => {
@@ -73,7 +95,9 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
   };
 
   const positionAt = (m: number): GeoPoint => {
-    const p = pointAt(LOOP, (m % LOOP_M) / LOOP_M);
+    // 순환이 아닌 코스는 끝에서 되돌아온다 (mock)
+    const r = m % (loopPath ? pathM : pathM * 2);
+    const p = pointAt(path, (r <= pathM ? r : pathM * 2 - r) / pathM);
     // 몇 m 안쪽의 흔들림 (난수 대신 sin, 같은 입력이면 같은 결과)
     const j = 0.000015;
     return { latitude: p.latitude + Math.sin(m / 37) * j, longitude: p.longitude + Math.cos(m / 53) * j };
@@ -91,9 +115,13 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     // 1초마다 point 하나 (배속이면 한 번에 여러 개)
     while (lastTickAt + 1000 <= t) {
       lastTickAt += 1000;
-      const v = BASE_MPS * (1 + 0.06 * Math.sin(lastTickAt / 1000 / 40));
+      const v = BASE_MPS * pace * (1 + 0.06 * Math.sin(lastTickAt / 1000 / 40));
       travelledM += v;
-      const pos = positionAt(travelledM);
+      const off = scenario === 'offRoute' && track && sinceStart >= OFF_FROM_SEC && sinceStart < OFF_TO_SEC;
+      const onRoute = positionAt(travelledM);
+      const pos = off ? sideStep(onRoute, positionAt(travelledM + 10), OFF_M) : onRoute;
+      // 이탈 중에는 코스를 따라 앞으로 가지 않고 옆길에 머문다
+      if (off) travelledM -= v;
       const point: RunPoint = {
         seq: seq++,
         latitude: pos.latitude,
@@ -106,6 +134,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
       store.append(point);
       const at = activeMs(snap, lastTickAt);
       metrics = addPoint(metrics, point, at, policy);
+      if (track && point.qualityFlag === 'OK') courseState = advanceCourse(track, courseState, pos, lastTickAt, at, policy);
       if (point.qualityFlag === 'OK' && acceptedCount++ % PATH_EVERY === 0) patch.path = [...(patch.path ?? snap.path), pos];
       patch.position = pos;
     }
@@ -120,8 +149,19 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
       avgPaceSec: averagePace(metrics, activeMs(snap, t), policy),
       currentPaceSec: poor ? null : currentPace(metrics, policy),
       unsyncedPoints: store.unsyncedCount(),
+      ...(track ? { course: courseSnapshot() } : {}),
     });
   };
+
+  const courseSnapshot = () =>
+    track
+      ? {
+          lengthM: track.lengthM,
+          progressM: courseState.progressM,
+          offRouteM: courseState.offRoute ? Math.round(courseState.offsetM) : null,
+          completedActiveMs: courseState.completedActiveMs,
+        }
+      : null;
 
   const ensureTimer = () => {
     if (!timer) timer = setInterval(tick, Math.max(50, 1000 / speed));
@@ -130,7 +170,13 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
   return {
     async prepare(input: RunPrepareInput) {
       mode = input.mode;
-      emit({ mode, gps: 'good', position: positionAt(0) });
+      if (input.course && input.course.route.length > 1) {
+        track = createCourseTrack(input.course.route);
+        path = input.course.route;
+        pathM = track.lengthM;
+        loopPath = distanceM(path[0], path[path.length - 1]) < 60;
+      }
+      emit({ mode, gps: 'good', position: positionAt(0), course: courseSnapshot() });
     },
     async start() {
       const t = now();
@@ -166,6 +212,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
         avgPaceSec: averagePace(metrics, ms, policy),
         splits: metrics.splits,
         synced,
+        courseTimeSec: courseState.completedActiveMs != null ? Math.round(courseState.completedActiveMs / 1000) : null,
       });
       // 오프라인: 기록은 휴대폰에 남기고 연결되면 올린다 (local-only 결과)
       if (snap.network === 'offline') return result(false);

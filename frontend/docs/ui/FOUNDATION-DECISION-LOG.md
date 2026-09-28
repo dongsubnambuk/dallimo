@@ -465,3 +465,20 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 결과 | 종료 뒤 `/run/result`(light)로 결과 요약을 넘김. Result 화면은 72장 8번 단계라 지금은 준비 중 화면에 요약 표시 | 89장 Result는 light로 복귀 |
 | 아이콘 | pause, stop, map, metrics, offline 추가 | expo-symbols 하나만 사용 |
 | 개발용 | `/run/active?scenario=` normal / poorGps / offline / recovering / finishPending, `&speed=` 배속. 마이 탭 개발용 링크에 추가 | |
+
+## 16. Active Run — COURSE / PB / CHALLENGE 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 바뀌는 곳 | 공통 Run Shell은 그대로 두고 강조 strip(`ModeStrip`)과 지도 위 기준 코스만 모드별로 바뀐다 | 92장 "모드별로 가운데 강조 strip만 바뀌도록", CLAUDE.md 6항 "mode-specific panels must be modular" |
+| COURSE strip | 코스 진행 %(민트) · 남은 거리 · 진행 rail · 코스 위/이탈(아이콘 + 문구) · 현재 페이스 | 62.1장 COURSE 1차(진행률·거리·이탈·페이스), 2차(남은 거리). CRUN-002 |
+| PB·CHALLENGE strip | `GapIndicator`(방향 아이콘 + 부호 + "목표보다 빠름/느림") · 목표 이름과 기록 · 진행 rail · 코스 위/이탈 · 예상 완주 | 62.1장 PB(현재 기록·목표 PB·gap, 2차 진행률·예상 finish), CHALLENGE(목표·gap·진행률, 2차 상대 이름/기록) |
+| gap 계산 | 목표 기록을 코스 전체에 고르게 나눈 페이스로 본다: gap = 경과 − 목표 × 진행/코스 길이. 진행 50m 전에는 "비교 기록 없음" | 목표 기록의 구간별 기록(ghost)이 아직 없음. 구간 기록 기반 Ghost는 GAMIFICATION 2차 |
+| 진행률 | 코스 선 위에 투영한 거리. 지금 위치 앞뒤 구간(뒤 30m ~ 앞 250m)에서만 찾아 되돌아가는 코스·교차 구간에서 엉뚱한 곳에 붙지 않게 함. 뒤로 가지 않음. 이탈 중에는 멈춤 | 26.3장 "루프·왕복·교차 구간은 단순 시작/끝점만으로 판단하지 않는다" |
+| 이탈 | 코스 선에서 `courseDeviationM`(50m) 넘게, `courseDeviationSec`(10초) 넘게 벗어나면 지속 이탈. 위 안내 + strip 경고 + 경고 햅틱 + 음성 "코스를 벗어났어요". 돌아오면 음성 "코스로 돌아왔어요" | CRUN-003 "지속 이탈 시 안내", 69장 Course deviation 경고 햅틱 + 음성. 거리는 명세 1장 "코스 이탈 거리는 정책값" → `course.match_buffer_m` 후보 50m. 지속 시간은 PoC 전 임시값 |
+| 완주 | 코스 마지막 구간 끝까지 투영되면 완주. 그 시점 기록을 코스 기록으로 고정하고 안내 "코스 완주 · 10:08" + 완주 햅틱 + 음성(기록, 목표 대비). 아래 버튼이 "완주 기록 저장"으로 바뀌어 확인 없이 저장 | 69장 Finish 완주 햅틱. 기록이 정해졌으므로 SCR-R03 확인을 생략. 공식 판정(CRUN-004)은 서버 Verifier |
+| 지도 | 기준 코스(두꺼운 민트 + 번짐) 위에 실제 경로(가는 흰 선), 내 위치 흰 점, 도착점 민트 점 | CRUN-001 기준 코스/실제 경로 동시 표시, CLAUDE.md 8항 색만으로 구분하지 않기(굵기도 다름) |
+| 음성 | `expo-speech` 추가, `shared/voice.ts`로 감싸 끌 수 있게 함(설정 SCR-M07 "음성"은 13번 단계). PB gap 임계치 TTS는 명세상 "선택적"이라 넣지 않음 | 69장, REFERENCE Voice feedback(RunDay + NRC) |
+| 엔진 | `prepare({ course })`로 기준 코스를 받고 snapshot `course`(길이·진행·이탈·완주 시점), 결과 `courseTimeSec` 추가. 계산은 `entities/run/courseProgress.ts` | 49.1장 경계 유지 |
+| 결과 | 코스명·완주 기록·목표를 결과 화면(8번 단계 준비 중)으로 넘김 | |
+| 개발용 | `scenario=offRoute`(진행 방향 옆으로 90m 벗어났다 돌아옴), `behind`(목표보다 느리게). 마이 탭 개발용 링크에 코스 러닝 4종 | |

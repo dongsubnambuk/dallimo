@@ -6,27 +6,42 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandLoader } from '@/components/Brand';
 import { GpsStatus } from '@/components/GpsStatus';
 import { MetricBlock } from '@/components/MetricBlock';
-import { SignalRail } from '@/components/SignalRail';
 import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSession';
-import { activeMs, type RunFinishResult, type RunningEngine } from '@/features/run/engine/runningEngine';
-import { formatDistanceKm, formatDuration, formatPace } from '@/shared/format';
+import type { RunFinishResult, RunningEngine } from '@/features/run/engine/runningEngine';
+import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
+import type { GeoPoint } from '@/shared/geo';
 import { haptics } from '@/shared/haptics';
+import { speak } from '@/shared/voice';
 
+import { ModeStrip, type RunTarget } from './components/ModeStrip';
 import { RunPathMap } from './components/RunPathMap';
+import { useElapsedSec } from './useElapsedSec';
 
-// SCR-R02 Active Run 공통 Run Shell (72장 6번, FREE). 92장 레이아웃:
+// SCR-R02 Active Run 공통 Run Shell (72장 6~7번). 92장 레이아웃:
 // 위 GPS·기록 상태 → 가운데 giant 거리 → 시간·평균 페이스 → 모드별 강조 strip 하나 → 아래 넓은 일시정지.
-// 모드별 패널(진행률·gap)은 7번 단계에서 strip 자리에 끼운다.
-export function ActiveRunScreen({ engine, summary }: { engine: RunningEngine; summary: string }) {
+// 모드별로 바뀌는 것은 strip(`ModeStrip`)과 지도 위 기준 코스뿐이다.
+type Props = {
+  engine: RunningEngine;
+  summary: string;
+  courseName: string | null;
+  // 코스 러닝이면 기준 코스 경로 (CRUN-001 기준 코스/실제 경로 동시 표시)
+  courseRoute: GeoPoint[] | null;
+  // PB ATTACK / CHALLENGE 목표
+  target: RunTarget | null;
+};
+
+export function ActiveRunScreen({ engine, summary, courseName, courseRoute, target }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const status = useRunSnapshot(engine, (s) => s.status);
   const [view, setView] = useState<'metrics' | 'map'>('metrics');
   const [confirming, setConfirming] = useState(false);
   const [finished, setFinished] = useState<RunFinishResult | null>(null);
+  const completed = useRunSnapshot(engine, (s) => s.course?.completedActiveMs != null);
+  useCourseAlerts(engine, target);
 
   // 러닝 중 Android 뒤로 가기로 화면을 벗어나지 않게 한다 (종료는 일시정지 → 종료 확인으로만)
   useEffect(() => {
@@ -52,6 +67,9 @@ export function ActiveRunScreen({ engine, summary }: { engine: RunningEngine; su
         activeSec: String(r.activeSec),
         ...(r.avgPaceSec != null ? { avgPaceSec: String(Math.round(r.avgPaceSec)) } : {}),
         synced: r.synced ? '1' : '0',
+        ...(courseName ? { courseName } : {}),
+        ...(r.courseTimeSec != null ? { courseTimeSec: String(r.courseTimeSec) } : {}),
+        ...(target ? { targetSec: String(target.sec), targetLabel: target.label } : {}),
       },
     });
   };
@@ -73,12 +91,12 @@ export function ActiveRunScreen({ engine, summary }: { engine: RunningEngine; su
             <ElapsedMetric engine={engine} size="large" />
             <AvgPaceMetric engine={engine} size="large" />
           </View>
-          <SplitStrip engine={engine} />
+          <ModeStrip engine={engine} target={target} />
         </View>
       ) : (
         <View style={styles.mapView}>
           <View style={[styles.mapFrame, { borderColor: colors.border.subtle }]}>
-            <MapLayer engine={engine} />
+            <MapLayer engine={engine} courseRoute={courseRoute} />
           </View>
           <View style={styles.row}>
             <DistanceCompact engine={engine} />
@@ -90,6 +108,8 @@ export function ActiveRunScreen({ engine, summary }: { engine: RunningEngine; su
 
       <Controls
         paused={paused}
+        completed={completed}
+        onSave={finish}
         disabled={status !== 'RUNNING' && status !== 'PAUSED'}
         onPause={() => {
           haptics.runControl();
@@ -156,14 +176,18 @@ function RunNotice({ engine }: { engine: RunningEngine }) {
   const status = useRunSnapshot(engine, (s) => s.status);
   const gps = useRunSnapshot(engine, (s) => s.gps);
   const network = useRunSnapshot(engine, (s) => s.network);
+  const offRouteM = useRunSnapshot(engine, (s) => s.course?.offRouteM ?? null);
+  const completedMs = useRunSnapshot(engine, (s) => s.course?.completedActiveMs ?? null);
 
-  let notice: { icon: IconName; text: string; tone: 'warning' | 'neutral' } | null = null;
-  if (status === 'RECOVERY') notice = { icon: 'gpsAcquiring', text: '앱이 꺼지기 전 기록을 불러왔어요. GPS를 다시 찾는 중이에요', tone: 'neutral' };
+  let notice: { icon: IconName; text: string; tone: 'warning' | 'neutral' | 'success' } | null = null;
+  if (completedMs != null) notice = { icon: 'finished', text: `코스 완주 · ${formatDuration(Math.round(completedMs / 1000))}. 이 기록으로 저장돼요`, tone: 'success' };
+  else if (status === 'RECOVERY') notice = { icon: 'gpsAcquiring', text: '앱이 꺼지기 전 기록을 불러왔어요. GPS를 다시 찾는 중이에요', tone: 'neutral' };
+  else if (offRouteM != null) notice = { icon: 'warning', text: `코스에서 ${offRouteM}m 벗어났어요. 코스로 돌아가 주세요`, tone: 'warning' };
   else if (gps === 'poor') notice = { icon: 'gpsPoor', text: 'GPS 신호가 약해 거리를 잠시 세지 않아요', tone: 'warning' };
   else if (network === 'offline') notice = { icon: 'offline', text: '오프라인이에요. 기록은 휴대폰에 저장하고 있어요', tone: 'neutral' };
   if (!notice) return <View style={styles.noticeSpace} />;
 
-  const color = notice.tone === 'warning' ? colors.status.warning : colors.text.secondary;
+  const color = notice.tone === 'warning' ? colors.status.warning : notice.tone === 'success' ? colors.text.accent : colors.text.secondary;
   return (
     <View accessible accessibilityLiveRegion="polite" accessibilityLabel={notice.text} style={[styles.notice, { backgroundColor: colors.bg.surface }]}>
       <AppIcon name={notice.icon} size={16} color={color} />
@@ -196,83 +220,82 @@ function ElapsedMetric({ engine, size }: { engine: RunningEngine; size: 'large' 
   return <MetricBlock label="시간" value={formatDuration(sec)} size={size} align="center" style={styles.flex} />;
 }
 
-function useElapsedSec(engine: RunningEngine) {
-  const base = useRunSnapshot(engine, (s) => s.activeMsBase);
-  const since = useRunSnapshot(engine, (s) => s.runningSince);
-  const read = () => Math.floor(activeMs({ activeMsBase: base, runningSince: since }, engine.now()) / 1000);
-  const [sec, setSec] = useState(read);
-
-  useEffect(() => {
-    const update = () => setSec(Math.floor(activeMs({ activeMsBase: base, runningSince: since }, engine.now()) / 1000));
-    update();
-    if (since == null) return;
-    const t = setInterval(update, 250);
-    return () => clearInterval(t);
-  }, [base, since, engine]);
-
-  return sec;
-}
-
-// FREE 강조 strip: 다음 1km까지 진행 + 현재 페이스 + 지난 1km 스플릿 (92장 "FREE에서는 split")
-function SplitStrip({ engine }: { engine: RunningEngine }) {
-  const { colors } = useTheme();
-  const d = useRunSnapshot(engine, (s) => s.distanceM);
-  const splits = useRunSnapshot(engine, (s) => s.splits);
-  const current = useRunSnapshot(engine, (s) => s.currentPaceSec);
-  const last = splits[splits.length - 1] ?? null;
-  const nextKm = Math.floor(d / 1000) + 1;
-  const toNext = Math.max(0, nextKm * 1000 - d);
-
-  return (
-    <View style={[styles.strip, { backgroundColor: colors.bg.surface }]}>
-      <View style={styles.stripRow}>
-        <View accessible accessibilityLabel={`현재 페이스 ${current == null ? '측정 중' : formatPace(current)}`}>
-          <AppText role="caption" tone="secondary">
-            현재 페이스
-          </AppText>
-          <AppText role="sectionTitle" tabular style={styles.stripValue}>
-            {formatPace(current)}
-          </AppText>
-        </View>
-        <View style={styles.stripRight} accessible accessibilityLabel={last ? `${last.km}킬로미터 구간 ${formatDuration(last.sec)}` : '첫 1킬로미터 구간 측정 중'}>
-          <AppText role="caption" tone="secondary">
-            {last ? `${last.km}km 구간` : '첫 1km 구간'}
-          </AppText>
-          <AppText role="sectionTitle" tabular tone={last ? 'accent' : 'secondary'} style={styles.stripValue}>
-            {last ? formatDuration(last.sec) : '--'}
-          </AppText>
-        </View>
-      </View>
-      <SignalRail progress={(d % 1000) / 1000} showHead />
-      <AppText role="caption" tone="secondary" tabular>
-        {nextKm}km까지 {Math.round(toNext)}m
-      </AppText>
-    </View>
-  );
-}
-
-function MapLayer({ engine }: { engine: RunningEngine }) {
+function MapLayer({ engine, courseRoute }: { engine: RunningEngine; courseRoute: GeoPoint[] | null }) {
   const path = useRunSnapshot(engine, (s) => s.path);
   const position = useRunSnapshot(engine, (s) => s.position);
-  return <RunPathMap path={path} position={position} />;
+  return <RunPathMap path={path} position={position} course={courseRoute} />;
+}
+
+// 69장: 코스 이탈은 경고 햅틱 + 음성, 완주는 완주 햅틱. 화면을 보지 않아도 알 수 있게 한다 (62.2장).
+function useCourseAlerts(engine: RunningEngine, target: RunTarget | null) {
+  const offRoute = useRunSnapshot(engine, (s) => s.course?.offRouteM != null);
+  const completedMs = useRunSnapshot(engine, (s) => s.course?.completedActiveMs ?? null);
+  const prevOff = useRef(offRoute);
+  const prevDone = useRef(completedMs);
+
+  useEffect(() => {
+    if (offRoute && !prevOff.current) {
+      haptics.warning();
+      speak('코스를 벗어났어요. 코스로 돌아가 주세요');
+    } else if (!offRoute && prevOff.current) {
+      speak('코스로 돌아왔어요');
+    }
+    prevOff.current = offRoute;
+  }, [offRoute]);
+
+  useEffect(() => {
+    if (completedMs != null && prevDone.current == null) {
+      haptics.complete();
+      const sec = Math.round(completedMs / 1000);
+      const diff = target ? sec - target.sec : null;
+      const vs = diff == null ? '' : diff === 0 ? ' 목표와 같아요' : ` 목표보다 ${formatDurationSpoken(diff)} ${diff < 0 ? '빨라요' : '느려요'}`;
+      speak(`코스 완주. 기록 ${formatDurationSpoken(sec)}.${vs}`);
+    }
+    prevDone.current = completedMs;
+  }, [completedMs, target]);
 }
 
 // ---- 아래: 조작 ----
 
 function Controls({
   paused,
+  completed,
   disabled,
   onPause,
   onResume,
   onFinish,
+  onSave,
 }: {
   paused: boolean;
+  // 코스 끝에 닿았으면 기록이 정해졌으므로 확인 없이 바로 저장할 수 있다
+  completed: boolean;
   disabled: boolean;
   onPause: () => void;
   onResume: () => void;
   onFinish: () => void;
+  onSave: () => void;
 }) {
   const { colors } = useTheme();
+  if (completed && !disabled) {
+    return (
+      <View style={styles.controlRow}>
+        {paused ? null : (
+          <AppPressable onPress={onPause} accessibilityLabel="일시정지" style={[styles.control, styles.finish, { backgroundColor: colors.bg.surface }]}>
+            <AppIcon name="pause" size={22} color={colors.text.primary} />
+            <AppText role="sectionTitle" style={styles.controlText}>
+              일시정지
+            </AppText>
+          </AppPressable>
+        )}
+        <AppPressable onPress={onSave} accessibilityLabel="완주 기록 저장" style={[styles.control, styles.resume, { backgroundColor: colors.action.primary }]}>
+          <AppIcon name="finished" size={22} color={colors.action.onPrimary} />
+          <AppText role="sectionTitle" style={[styles.controlText, { color: colors.action.onPrimary }]}>
+            완주 기록 저장
+          </AppText>
+        </AppPressable>
+      </View>
+    );
+  }
   if (!paused) {
     return (
       <AppPressable
@@ -462,22 +485,6 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
-  },
-  strip: {
-    borderRadius: radius.card,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  stripRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  stripRight: {
-    alignItems: 'flex-end',
-  },
-  stripValue: {
-    fontFamily: fontFamily.extrabold,
   },
   mapView: {
     flex: 1,

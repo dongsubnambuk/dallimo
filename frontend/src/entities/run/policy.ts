@@ -7,12 +7,18 @@ export type RunPolicy = {
   currentPaceWindowSec: number;
   // 51.2장 "초기 구간처럼 거리 표본이 부족할 때는 '--'". 페이스를 보여주기 시작하는 최소 거리(m) — PoC 전 임시값.
   minPaceSampleM: number;
+  // 코스 이탈 거리(m). 명세 1장 "코스 이탈 거리는 정책값". 코스 일치 판단 기준 course.match_buffer_m(약 50m 후보)과 같은 값을 쓴다.
+  courseDeviationM: number;
+  // CRUN-003 "지속 이탈": 이 시간(초) 넘게 벗어나 있으면 안내한다 — PoC 전 임시값.
+  courseDeviationSec: number;
 };
 
 const MOCK_RUN_POLICY: RunPolicy = {
   courseStartRadiusM: 100,
   currentPaceWindowSec: 20,
   minPaceSampleM: 50,
+  courseDeviationM: 50,
+  courseDeviationSec: 10,
 };
 
 export async function getRunPolicy(): Promise<RunPolicy> {
