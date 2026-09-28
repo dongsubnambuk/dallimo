@@ -32,6 +32,8 @@ export type NearbyCourseQuery = {
 // ---- 코스 상세 (43장 GET /api/v1/courses/{id} → CourseDetail, CRS-101~104) ----
 
 export type CourseDifficulty = 'EASY' | 'MODERATE' | 'HARD';
+// 6.3장 CourseStatus. HIDDEN · BLOCKED는 상세를 볼 수 없다(CourseRepositoryError 'hidden').
+export type CourseStatus = 'NEW' | 'VERIFIED' | 'POPULAR';
 export type Level = 'LOW' | 'MEDIUM' | 'HIGH';
 // 6.3장 VerificationStatus 중 기록에 붙는 값
 export type RecordVerification = 'pending' | 'verified' | 'unverified' | 'rejected';
@@ -58,6 +60,7 @@ export type CourseRankingEntry = {
 export type CourseDetail = {
   id: string;
   name: string;
+  status: CourseStatus;
   description: string | null;
   // 예: "대구 수성구"
   region: string;
@@ -92,4 +95,26 @@ export type CourseDetail = {
     myEntry: CourseRankingEntry | null;
   } | null;
   bookmarked: boolean;
+};
+
+// ---- 코스 등록 (43장 POST /api/v1/courses, CREG-001~004) ----
+
+// sourceRunId는 내 FINISHED Run이어야 한다 (43.1장). 추천 시간은 SCR-E05 주요 요소.
+export type NewCourseInput = {
+  sourceRunId: string;
+  name: string;
+  description: string | null;
+  tags: string[];
+  recommendedTime: string | null;
+};
+
+// ---- 내 코스 (SCR-M04, MY-005: 등록/저장/완주) ----
+export type MyCourseKind = 'created' | 'saved' | 'finished';
+
+export type MyCourse = CourseSummary & {
+  // 등록한 코스: 등록 시각
+  createdAt: number | null;
+  // 완주한 코스: 완주 횟수
+  finishCount: number | null;
+  status: CourseStatus;
 };

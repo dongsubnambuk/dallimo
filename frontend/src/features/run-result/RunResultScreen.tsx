@@ -140,6 +140,15 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
 
       {/* 6. 공유 · 다시 도전 */}
       <Actions result={r} outcome={outcome} />
+      {/* CREG-001 자유 달리기 경로를 코스로 등록 (3.2장 코스 생성 흐름) */}
+      {r.mode === 'FREE' ? (
+        <SecondaryButton
+          label="이 경로를 코스로 등록"
+          size="sm"
+          onPress={() => router.push({ pathname: '/course/new', params: { runId: r.id } })}
+          style={styles.rankingLink}
+        />
+      ) : null}
 
       {/* 7. 구간 · 고도 */}
       <View style={[styles.section, { borderTopColor: colors.border.subtle }]}>

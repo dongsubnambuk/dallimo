@@ -1,5 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ScrollView, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,6 +8,7 @@ import { PrimaryRunButton } from '@/components/PrimaryRunButton';
 import { RankingRow } from '@/components/RankingRow';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { StateNotice } from '@/components/StateNotice';
+import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
 import type { CourseDetail, CourseDifficulty, Level } from '@/entities/course/types';
 import { AppDivider, AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
@@ -39,6 +41,17 @@ export function CourseDetailScreen({ id, scenario }: { id: string; scenario: Cou
   const course = state.kind === 'ready' ? state.course : null;
   const [bookmarked, setBookmarked] = useState<boolean | null>(null);
   const saved = bookmarked ?? course?.bookmarked ?? false;
+  const repo = useMemo(() => createMockCourseRepository('normal'), []);
+  const queryClient = useQueryClient();
+  // CRS-105 저장 · 저장 해제. 바로 바꿔 보여주고 실패하면 되돌린다
+  const toggleBookmark = (c: CourseDetail) => {
+    const next = !saved;
+    setBookmarked(next);
+    repo
+      .setBookmark(c.id, next)
+      .then(() => queryClient.invalidateQueries({ queryKey: ['course', 'mine'] }))
+      .catch(() => setBookmarked(!next));
+  };
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -47,12 +60,12 @@ export function CourseDetailScreen({ id, scenario }: { id: string; scenario: Cou
       <RoundButton icon="back" label="뒤로" onPress={goBack} />
       {course ? (
         <View style={styles.headerRight}>
-          {/* CRS-105 코스 저장. API 연결 전에는 화면 안에서만 토글한다 */}
+          {/* CRS-105 코스 저장 */}
           <RoundButton
             icon={saved ? 'bookmarked' : 'bookmark'}
             label={saved ? '저장 취소' : '코스 저장'}
             selected={saved}
-            onPress={() => setBookmarked(!saved)}
+            onPress={() => toggleBookmark(course)}
           />
           <RoundButton icon="share" label="코스 공유" onPress={() => shareCourse(course)} />
         </View>
@@ -124,7 +137,8 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
       {/* 1차: 코스가 어떤 곳인지 */}
       <View style={styles.titleBlock}>
         <AppText role="label" tone="secondary" numberOfLines={1}>
-          {[course.region, ...course.tags].join(' · ')}
+          {/* 6.3장 CourseStatus NEW: 막 등록되어 아직 완주 기록이 없는 코스 */}
+          {[course.status === 'NEW' ? '새 코스' : null, course.region, ...course.tags].filter(Boolean).join(' · ')}
         </AppText>
         <AppText role="screenTitle" accessibilityRole="header">
           {course.name}

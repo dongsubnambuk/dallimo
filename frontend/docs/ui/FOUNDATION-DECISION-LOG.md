@@ -631,3 +631,21 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 데이터 | `entities/share`: `ShareRepository.create(type, referenceId)` · `resolve(code)`, `ShareType` RUN / COURSE / CHALLENGE | 22장 share_link.type, SHR-001~004 |
 | 애니메이션 | 템플릿 전환에 애니메이션을 넣지 않았다 | INTERACTION-SPECS Share "과한 애니메이션 없음" |
 | 개발용 | `/share/compose?runId=…&scenario=offline`(링크 만들기 실패) | |
+
+## 24. 코스 등록 (SCR-E05) · 내 코스 (SCR-M04) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 순서 | 공유 카드 다음 후보(코스 등록+내 코스 / 친구+Activity / Mock contract 검증) 중 첫 번째로 진행 | 72장 이후 순서는 명세에 없음 |
+| 진입 | 자유 달리기(FREE) 결과와 러닝 상세에 "이 경로를 코스로 등록" → `/course/new?runId=` (modal) | 3.2장 코스 생성 "자유 러닝 완료 → 코스로 공유 → 정보 입력 → 경로 확인 → 등록", CREG-001 |
+| 단계 | 1/2 정보 입력(코스 이름 · 설명 · 태그 · 추천 시간) → 2/2 경로 확인(지도 · 출발/도착 · 거리 · 입력 요약) → 코스 등록. 등록하면 새 코스 상세로 바꾼다 | SCR-E05 "코스명, 설명, 태그, 추천시간, 경로 확인", CREG-002~004 |
+| 입력 | 이름은 필수, 길이는 course.name VARCHAR(100)만 따른다. 설명은 선택. 태그는 탐색 필터 · 기존 코스와 같은 이름(평지, 오르막, 강변, 신호 적음, 야간 밝음, 초보 추천) 여러 개. 추천 시간은 새벽 · 아침 · 오전 · 오후 · 저녁 · 밤 여러 개, 하루 순서로 "새벽 · 저녁"처럼 적는다 | 명세에 따로 정한 길이 · 목록 규칙이 없음 |
+| 등록 조건 | 서버에 올라간 내 기록만(휴대폰에만 있으면 입력 전에 "기록을 서버에 올린 뒤에…" 안내, 다음 단계 막음). 경로가 부족하면 서버가 거부하고 이유를 보여준다. mock 기준은 500m · 점 10개(서버 정책 확정 전 mock 값) | 43.1장 "sourceRunId는 내 FINISHED Run", "RunPoint가 충분하지 않으면 생성 거부" |
+| 공개 안내 | 경로 확인 단계에 "등록하면 누구나 이 코스와 출발 · 도착 지점을 볼 수 있어요. 집이나 회사 앞에서 시작한 기록이라면 등록하지 않는 걸 권해요" | course.visibility 기본 PUBLIC, 16장 privacy zone 검토 전, 20.2장 코스 공개 정책 오픈 이슈 |
+| 코스 상태 | `CourseDetail.status`(6.3장 NEW / VERIFIED / POPULAR) 추가. 막 등록한 코스는 NEW라 코스 상세 위 줄에 "새 코스" | 6.3장 CourseStatus, tbl_course.status 기본 NEW |
+| 경로 | mock은 기록 경로를 그대로 코스 경로로 쓴다. 실제로는 서버가 코스용으로 정규화한 불변 snapshot | 43.1장 |
+| 코스 저장 | 코스 상세의 저장 버튼이 이제 저장 API를 부른다(바로 바꿔 보여주고 실패하면 되돌림). 전에는 화면 안에서만 바뀌었다 | CRS-105 POST · DELETE /courses/{id}/bookmarks |
+| 내 코스 | `/my/courses` 등록 · 저장 · 완주 탭. 코스 카드(경로 모양 · 이름 · 거리)에 탭별 정보: 등록은 등록 날짜 · 새 코스, 완주는 내 PB · 완주 횟수. 누르면 코스 상세. 탭마다 빈 상태와 다음 행동(달리기 시작 / 코스 찾기) | SCR-M04 "등록/저장/완주 코스", MY-005 |
+| 마이 탭 | 누적 통계 아래 "내 코스" 입구 | 65장 My: Profile / Runs / Records / Courses |
+| 데이터 | `CourseRepository.setBookmark` · `getMine(kind)`(MY-005, 경로는 OpenAPI 확정 시), `CourseRegistrationRepository.create`(POST /courses: sourceRunId, name, description, tags + 추천 시간) | 43장 |
+| 개발용 | `/course/new?runId=…&scenario=` rejected / error, `/my/courses?scenario=` loading / empty / error, `?tab=` created / saved / finished | |
