@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 
 import { parseHistoryScenario } from '@/entities/run/api/mockRunResultRepository';
-import { MyScreen } from '@/features/my/MyScreen';
+import { RunHistoryScreen } from '@/features/my/RunHistoryScreen';
 
-export default function MyTab() {
+export default function RunHistoryRoute() {
   const { scenario } = useLocalSearchParams<{ scenario?: string }>();
-  return <MyScreen scenario={parseHistoryScenario(scenario)} />;
+  return <RunHistoryScreen scenario={parseHistoryScenario(scenario)} />;
 }

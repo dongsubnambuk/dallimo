@@ -562,3 +562,23 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 재대결 | "같은 멤버로 다시"는 같은 모드 · 목표 · 코스 · 참가자로 새 방을 만들고 대기실로 간다 | TGT-012 |
 | 데이터 | `LiveMemberState`, `LiveResult`, `LiveResultEntry` 타입. `LiveRoomRepository`에 `getResult`, `rematch` 추가 | 45장, 46장 |
 | 개발용 | `/together/demo/live?mode=` LIVE_RACE / TIME_ATTACK / TOGETHER, `&scenario=` normal / memberDisconnected / dnf / offline, `&speed=`. 마이 탭 개발용 링크 | |
+
+## 21. My / History (SCR-M01~M03) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 범위 | 마이 탭 = My(SCR-M01), `/my/runs` 러닝 히스토리(SCR-M02), `/my/runs/[id]` 러닝 상세(SCR-M03). 모두 light. 내 코스(M04) · 친구(M05) · Activity(M06)는 이번 단계에 넣지 않았고, 설정(M07)은 13번 단계 | 72장 11번 My/History "기록 회고", 73장 History 완료 기준 |
+| My 구성 | 프로필(이미지가 없으면 닉네임 첫 글자) → 누적 거리 · 시간 · 횟수 → 최근 기록 3개 + 전체 보기 | SCR-M01 "프로필, 누적거리/시간/횟수, 최근 기록", MY-001~003 |
+| 누적 통계 카드 | 랭킹 내 순위 카드 · 탐색 티켓과 같은 검정 표면. 누적 거리를 가장 크게(민트), 아래에 달린 시간 · 러닝 횟수. 기록이 없으면 0을 민트로 강조하지 않는다 | 95장 숫자 우선, 브랜드 표면 재사용(CLAUDE.md 13항) |
+| 히스토리 | 최근 기록부터 월별로 묶는다(sticky 월 제목). `SectionList` 가상화 + cursor 20개씩. 끝이면 "첫 기록까지 모두 봤어요". 월별 합계는 페이지가 나뉘면 틀린 값이 나올 수 있어 넣지 않았다 | SCR-M02 "날짜별 기록 목록", 1321행 cursor pagination, CLAUDE.md 9항 |
+| 목록 한 줄 | 경로 모양 썸네일(코스 기록은 민트 코스 선, 자유 기록은 검정 선) → 이름(코스 이름 또는 모드 이름) · 날짜 · 시작 시각 · 모드 → 기록 시간 · 페이스 → 거리 | 목록에서 기록을 모양으로 찾게 한다. 결과 지도와 같은 선 구분(CLAUDE.md 8항) |
+| 상태 표시 | 눈에 띄어야 하는 상태만 붙인다: PB(민트 바탕 글자), 검증 중, 미인증, 인증 거부, 휴대폰에만 저장, 올리는 중. 아이콘과 글자를 함께 쓴다. 인증된 보통 기록에는 표시하지 않는다 | 67.1장 VerificationBadge Result/History, 68장 색만으로 구분하지 않음 |
+| 휴대폰에만 있는 기록 | My · 히스토리 위에 "휴대폰에만 있는 기록 N개 · 인터넷에 연결되면 자동으로 올려요. 기록은 지워지지 않아요" | RUN-006 Local First, 73장 "서버/네트워크 문제와 기록 유실을 혼동시키지 않음" |
+| 러닝 상세 | 날짜 · 시작 시각 → 이름 · 모드 · PB → 코스를 끝냈으면 코스 기록, 아니면 거리를 가장 크게 → 거리/시간 · 평균 페이스 → 지도 → 동기화 · 검증 상태 → 코스 보기 → 구간 기록 → 고도 | SCR-M03 "지도, 거리, 시간, 페이스, 스플릿, 검증상태". 결과 화면의 감정 피드백 · 다시 도전은 달린 직후용이라 넣지 않았다 |
+| 공용 컴포넌트 | 결과 화면의 동기화 · 검증 표시를 `run-result/components/RecordState`로 분리해 상세와 함께 쓴다. 지도 · 구간 기록 · 고도는 결과 화면 것을 그대로 쓴다 | CLAUDE.md 13항 |
+| Live 결과 연결 | Live 결과의 "내 러닝 기록 자세히"는 러닝 상세로 간다 | 개인 Run 기록 조회는 SCR-M03 |
+| 새 기록 반영 | 마이 탭에 돌아올 때마다 통계와 최근 기록을 다시 읽는다 | 탭 화면은 계속 살아 있어 방금 달린 기록이 늦게 보일 수 있다 |
+| 데이터 | `RunResultRepository.list(cursor, size)`(GET /runs), `RunSummary`(목록용, 경로는 점 40개로 줄임). `entities/user`: `UserRepository.getMe()`(GET /users/me) 프로필 + 누적 통계. 통계가 들어올 응답은 OpenAPI 확정 시 맞춘다 | 43장, 486 · 504행, MY-001~003 |
+| mock | 지난 기록 31개. 코스 상세 mock(수성못 PB 10:12, 신천 PB 24:40)과 함께 탭 최근 결과(어제 3km 레이스, 사흘 전 5km 함께)에 맞췄다. 이번 실행에서 달린 기록은 목록 맨 위에 더한다 | mock 전용 |
+| 개발용 링크 | 자리 표시 화면(`PendingScreen`)을 지우고 개발용 링크를 `features/dev/DevLinks`로 옮겨 마이 탭 맨 아래에 둔다(`__DEV__`에서만) | 마이 탭이 실제 화면이 됨 |
+| 개발용 | `/my?scenario=` · `/my/runs?scenario=` normal / loading / empty / error / localOnly, `/my/runs/run-missing`(없는 기록) | |
