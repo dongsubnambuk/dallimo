@@ -12,8 +12,7 @@ import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepo
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { fontFamily, motion, spacing } from '@/design/tokens';
 import { ActiveRunScreen } from '@/features/active-run/ActiveRunScreen';
-import { beginActiveRun, endActiveRun } from '@/features/run/engine/activeRunSession';
-import type { ActiveRunScenario } from '@/features/run/engine/mockRunningEngine';
+import { beginActiveRun, endActiveRun, type ActiveRunOptions } from '@/features/run/engine/activeRunSession';
 import { MODE_TITLE, parseRunPlan, type RunPlanParams } from '@/features/run-ready/runPlanParams';
 import { formatDuration } from '@/shared/format';
 import { haptics } from '@/shared/haptics';
@@ -25,7 +24,7 @@ const GO_MS = 700;
 // RUN-003 카운트다운. 69장 Run Start: 3-2-1 숫자 scale/fade, 각 숫자 약한 햅틱, 출발 강한 햅틱.
 // 카운트다운 동안 엔진을 준비(prepare)하고 "출발"에서 기록을 시작(start)한 뒤 Active Run으로 이어진다.
 // 앱이 꺼졌다 켜져 이어서 기록하는 경우(recovering)는 카운트다운 없이 바로 Active Run으로 간다.
-type Props = { params: RunPlanParams; scenario: ActiveRunScenario; speed: number };
+type Props = { params: RunPlanParams; options: ActiveRunOptions; recovering: boolean };
 
 export function RunStartScreen(props: Props) {
   return (
@@ -35,15 +34,14 @@ export function RunStartScreen(props: Props) {
   );
 }
 
-function RunStart({ params, scenario, speed }: Props) {
+function RunStart({ params, options, recovering }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
   const plan = parseRunPlan(params);
   // COUNT_FROM..1 → 0(출발) → -1(러닝)
-  const recovering = scenario === 'recovering';
   const [count, setCount] = useState(recovering ? -1 : COUNT_FROM);
-  const [engine] = useState(() => beginActiveRun({ scenario, speed }));
+  const [engine] = useState(() => beginActiveRun(options));
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
@@ -59,18 +57,29 @@ function RunStart({ params, scenario, speed }: Props) {
   const courseReady = courseId == null || !courseQuery.isPending;
 
   useEffect(() => {
-    if (recovering) {
-      engine.recover();
-      return;
-    }
     if (!courseReady) return;
     const detail = courseQuery.data;
-    engine.prepare({
-      mode: plan.kind === 'free' ? 'FREE' : plan.plan.mode,
+    const input = {
+      mode: plan.kind === 'free' ? ('FREE' as const) : plan.plan.mode,
       // 코스를 받지 못하면 코스 없이 기록만 한다 (진행률·이탈 안내 없음)
       ...(detail ? { course: { id: detail.id, route: detail.route } } : {}),
       ...(plan.kind === 'course' ? { targetSec: plan.plan.targetSec } : {}),
-    });
+      // 앱이 꺼졌다 켜지면 이 계획으로 러닝 화면을 다시 연다
+      plan: JSON.stringify(params),
+    };
+    if (!recovering) {
+      engine.prepare(input);
+      return;
+    }
+    // 이어 달리기: 모드 · 코스를 먼저 알려준 뒤 저장된 기록을 불러온다. 남은 기록이 없으면 돌아간다.
+    engine
+      .prepare(input)
+      .then(() => engine.recover())
+      .then((snap) => {
+        if (snap) return;
+        endActiveRun();
+        router.replace('/');
+      });
     // 계획은 이 화면에 들어올 때 한 번만 읽는다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, recovering, courseReady]);

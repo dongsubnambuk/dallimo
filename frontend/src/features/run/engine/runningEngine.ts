@@ -3,13 +3,15 @@ import type { GeoPoint } from '@/shared/geo';
 import type { GpsQuality } from '@/shared/location/locationSource';
 
 // 명세서 49.1장 Run Engine interface. UI는 expo-location·SQLite를 직접 부르지 않고 이 경계만 쓴다.
-// 실제 구현(GPS 수신, SQLite 선저장, Batch Sync, 백그라운드 기록)은 GPS PoC(WBS 1) 단계에서 같은 인터페이스로 만든다.
+// 실제 구현은 deviceRunningEngine(GPS 수신, SQLite 선저장, 백그라운드 기록, 복구). Batch Sync는 WBS 2에서 붙인다.
 
 export type RunPrepareInput = {
   mode: RunMode;
   // 코스 러닝(COURSE / PB / CHALLENGE)이면 기준 코스 경로
   course?: { id: string; route: GeoPoint[] };
   targetSec?: number;
+  // 앱이 꺼졌다 켜져 이어 달릴 때 화면에 다시 보여줄 계획 (RunPlanParams JSON)
+  plan?: string;
 };
 
 // CRUN-001~003 코스 러닝 상태. FREE면 null.

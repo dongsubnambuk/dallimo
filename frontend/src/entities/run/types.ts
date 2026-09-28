@@ -18,7 +18,8 @@ export type RunPlan = {
 export type RunStatus = 'PREPARING' | 'RUNNING' | 'PAUSED' | 'FINISHING' | 'FINISHED' | 'RECOVERY' | 'CANCELED';
 
 // 10.1장 RunPoint. recordedAt은 epoch ms.
-export type RunPointQuality = 'OK' | 'LOW_ACCURACY';
+// 51장 anomaly classification: 정확도가 낮거나(LOW_ACCURACY) 순간 이동처럼 튄(JUMP) point는 거리 계산에서 빼고 원본은 남긴다.
+export type RunPointQuality = 'OK' | 'LOW_ACCURACY' | 'JUMP';
 export type RunPoint = {
   seq: number;
   latitude: number;

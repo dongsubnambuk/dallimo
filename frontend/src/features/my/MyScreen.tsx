@@ -13,6 +13,7 @@ import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import type { HistoryScenario } from '@/entities/run/api/mockRunResultRepository';
 import type { Me } from '@/entities/user/types';
 import { DevLinks } from '@/features/dev/DevLinks';
+import { GpsPocLink } from '@/features/gps-poc/GpsPocLink';
 import { formatCount, formatDistanceKm } from '@/shared/format';
 
 import { LocalOnlyNotice } from './components/LocalOnlyNotice';
@@ -120,6 +121,7 @@ export function MyScreen({ scenario }: { scenario: HistoryScenario }) {
           </View>
         </>
       )}
+      <GpsPocLink />
       <DevLinks />
     </ScrollView>
   );

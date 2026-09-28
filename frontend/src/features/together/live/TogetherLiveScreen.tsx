@@ -72,7 +72,7 @@ function Live({ roomId, scenario, speed }: Props) {
 function LiveRun({ room, scenario, speed }: { room: LiveRoom; scenario: LiveRunScenario; speed: number }) {
   const { colors } = useTheme();
   // 개인 Run은 항상 만든다 (45.1장). 내 기록은 러닝 엔진이, 다른 사람 상태는 Live 채널이 준다.
-  const [engine] = useState(() => beginActiveRun({ scenario: 'normal', speed }));
+  const [engine] = useState(() => beginActiveRun({ kind: 'mock', scenario: 'normal', speed }));
   const [channel] = useState<LiveChannel>(() => createMockLiveChannel({ room, scenario, now: engine.now, speed }));
   const [members, setMembers] = useState<LiveMemberState[]>([]);
   const [connected, setConnected] = useState(true);

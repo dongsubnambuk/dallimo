@@ -679,3 +679,26 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | NRC 참고 | `REFERENCE-RESEARCH-2026-09.md` 7항. 러닝 중 지도는 확인용(N4) 반영, 길게 눌러 끝내기(N5)는 제안만 | 사용자 요청 |
 | 구간 음성 안내 | **사용자 결정으로 추가**(NRC N8). 1km(기본) · 2km마다 "2킬로미터. 10분 40초. 평균 페이스 5분 20초."처럼 거리 · 누적 시간(멈춘 시간 제외) · 평균 페이스를 읽는다. 러닝 · Together Live 모두. 설정 > 러닝에 "구간 안내"(1km마다 / 2km마다 / 끔), 음성 안내를 끄면 고를 수 없다 | AUD-001 기본 안내, AUD-003 빈도 설정, WBS 13 "구간 TTS 이벤트", REFERENCE-MATRIX Voice "짧고 행동 가능한 음성" |
 | 확인 못 한 것 | 이 환경에는 iOS 기기 · 시뮬레이터가 없다. iOS 번들 빌드와 웹 회귀만 확인했다. 실제 지도 모양 · 핀 위치 · 다크 지도 · 성능은 아이폰 개발 빌드에서 확인해야 한다 | CLAUDE.md 11항 |
+
+## 27. GPS PoC (WBS 1)
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 범위 | 권한, 앞 · 뒤 위치 수신, SQLite 저장, 경로 표시(기존 지도), 복구, 실기기 테스트 준비. Batch Sync · 네트워크 상태는 WBS 2 | 19장 WBS 1 산출물 |
+| 엔진 | `deviceRunningEngine`: 같은 `RunningEngine` 경계. 거리 · 페이스 · 스플릿 · 코스 진행은 mock 엔진과 같은 함수 | 49.1장 |
+| 엔진 고르기 | iOS · Android는 실제 위치. `scenario` · `speed`(개발용) 파라미터가 있으면 mock 러너. 웹은 mock, `?gps=device`로 브라우저 위치 | 개발 QA 상태 유지 |
+| 위치 수신 | 49.2장 startForeground · startBackground를 하나로: iOS는 앱 사용 중 시작한 위치 업데이트를 화면이 꺼져도 한 task로 준다. 권한은 "앱 사용 중 허용"만 요청(항상 허용 요청 없음). Android는 알림 있는 foreground service | 29.3장, expo-location 구현 확인 |
+| 저장 | 백그라운드 task → `recorder` → SQLite append(50.1장 트랜잭션, seq는 저장소가 붙임). 엔진은 저장된 point로 지표 계산. 앱이 꺼진 상태에서 task가 깨어나도 저장은 이어진다 | 29.3장 "GPS 수신과 SQLite append만", ADR-001 |
+| 스키마 | 29.2장 그대로 + `course_id` TEXT(코스 id가 문자열), `local_run.plan`(이어 달릴 때 화면 계획), `local_run_segment`(달린 구간: 복구 때 일시정지 시간 · 일시정지 중 이동을 빼려면 필요). `PRAGMA user_version` migration | 51.2장 pause segment 제외, 11.3장 |
+| 품질 표시 | 정확도 > 20m는 LOW_ACCURACY, 직전 정상 point 대비 12m/s 넘으면 JUMP(3번 이어지면 새 위치 기준). 둘 다 거리에서 빼고 원본은 남긴다. 값은 모두 PoC 시작값 | 10.5 · 51장, LOC-004, 15항에서 미뤘던 순간 이동 판정 |
+| GPS 상태 | 정확도 10m 이하 양호, 20m 이하 보통, 넘으면 약함. 10초 넘게 위치가 없으면 찾는 중 | LOC-003 |
+| 일시정지 | 위치는 계속 받되(내 위치 · 앱 유지) 저장하지 않는다 | 51.2장 |
+| 복구 | 로그인 뒤 탭이 처음 뜰 때 RUNNING · PAUSED 러닝이 있으면 카운트다운 없이 러닝 화면. 꺼져 있던 시간은 빼고 마지막 point까지만 달린 것으로 본다. GPS를 다시 잡으면 이어서 기록(RECOVERY → RUNNING). 일시정지 중 꺼졌으면 일시정지로 돌아온다 | 11.3장, 15항 recovering |
+| 서버 | 서버 연동 전이라 종료하면 결과는 mock 저장소에 올린 것으로 본다. SQLite point는 PENDING으로 남긴다 | WBS 2 Batch Sync |
+| 웹 | SQLite 대신 메모리 저장소(새로고침하면 사라짐), 백그라운드 task 없음 | 웹은 개발 확인용 |
+| 러닝 준비 · 탐색 | 실제 위치. 러닝 준비는 화면이 보일 때만 위치를 받는다(러닝 화면이 위에 뜨면 끔). 탐색은 한 번만 읽는다. Together 대기실 · Live는 Live PoC 전이라 mock | 배터리 |
+| PoC 도구 | 마이 탭 "GPS PoC 기록 보기 · 내보내기": 러닝별 point 수 · 평균 간격 · 평균 정확도 · 제외 비율, JSON(원본) · GPX 내보내기, 지우기. 개발 빌드와 `EXPO_PUBLIC_GPS_POC=1` 빌드에서만 | 18장 GPS 지표, 57장 GPS PoC Report |
+| 빌드 | `expo-dev-client` 추가, `eas.json`에 development · gps-poc · production. 야외 테스트는 JS가 앱 안에 들어간 빌드(Release 또는 EAS gps-poc) | 9장 Build "EAS Development Build", 29.3장 |
+| 문서 | `docs/test/gps-poc.md`: 설치, 시나리오, 정할 값 | 57장 |
+| 확인한 것 | SQLite 저장소를 Node SQLite로 실행해 확인(seq · 구간 · 통계 · 동시 저장). 웹에서 브라우저 위치를 움직여 전체 경로 확인: 120m→0.12km, 튄 point 제외, 정확도 낮음 동안 거리 멈춤 + "GPS 약함", 일시정지 중 이동 · 시간 제외, 복구 후 이어서 기록. iOS · Android 번들 빌드, Info.plist(UIBackgroundModes location, 위치 문구) | |
+| 확인 못 한 것 | 아이폰 실기기: 화면 잠금 기록, 강제 종료 뒤 복구, 실제 정확도 · 배터리 | CLAUDE.md 11항 |

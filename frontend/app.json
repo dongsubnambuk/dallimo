@@ -50,7 +50,20 @@
           "cameraPermission": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "달린 경로와 거리를 기록하고 주변 코스를 찾을 때 위치를 사용해요.",
+          "locationAlwaysAndWhenInUsePermission": "화면을 끄고 달려도 경로와 거리를 이어서 기록하려고 위치를 사용해요.",
+          "locationAlwaysPermission": "화면을 끄고 달려도 경로와 거리를 이어서 기록하려고 위치를 사용해요.",
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

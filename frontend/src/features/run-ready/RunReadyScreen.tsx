@@ -44,7 +44,7 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const courseId = plan.kind === 'course' ? plan.plan.courseId : null;
-  const { readiness, course } = useRunReadiness(courseId, scenario);
+  const { readiness, course } = useRunReadiness(courseId, scenario, focused);
   const detail = course.kind === 'ready' ? course.course : null;
   const courseName = detail?.name ?? (plan.kind === 'course' ? plan.courseName : null);
 

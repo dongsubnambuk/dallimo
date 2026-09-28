@@ -5,7 +5,7 @@ import type { RunPoint, RunSplit } from './types';
 
 // 51장 GPS 계산 파이프라인 중 화면 지표 부분: accepted segment → distance accumulator → pace window.
 // 원본 Point는 RunPointStore에 그대로 남기고, 여기서는 지표 계산에 쓸지 말지만 판단한다.
-// 비현실적 순간 이동(속도 이상치) 기준은 PoC에서 정하므로 아직 적용하지 않는다 (FOUNDATION-DECISION-LOG 15항).
+// 정확도 · 순간 이동 판정은 저장할 때 recorder가 qualityFlag로 붙인다. 여기서는 OK가 아닌 point를 거리에서 빼고 앞뒤를 잇지 않는다.
 export type MetricsState = {
   distanceM: number;
   // 마지막으로 받은 accepted point. 일시정지 뒤에는 null로 끊어 멈춘 동안의 이동을 세지 않는다.

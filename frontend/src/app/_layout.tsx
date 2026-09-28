@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { darkTheme, lightTheme, ThemeProvider } from '@/design/theme';
 import { fontAssets, fontFamily } from '@/design/tokens';
 import { restoreSession, useAuthStatus } from '@/features/auth/session';
+// 백그라운드 위치 task는 앱이 뜰 때 먼저 등록되어 있어야 한다 (OS가 백그라운드에서 앱을 다시 켤 때 포함)
+import '@/tasks/background-location';
 
 SplashScreen.preventAutoHideAsync();
 

@@ -1,14 +1,18 @@
 import { useSyncExternalStore } from 'react';
 
+import { createDeviceRunningEngine } from './deviceRunningEngine';
 import { createMockRunningEngine, type ActiveRunScenario } from './mockRunningEngine';
 import type { ActiveRunSnapshot, RunningEngine } from './runningEngine';
 
 // 앱 안에서 동시에 하나의 러닝만 진행한다. 화면이 다시 그려지거나 바뀌어도 엔진은 유지된다.
 let current: RunningEngine | null = null;
 
-export function beginActiveRun(options: { scenario: ActiveRunScenario; speed: number }): RunningEngine {
+// device: 실제 기기 위치로 기록 (SQLite 저장, 백그라운드). mock: 개발용 가짜 러너 (상태 QA, 배속)
+export type ActiveRunOptions = { kind: 'device' } | { kind: 'mock'; scenario: ActiveRunScenario; speed: number };
+
+export function beginActiveRun(options: ActiveRunOptions): RunningEngine {
   current?.dispose();
-  current = createMockRunningEngine(options);
+  current = options.kind === 'device' ? createDeviceRunningEngine() : createMockRunningEngine(options);
   return current;
 }
 
