@@ -22,7 +22,7 @@ export type ParticipantChipProps = {
 const config: Record<ParticipantStatus, { icon: IconName; copy: string; color: (c: ColorRoles) => string }> = {
   invited: { icon: 'invited', copy: '초대됨', color: (c) => c.text.secondary },
   ready: { icon: 'ready', copy: '준비 완료', color: (c) => c.status.success },
-  running: { icon: 'running', copy: '달리는 중', color: (c) => c.action.primary },
+  running: { icon: 'running', copy: '달리는 중', color: (c) => c.text.accent },
   disconnected: { icon: 'disconnected', copy: '연결 끊김', color: (c) => c.status.warning },
   finished: { icon: 'finished', copy: '완주', color: (c) => c.status.success },
   dnf: { icon: 'dnf', copy: '중도 포기', color: (c) => c.status.danger },

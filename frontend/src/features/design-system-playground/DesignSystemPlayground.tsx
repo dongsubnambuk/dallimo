@@ -351,7 +351,7 @@ function Contexted({ mode, children }: { mode: ContextMode; children: () => Reac
 function ContextBox({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
   return (
-    <AppSurface level="surface" radius="card" style={[styles.contextBox, { borderColor: colors.border.subtle }]}>
+    <AppSurface level="canvas" radius="card" style={[styles.contextBox, { borderColor: colors.border.subtle }]}>
       {children}
     </AppSurface>
   );

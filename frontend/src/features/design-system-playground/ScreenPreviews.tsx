@@ -56,14 +56,14 @@ function ExplorePreview() {
       {/* P1: 지도가 작업 공간, 선택한 코스가 가장 굵은 signal 선 (90장) */}
       <CourseMapPreview route={selectedRoute} others={otherRoutes} height={300} accessibilityLabel="주변 코스 지도" />
       <View style={styles.mapTop} pointerEvents="box-none">
-        <AppSurface level="elevated" radius="control" style={styles.search}>
+        <AppSurface level="elevated" radius="pill" style={styles.search}>
           <AppText role="body" tone="secondary">
-            지역, 장소 검색
+            코스, 지역, 장소 검색
           </AppText>
         </AppSurface>
         <View style={styles.chips}>
           {['3~5km', '평지', '야간'].map((k) => (
-            <FilterChip key={k} label={k} selected={!!filters[k]} onPress={() => setFilters((f) => ({ ...f, [k]: !f[k] }))} />
+            <FilterChip key={k} label={k} variant="map" selected={!!filters[k]} onPress={() => setFilters((f) => ({ ...f, [k]: !f[k] }))} />
           ))}
         </View>
       </View>
@@ -99,7 +99,7 @@ function ExplorePreview() {
 
 function CourseDetailPreview() {
   return (
-    <AppSurface level="surface">
+    <AppSurface level="canvas">
       <CourseMapPreview route={suseongmotLoop} height={220} badge="2.3 km" accessibilityLabel="수성못 둘레길 경로" />
       <View style={styles.pad}>
         <View style={styles.titleBlock}>
@@ -191,7 +191,7 @@ function ActiveRunPreview() {
 function ResultPreview() {
   const { colors } = useTheme();
   return (
-    <AppSurface level="surface">
+    <AppSurface level="canvas">
       <View style={styles.pad}>
         <View style={styles.titleBlock}>
           <AppText role="label" tone="accent">
@@ -294,7 +294,7 @@ function FrameBody({ children }: { children: ReactNode }) {
 function Sheet({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
   return (
-    <AppSurface level="surface" style={[styles.sheet, { boxShadow: elevation.sheet }]}>
+    <AppSurface level="elevated" style={[styles.sheet, { boxShadow: elevation.sheet }]}>
       <View style={[styles.handle, { backgroundColor: colors.border.strong }]} />
       {children}
     </AppSurface>
@@ -303,7 +303,7 @@ function Sheet({ children }: { children: ReactNode }) {
 
 function StickyBar({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
-  return <View style={[styles.sticky, { borderTopColor: colors.border.subtle, backgroundColor: colors.bg.surface }]}>{children}</View>;
+  return <View style={[styles.sticky, { borderTopColor: colors.border.subtle, backgroundColor: colors.bg.elevated }]}>{children}</View>;
 }
 
 // 라벨 위 · 값 아래, 세로 구분선으로 나눈 요약 행 (레퍼런스 P5)

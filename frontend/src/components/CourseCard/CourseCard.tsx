@@ -30,7 +30,8 @@ export type CourseCardProps = {
 
 // 113장: course identity > distance > metadata.
 // 95장: 사진 thumbnail 없는 버전이 기본. 경로 모양은 사진이 아니라 코스 geometry이므로 route가 있을 때만 그린다.
-// 레퍼런스 P10: 선택을 채운 상자로 감싸지 않고 경로 색·제목 색으로 표시한다. 선택 코스는 지도 route highlight와 연결된다(90장).
+// 레퍼런스: NRC 활동 목록(회색 칸 안 경로 모양 + 굵은 기울임 거리). 선택은 경로 칸을 검정으로 뒤집어 표시하고
+// 지도 route highlight와 연결된다(90장). 행 전체를 채운 상자로 감싸지 않는다 (P10).
 export function CourseCard({
   title,
   distanceM,
@@ -73,11 +74,11 @@ export function CourseCard({
         )}
         <View style={styles.body}>
           <View style={styles.titleRow}>
-            <AppText role="sectionTitle" tone={selected ? 'accent' : 'primary'} numberOfLines={compact ? 1 : 2} style={styles.title}>
+            <AppText role="sectionTitle" numberOfLines={compact ? 1 : 2} style={styles.title}>
               {title}
             </AppText>
             <View style={styles.distance}>
-              <AppText role="sectionTitle" tabular tone={selected ? 'accent' : 'primary'} style={styles.distanceValue}>
+              <AppText role="sectionTitle" tabular style={styles.distanceValue}>
                 {distance}
               </AppText>
               <AppText role="caption" tone="secondary">
@@ -101,24 +102,25 @@ export function CourseCard({
   );
 }
 
-const GLYPH = 56;
-const GLYPH_COMPACT = 40;
+const GLYPH = 60;
+const GLYPH_COMPACT = 44;
 
-// 코스 경로 모양 (사진 thumbnail이 아닌 geometry)
+// 코스 경로 모양 (사진 thumbnail이 아닌 geometry). 선택되면 칸을 검정으로 뒤집고 경로를 민트로 그린다.
 function RouteGlyph({ route, active, size }: { route: GeoPoint[]; active: boolean; size: number }) {
   const { colors } = useTheme();
-  const project = makeProjection([route], size, size, spacing.sm);
+  const project = makeProjection([route], size, size, spacing.md);
   const pts = route.map(project);
-  const color = active ? colors.route.course : colors.text.secondary;
+  const line = active ? colors.action.primary : colors.text.primary;
+  const bg = active ? colors.action.secondary : colors.bg.surface;
   return (
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[styles.glyph, { width: size, height: size, backgroundColor: active ? colors.action.tint : colors.border.subtle }]}
+      style={[styles.glyph, { width: size, height: size, backgroundColor: bg }]}
     >
       <Svg width={size} height={size}>
-        <Polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth={active ? 3 : 2.5} strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx={pts[0][0]} cy={pts[0][1]} r={3} fill={colors.bg.surface} stroke={color} strokeWidth={2} />
+        <Polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={line} strokeWidth={active ? 3.5 : 2.5} strokeLinecap="round" strokeLinejoin="round" />
+        <Circle cx={pts[0][0]} cy={pts[0][1]} r={3.5} fill={colors.action.primary} stroke={active ? colors.action.primary : colors.text.primary} strokeWidth={1.5} />
       </Svg>
     </View>
   );
@@ -127,7 +129,7 @@ function RouteGlyph({ route, active, size }: { route: GeoPoint[]; active: boolea
 // 경로가 없을 때: 출발점과 도착점을 잇는 짧은 세로 표시
 function RouteMark({ active }: { active: boolean }) {
   const { colors } = useTheme();
-  const color = active ? colors.action.primary : colors.border.strong;
+  const color = active ? colors.text.primary : colors.border.strong;
 
   return (
     <View style={styles.mark} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -140,7 +142,7 @@ function RouteMark({ active }: { active: boolean }) {
 
 function CourseCardSkeleton({ compact, style }: { compact: boolean; style?: StyleProp<ViewStyle> }) {
   const { colors } = useTheme();
-  const bar = { backgroundColor: colors.border.subtle, borderRadius: radius.control };
+  const bar = { backgroundColor: colors.bg.surface, borderRadius: radius.control };
 
   return (
     <View
@@ -150,7 +152,7 @@ function CourseCardSkeleton({ compact, style }: { compact: boolean; style?: Styl
       style={[styles.root, compact && styles.compact, style]}
     >
       <View style={styles.row}>
-        <View style={[styles.glyph, bar, { width: compact ? GLYPH_COMPACT : GLYPH, height: compact ? GLYPH_COMPACT : GLYPH }]} />
+        <View style={[styles.glyph, bar, { width: compact ? GLYPH_COMPACT : GLYPH, height: compact ? GLYPH_COMPACT : GLYPH, borderRadius: radius.card }]} />
         {/* 76장: skeleton은 실제 content geometry와 비슷하게 둔다 */}
         <View style={styles.body}>
           <View style={[bar, { height: typography.sectionTitle.lineHeight, width: '65%' }]} />
@@ -166,7 +168,7 @@ const NODE = 8;
 
 const styles = StyleSheet.create({
   root: {
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.md + spacing.xs / 2,
     paddingHorizontal: spacing.lg,
   },
   compact: {
@@ -175,7 +177,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   body: {
     flex: 1,
@@ -196,11 +198,13 @@ const styles = StyleSheet.create({
   },
   // 레퍼런스 P4: 기록·거리 숫자는 굵은 기울임꼴
   distanceValue: {
-    fontFamily: fontFamily.extrabold,
+    fontFamily: fontFamily.black,
+    fontSize: 22,
+    letterSpacing: -0.6,
     transform: [{ skewX: OBLIQUE_SKEW }],
   },
   glyph: {
-    borderRadius: radius.control,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     overflow: 'hidden',
   },

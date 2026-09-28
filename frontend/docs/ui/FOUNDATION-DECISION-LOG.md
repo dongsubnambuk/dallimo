@@ -3,6 +3,8 @@
 DESIGN-SYSTEM-PLAYGROUND-SPEC.md 116장 "Decision Log | 아직 미확정인 visual 값 목록 기록"에 따라 작성한다.
 명세서 원문 문서(`DESIGN-SYSTEM.md` 등)는 수정하지 않았다. 명세서에 없는 값과 판단은 이 문서에만 기록한다.
 
+> 현재 값은 **8항(v0.3)**이 기준이다. 0~4항의 색·글자·모서리 값은 v0.1~v0.2 기록으로 남겨 둔다.
+
 ## 00. v0.2 레퍼런스 기반 개선
 
 사용자 피드백: v0.1도 AI 시안처럼 보임. 핀터레스트와 실제 국내 앱 화면을 근거로 다시 설계하라.
@@ -193,3 +195,102 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 로딩·결과 없음·오류에서도 내 위치(또는 기본 지역) 주변 지도 표시 | - | 74 상태, 빈 회색 화면 제거 |
 | 가려지는 영역·가장자리의 라벨과 말풍선 숨김 | - | 8항 "지도 위 UI가 중요한 내용을 가리지 않게" |
 | `CourseSummary`에 `estimatedSec`, `finisherCount`, `weeklyRunnerCount` | - | 43장 CourseSummary는 OpenAPI 확정 시 맞춘다 |
+
+## 8. v0.3 전면 시각 교체 (민트 네온 + 흑백)
+
+사용자 지시: "전체 UI 디자인을 전면 교체. 단순 구조 배치가 아니라 색상·디자인·스타일을 레퍼런스에서 최대한 활용. 핀터레스트, uibowl.io, wwit.design 참고."
+사용자가 네 방향(민트 네온+흑백 / 볼트+검정 / 스트라바 주황 / 전체 다크) 중 **민트 네온 + 흑백**을 골랐다.
+조사 내용은 `REFERENCE-RESEARCH-2026-09.md` 6항(S1~S11)에 있다.
+
+### 8.1 명세서와의 관계
+
+| 명세서 | v0.3 | 판단 |
+| --- | --- | --- |
+| 83장 Brand Accent "Aqua/teal 계열의 고채도 signal" | 형광 민트 `#2BF0C0` | 같은 계열 안에서 채도·명도를 올림 |
+| 87장 탐색 light / 러닝 dark | 유지 | |
+| 88장 "raw 값은 변경 가능, semantic 역할이 먼저" | 역할 이름 유지, 값만 교체. 역할 3개 추가(아래) | |
+| 88.1장 "숫자를 위해 별도 장식 font를 추가하지 않음" | Pretendard 유지. SemiBold를 Bold로 바꾸고 Black 추가 | 같은 family의 굵기만 추가 |
+| 88.2장 radius 3단계 + pill | 12 / 16 / 24 / pill | |
+| 95장 PrimaryRunButton이 signal을 가장 강하게 사용 | 민트 채움은 PrimaryRunButton·개수 배지·"출발" 핀·PB 표시에만 | S1 |
+
+### 8.2 색 (color.ts)
+
+| 역할 | light | dark | 근거 |
+| --- | --- | --- | --- |
+| bg.canvas | `#FFFFFF` | `#0B0B0C` | S1 흑백 |
+| bg.surface | `#F3F4F2` 회색 블록 | `#1B1C1E` | S3 |
+| bg.elevated | `#FFFFFF` + 그림자 | `#242528` | 88.2 sheet/map overlay |
+| text.primary / secondary | `#0B0B0C` / `#666A68` | `#F4F5F4` / `#9A9E9C` | |
+| **text.accent** (추가) | `#007A62` 민트 잉크 | `#2BF0C0` | 형광 민트는 흰 바탕 글자로 못 씀(1.47) |
+| action.primary / onPrimary | `#2BF0C0` / `#0B0B0C` | 같음 | S1, S2 |
+| action.secondary | `#0B0B0C` | `#F4F5F4` | S2 검정 알약 |
+| **action.onSecondary** (추가) | `#FFFFFF` | `#0B0B0C` | |
+| action.tint | 민트 20% | 민트 15% | 본인 행, 러너 수 배지 |
+| **route.casing** (추가) | `#0B0B0C` | `#0B0B0C` | S8. 밝은 바탕의 민트 선 테두리 |
+| route.course / actual / target | 민트 / 검정 / 민트 잉크 | 민트 / 흰색 / 민트 60% | |
+| border.subtle / strong | 검정 8% / 25% | 흰색 12% / 32% | 회색 바탕 위에서도 보이게 반투명 |
+| mapBase | 회색 땅 `#EEF0EC` + 흰 길 | 차콜 | 국내 지도 앱 |
+
+규칙
+- 형광 민트는 **채움 전용**이다. 흰 바탕 위 글자·얇은 아이콘에는 `text.accent`를 쓴다.
+- 밝은 바탕의 signal 선(지도 경로, CourseMapPreview)은 검정 테두리를 두른다. `SignalRail`은 light에서 선을 검정, 진행 지점만 민트로 그린다.
+- 기본 버튼·칩의 채움은 `border.subtle`(반투명)이다. 흰 화면과 회색 블록 위 어디서나 보이게 한다.
+
+### 8.3 대비 검증 (WCAG)
+
+| 조합 | 대비 | 결과 |
+| --- | --- | --- |
+| text.primary / canvas light | 19.67 | AA |
+| text.secondary / canvas light · surface light | 5.49 · 4.97 | AA |
+| text.accent `#007A62` / canvas light | 5.30 | AA |
+| text.primary / canvas dark | 18.00 | AA |
+| text.secondary / canvas dark · elevated dark | 7.26 · 5.65 | AA |
+| onPrimary / signal | 13.42 | AA |
+| signal / canvas dark | 13.42 | AA |
+| signal / canvas light | 1.47 | 글자 금지, 채움 전용 |
+| onSecondary / secondary (light, dark) | 19.67, 18.00 | AA |
+| status success · warning · danger (light) | 5.05 · 4.96 · 4.98 | AA |
+| status success · warning · danger (dark) | 7.85 · 7.73 · 6.21 | AA |
+| route.casing / map land light | 17.15 | 비텍스트 3:1 통과 |
+| route.target light / map land | 4.62 | 비텍스트 3:1 통과 (v0.1의 1.37 실패 해결) |
+
+### 8.4 글자 (typography.ts)
+
+| 역할 | v0.2 | v0.3 | 근거 |
+| --- | --- | --- | --- |
+| metricHero | 64/68 ExtraBold | 72/76 **Black**, 자간 -2.5 | S5 |
+| metricLarge | 36/40 ExtraBold | 40/44 **Black**, 자간 -1.2 | S5 |
+| screenTitle | 24/32 ExtraBold | 28/36 ExtraBold | S4 |
+| sectionTitle | 17/24 SemiBold | 18/26 **Bold** | |
+| 기울임 | -8° | -9° | |
+| 폰트 파일 | Regular·Medium·SemiBold·ExtraBold | Regular·Medium·Bold·ExtraBold·Black | 파일 1개 증가(약 1.5MB) |
+
+### 8.5 모양 (radius.ts)
+
+| 토큰 | v0.2 | v0.3 | 근거 |
+| --- | --- | --- | --- |
+| radius control / card / sheet | 10 / 14 / 20 | 12 / 16 / 24 | 플랜핏 블록, 토스 시트 |
+| 버튼 | control 모서리 | 알약(pill) | S2 |
+| stroke.signal | 3 | 4 | 굵은 진행 선 |
+| elevation | sheet 0 -4 16 12%, overlay 0 2 8 16% | sheet 0 -6 24 8%, overlay 0 2 12 14% | 더 넓고 옅은 그림자 |
+
+### 8.6 컴포넌트·화면
+
+| 대상 | 변경 | 근거 |
+| --- | --- | --- |
+| PrimaryRunButton | 민트 알약 + 검정 ExtraBold 글자. 비활성은 반투명 회색 | S1, S2 |
+| SecondaryButton | 강조 = 검정 알약, 기본 = 반투명 회색 알약. 테두리 제거. sm 높이 40 + hitSlop | S2 |
+| FilterChip | 선택 = 검정 + 체크. `variant="map"`은 흰 바탕 + 그림자 | S6, S9 |
+| CourseCard | 60 회색 칸 안 경로 모양, 출발점 민트. 선택 시 칸을 검정으로 뒤집고 경로를 민트로. 거리 22 Black 기울임 | S11 |
+| RankingRow | 1~3위 검정 원 배지, 본인 행 민트 연한 배경 + "나" 배지, PB 민트 배지 | S10 |
+| SignalRail | light는 검정 선 + 민트 진행점, dark는 민트 선 | 8.2 규칙 |
+| CourseMapPreview | 지도 바탕색, 검정 테두리 경로 | S8 |
+| 탐색 지도 | 선택 코스 검정 테두리 + 민트, 비선택 코스 검정 32%, 러너 수 핀 검정 알약 + 꼬리, "출발" 핀 민트, 내 위치 민트 원 | S7, S8 |
+| 탐색 화면 | 알약 검색창, 지도 위 흰 칩, 내 위치 버튼(선택 시 검정), 선택 코스 카드 수치 20 Black, 러너 수 민트 배지, 시트 제목 21 ExtraBold + 민트 개수 배지, 정렬을 회색 트랙 탭으로 | S6, S9 |
+| 하단 탭 | 활성 검정, 라벨 Bold 11 | NRC |
+| Playground 미리보기 | 화면 바탕을 canvas(흰색)로, 시트·고정 바를 elevated로 | 8.2 |
+
+### 8.7 확인 범위
+
+- 웹(react-native-web) Chromium에서 375 / 393 / 412 폭, 탐색 6개 상태와 Playground 전체 스크린샷
+- 실기기·시뮬레이터 확인은 아직 하지 않았다 (5항과 같은 한계)

@@ -17,11 +17,9 @@ export function AppText({ role = 'body', tone = 'primary', tabular, style, maxFo
   const { colors } = useTheme();
   const { maxFontSizeMultiplier: roleMax, oblique, ...roleStyle } = typography[role];
   const color =
-    tone === 'accent'
-      ? colors.action.primary
-      : tone === 'primary' || tone === 'secondary' || tone === 'inverse'
-        ? colors.text[tone]
-        : colors.status[tone];
+    tone === 'primary' || tone === 'secondary' || tone === 'inverse' || tone === 'accent'
+      ? colors.text[tone]
+      : colors.status[tone];
 
   return (
     <Text

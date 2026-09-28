@@ -24,13 +24,15 @@ import { useNearbyCourses } from './useNearbyCourses';
 // 74장 필수 상태: loading, location denied, no nearby course, network error, map ready, list ready.
 // 레퍼런스(REFERENCE-RESEARCH-2026-09.md): 지도 위 경로·출발 표시(P1), 코스 위 러너 수(고스트러너), 선택 코스 요약 카드(AllTrails·Runnect),
 // 목록 경로 모양(P7), 기울임 숫자(P4), 정렬(Runnect), 내 위치 버튼.
+// v0.3 스타일(uibowl·wwit 조사): 토스 적립 매장 지도(지도 위 알약 검색 + 흰 칩 + 목록 시트), 쏘카 검정 지도 핀, NRC 기간 선택.
 
 const DEFAULT_RADIUS_M = 3000;
 const WIDE_RADIUS_M = 10000;
 const MAP_RATIO = 0.6;
 const SHEET_OVERLAP = spacing.xxl;
 const CHIP_HEIGHT = 36;
-const SELECTED_CARD_HEIGHT = 76;
+const SORT_HEIGHT = 32;
+const SELECTED_CARD_HEIGHT = 84;
 
 type QuickFilter = { key: string; label: string; match: (c: CourseSummary) => boolean };
 
@@ -83,7 +85,7 @@ export function ExploreScreen() {
   // 선택이 목록에서 사라지면 첫 코스를 선택한다
   const selected = visible.find((c) => c.id === selectedId) ?? visible[0] ?? null;
   const mapHeight = Math.round(windowHeight * MAP_RATIO);
-  const topObscured = insets.top + spacing.sm + touchTarget.min + spacing.sm + CHIP_HEIGHT;
+  const topObscured = insets.top + spacing.sm + touchTarget.min + spacing.xs + spacing.sm + CHIP_HEIGHT;
   const bottomObscured = SHEET_OVERLAP + (selected ? SELECTED_CARD_HEIGHT + spacing.md : 0);
 
   const openDetail = (c: CourseSummary) => router.push({ pathname: '/course/[id]', params: { id: c.id, name: c.name } });
@@ -110,12 +112,12 @@ export function ExploreScreen() {
         />
 
         <View style={[styles.overlay, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
-          <AppSurface level="elevated" radius="control" style={styles.search}>
-            <AppIcon name="search" size={18} color={colors.text.secondary} />
+          <AppSurface level="elevated" radius="pill" style={styles.search}>
+            <AppIcon name="search" size={20} color={colors.text.primary} />
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="지역, 장소, 코스 이름"
+              placeholder="코스, 지역, 장소 검색"
               placeholderTextColor={colors.text.secondary}
               accessibilityLabel="코스 검색"
               returnKeyType="search"
@@ -129,7 +131,7 @@ export function ExploreScreen() {
                 label={f.label}
                 selected={!!filters[f.key]}
                 onPress={() => setFilters((s) => ({ ...s, [f.key]: !s[f.key] }))}
-                style={{ boxShadow: elevation.mapOverlay }}
+                variant="map"
               />
             ))}
           </ScrollView>
@@ -139,12 +141,17 @@ export function ExploreScreen() {
           <AppPressable
             onPress={() => setFocus('user')}
             accessibilityLabel="내 위치로 이동"
+            accessibilityState={{ selected: focus === 'user' }}
             style={[
               styles.locate,
-              { bottom: bottomObscured + spacing.sm, backgroundColor: colors.bg.elevated, boxShadow: elevation.mapOverlay },
+              {
+                bottom: bottomObscured + spacing.sm,
+                backgroundColor: focus === 'user' ? colors.action.secondary : colors.bg.elevated,
+                boxShadow: elevation.mapOverlay,
+              },
             ]}
           >
-            <AppIcon name="gpsGood" size={20} color={focus === 'user' ? colors.action.primary : colors.text.primary} />
+            <AppIcon name="gpsGood" size={22} color={focus === 'user' ? colors.action.onSecondary : colors.text.primary} />
           </AppPressable>
         ) : null}
 
@@ -153,7 +160,7 @@ export function ExploreScreen() {
         ) : null}
       </View>
 
-      <AppSurface level="surface" style={[styles.sheet, { marginTop: -SHEET_OVERLAP, boxShadow: elevation.sheet }]}>
+      <AppSurface level="elevated" style={[styles.sheet, { marginTop: -SHEET_OVERLAP, boxShadow: elevation.sheet }]}>
         <View style={[styles.handle, { backgroundColor: colors.border.strong }]} />
         <SheetBody
           state={state}
@@ -192,9 +199,9 @@ function SelectedCourseCard({ course, bottom, onOpen }: { course: CourseSummary;
         <View style={styles.selectedStats}>
           <Stat value={formatDistanceKm(course.distanceM, 1)} unit="km" />
           <Stat value={`${Math.round(course.estimatedSec / 60)}`} unit="분" />
-          <View style={styles.inlineRow}>
-            <AppIcon name="running" size={13} color={colors.text.secondary} />
-            <AppText role="caption" tone="secondary" tabular>
+          <View style={[styles.runners, { backgroundColor: colors.action.tint }]}>
+            <AppIcon name="running" size={12} color={colors.text.primary} />
+            <AppText role="caption" tabular style={styles.runnersText}>
               이번 주 {formatCount(course.weeklyRunnerCount)}명
             </AppText>
           </View>
@@ -208,10 +215,10 @@ function SelectedCourseCard({ course, bottom, onOpen }: { course: CourseSummary;
 function Stat({ value, unit }: { value: string; unit: string }) {
   return (
     <View style={styles.inlineRow}>
-      <AppText role="label" tabular style={styles.statValue}>
+      <AppText role="sectionTitle" tabular style={styles.statValue}>
         {value}
       </AppText>
-      <AppText role="caption" tone="secondary">
+      <AppText role="label" tone="secondary">
         {unit}
       </AppText>
     </View>
@@ -297,20 +304,7 @@ function SheetBody({
         count={visible.length}
         sub={locationDenied ? undefined : `${formatDistanceKm(radiusM, 0)}km 안`}
       />
-      <View style={styles.sorts} accessibilityRole="tablist">
-        {SORTS.filter((s) => !(locationDenied && s.key === 'near')).map((s) => (
-          <AppPressable
-            key={s.key}
-            onPress={() => onSort(s.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: sort === s.key }}
-          >
-            <AppText role="label" tone={sort === s.key ? 'primary' : 'secondary'} style={sort === s.key && styles.sortActive}>
-              {s.label}
-            </AppText>
-          </AppPressable>
-        ))}
-      </View>
+      <SortTabs value={sort} onChange={onSort} options={SORTS.filter((s) => !(locationDenied && s.key === 'near'))} />
     </>
   );
 
@@ -347,16 +341,45 @@ function SheetBody({
   );
 }
 
+// 정렬: NRC 기간 선택처럼 회색 트랙 위 선택 칸을 검정으로 채운다.
+function SortTabs({ value, onChange, options }: { value: SortKey; onChange: (s: SortKey) => void; options: typeof SORTS }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.sorts, { backgroundColor: colors.bg.surface }]} accessibilityRole="tablist">
+      {options.map((s) => {
+        const on = value === s.key;
+        return (
+          <AppPressable
+            key={s.key}
+            onPress={() => onChange(s.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            hitSlop={(touchTarget.min - SORT_HEIGHT) / 2}
+            style={[styles.sort, on && { backgroundColor: colors.action.secondary }]}
+          >
+            <AppText role="label" style={[styles.sortText, { color: on ? colors.action.onSecondary : colors.text.secondary }]}>
+              {s.label}
+            </AppText>
+          </AppPressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function SheetHeader({ title, count, sub }: { title: string; count?: number; sub?: string }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.sheetHeader}>
-      <AppText role="sectionTitle" accessibilityRole="header">
+      <AppText role="sectionTitle" accessibilityRole="header" style={styles.sheetTitle}>
         {title}
       </AppText>
       {count != null ? (
-        <AppText role="label" tone="accent" tabular>
-          {count}
-        </AppText>
+        <View style={[styles.count, { backgroundColor: colors.action.primary }]}>
+          <AppText role="label" tabular style={[styles.countText, { color: colors.action.onPrimary }]}>
+            {count}
+          </AppText>
+        </View>
       ) : null}
       {sub ? (
         <AppText role="caption" tone="secondary" style={styles.sheetSub}>
@@ -383,13 +406,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.lg + spacing.xs,
     boxShadow: elevation.mapOverlay,
   },
   searchInput: {
     flex: 1,
-    minHeight: touchTarget.min,
-    fontFamily: fontFamily.regular,
+    minHeight: touchTarget.min + spacing.xs,
+    fontFamily: fontFamily.medium,
     fontSize: typography.body.fontSize,
   },
   chips: {
@@ -419,8 +442,19 @@ const styles = StyleSheet.create({
   },
   selectedStats: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: spacing.md,
+  },
+  runners: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  runnersText: {
+    fontFamily: fontFamily.bold,
   },
   inlineRow: {
     flexDirection: 'row',
@@ -428,7 +462,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs / 2,
   },
   statValue: {
-    fontFamily: fontFamily.extrabold,
+    fontFamily: fontFamily.black,
+    fontSize: 20,
+    letterSpacing: -0.5,
     transform: [{ skewX: OBLIQUE_SKEW }],
   },
   sheet: {
@@ -439,27 +475,53 @@ const styles = StyleSheet.create({
   },
   handle: {
     alignSelf: 'center',
-    width: spacing.huge,
-    height: spacing.xs,
+    width: spacing.huge - spacing.xs,
+    height: spacing.xs + 1,
     borderRadius: radius.pill,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   sheetHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  sheetTitle: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: 21,
+    lineHeight: 28,
+  },
+  count: {
+    minWidth: 24,
+    height: 22,
+    paddingHorizontal: spacing.sm - 1,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countText: {
+    fontFamily: fontFamily.black,
   },
   sheetSub: {
     marginLeft: 'auto',
   },
   sorts: {
     flexDirection: 'row',
-    gap: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    alignSelf: 'flex-start',
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xs,
+    padding: 3,
+    gap: 2,
+    borderRadius: radius.pill,
   },
-  sortActive: {
-    fontFamily: fontFamily.semibold,
+  sort: {
+    minHeight: SORT_HEIGHT,
+    paddingHorizontal: spacing.md + spacing.xs,
+    borderRadius: radius.pill,
+  },
+  sortText: {
+    fontFamily: fontFamily.bold,
   },
   listContent: {
     paddingBottom: spacing.xl,

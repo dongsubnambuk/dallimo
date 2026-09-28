@@ -18,10 +18,10 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.action.primary,
+        tabBarActiveTintColor: colors.text.primary,
         tabBarInactiveTintColor: colors.text.secondary,
-        tabBarLabelStyle: { fontFamily: fontFamily.medium },
-        tabBarStyle: { backgroundColor: colors.bg.surface, borderTopColor: colors.border.subtle },
+        tabBarLabelStyle: { fontFamily: fontFamily.bold, fontSize: 11 },
+        tabBarStyle: { backgroundColor: colors.bg.elevated, borderTopColor: colors.border.subtle },
       }}
     >
       {TABS.map((t) => (

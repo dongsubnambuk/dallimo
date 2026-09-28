@@ -8,19 +8,21 @@ export type SignalRailProps = {
   progress: number;
   // 진행 지점에 점(head)을 표시한다. 94장 Together Live "━━━━●" 형태.
   showHead?: boolean;
-  // 진행 색. 기본은 signal(action.primary).
+  // 진행 색. 기본은 signal.
   tone?: 'signal' | 'muted';
   style?: StyleProp<ViewStyle>;
 };
 
-const HEAD = 10;
+const HEAD = 12;
 
 // 88.2장: route line, progress rail, ranking movement line을 같은 'signal line' 언어로 연결한다.
 // 진행률 표시에 쓰는 공통 선. 장식이 아니라 진행 상태를 보여줄 때만 쓴다.
 export function SignalRail({ progress, showHead = false, tone = 'signal', style }: SignalRailProps) {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const pct = Math.min(1, Math.max(0, progress)) * 100;
-  const fill = tone === 'signal' ? colors.action.primary : colors.text.secondary;
+  // 형광 민트는 흰 바탕에서 대비가 낮아(1.47) light에서는 선을 검정으로, 진행 지점만 민트로 표시한다.
+  const fill = tone === 'muted' ? colors.text.secondary : scheme === 'dark' ? colors.action.primary : colors.text.primary;
+  const head = tone === 'muted' ? colors.text.secondary : colors.action.primary;
 
   return (
     <View
@@ -34,7 +36,7 @@ export function SignalRail({ progress, showHead = false, tone = 'signal', style 
         <View
           style={[
             styles.head,
-            { left: `${pct}%`, backgroundColor: fill, borderColor: colors.bg.canvas },
+            { left: `${pct}%`, backgroundColor: head, borderColor: scheme === 'dark' ? colors.bg.canvas : colors.text.primary },
           ]}
         />
       ) : null}

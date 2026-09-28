@@ -57,7 +57,7 @@ export function ExploreMap({
   const frame = frameFor(focus, selected, courses, userPosition, fallbackCenter);
   const canDraw = width > 0 && frame.flat().length > 1;
   const project = canDraw
-    ? makeProjection(frame, width, height, { top: obscured.top + spacing.xl, bottom: obscured.bottom + spacing.xl, left: SIDE_PAD, right: SIDE_PAD })
+    ? makeProjection(frame, width, height, { top: obscured.top + BUBBLE_SPACE, bottom: obscured.bottom + spacing.xl, left: SIDE_PAD, right: SIDE_PAD })
     : null;
   const screen = (pts: GeoPoint[]) => (project ? pts.map(project) : []);
   const toPoints = (pts: GeoPoint[]) => screen(pts).map((p) => p.join(',')).join(' ');
@@ -110,20 +110,20 @@ export function ExploreMap({
             {courses
               .filter((c) => c.id !== selectedId)
               .map((c) => (
-                <Polyline key={c.id} points={toPoints(c.displayRoute)} fill="none" stroke={colors.text.secondary} strokeOpacity={0.55} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
+                <Polyline key={c.id} points={toPoints(c.displayRoute)} fill="none" stroke={colors.text.primary} strokeOpacity={0.32} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
               ))}
             {selected ? (
               <>
-                {/* 선택 코스: 흰 테두리 위 signal 선으로 지도 위에서 먼저 보이게 (83장 route signal) */}
-                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.bg.surface} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
+                {/* 선택 코스: 검정 테두리 위 민트 선 (83장 route signal, 레퍼런스: 스트라바·NRC 경로 강조) */}
+                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.casing} strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" />
                 <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.course} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
-                {start ? <Circle cx={start[0]} cy={start[1]} r={7} fill={colors.bg.surface} stroke={colors.route.course} strokeWidth={3} /> : null}
+                {start ? <Circle cx={start[0]} cy={start[1]} r={7} fill={colors.bg.elevated} stroke={colors.route.casing} strokeWidth={3} /> : null}
               </>
             ) : null}
             {me ? (
               <>
-                <Circle cx={me[0]} cy={me[1]} r={14} fill={colors.action.tint} />
-                <Circle cx={me[0]} cy={me[1]} r={6} fill={colors.text.primary} stroke={colors.bg.surface} strokeWidth={2.5} />
+                <Circle cx={me[0]} cy={me[1]} r={16} fill={colors.action.primary} fillOpacity={0.28} />
+                <Circle cx={me[0]} cy={me[1]} r={7} fill={colors.text.primary} stroke={colors.bg.elevated} strokeWidth={3} />
               </>
             ) : null}
           </Svg>
@@ -149,12 +149,13 @@ export function ExploreMap({
         ? courses
             .filter((c) => c.id !== selectedId)
             .map((c) => ({ c, p: project(c.displayRoute[0]) }))
-            .filter(({ p }) => inView(p))
+            // 선택 코스의 "출발" 핀과 겹치면 러너 수 핀을 숨긴다
+            .filter(({ p }) => inView(p) && !(start && Math.abs(p[0] - start[0]) < BUBBLE_GAP_X && Math.abs(p[1] - start[1]) < BUBBLE_GAP_Y))
             .map(({ c, p: [x, y] }) => {
               return (
                 <Bubble key={c.id} x={x} y={y}>
-                  <AppIcon name="running" size={12} color={colors.text.secondary} />
-                  <AppText role="caption" tabular style={styles.bubbleText}>
+                  <AppIcon name="running" size={12} color={colors.action.primary} />
+                  <AppText role="caption" tabular style={[styles.bubbleText, { color: colors.action.onSecondary }]}>
                     {formatCount(c.weeklyRunnerCount)}
                   </AppText>
                 </Bubble>
@@ -162,8 +163,8 @@ export function ExploreMap({
             })
         : null}
 
-      {start && selected ? (
-        <Bubble x={start[0]} y={start[1]} fill={colors.route.course}>
+      {start && selected && inView(start) ? (
+        <Bubble x={start[0]} y={start[1]} fill={colors.action.primary}>
           <AppText role="caption" style={[styles.bubbleText, { color: colors.action.onPrimary }]}>
             출발
           </AppText>
@@ -198,19 +199,27 @@ function frameFor(
   return frame;
 }
 
-// 경로 시작점 위의 작은 말풍선 (레퍼런스 P3)
+// 경로 시작점 위의 작은 말풍선 (레퍼런스 P3, 쏘카·카카오T 지도 위 검정 가격 핀)
 function Bubble({ x, y, fill, children }: { x: number; y: number; fill?: string; children: ReactNode }) {
   const { colors } = useTheme();
+  const bg = fill ?? colors.action.secondary;
   return (
     <View pointerEvents="none" style={[styles.bubbleAnchor, { left: x - BUBBLE_ANCHOR / 2, top: y }]}>
-      <View style={[styles.bubble, { backgroundColor: fill ?? colors.bg.elevated, boxShadow: elevation.mapOverlay }]}>{children}</View>
+      <View style={[styles.bubble, { backgroundColor: bg, boxShadow: elevation.mapOverlay }]}>{children}</View>
+      <View style={[styles.bubbleTail, { borderTopColor: bg }]} />
     </View>
   );
 }
 
 const BUBBLE_ANCHOR = 120;
 const EDGE = spacing.xxl;
-const BUBBLE_HEIGHT = 22;
+const BUBBLE_HEIGHT = 24;
+const TAIL = 5;
+// 경로 맨 위 점 위에 말풍선이 들어갈 자리
+const BUBBLE_SPACE = BUBBLE_HEIGHT + TAIL + spacing.lg;
+// 두 핀이 겹친다고 보는 거리
+const BUBBLE_GAP_X = 64;
+const BUBBLE_GAP_Y = BUBBLE_HEIGHT + TAIL + spacing.xs;
 const LABEL_ANCHOR = 100;
 
 const styles = StyleSheet.create({
@@ -233,7 +242,7 @@ const styles = StyleSheet.create({
   bubbleAnchor: {
     position: 'absolute',
     width: BUBBLE_ANCHOR,
-    marginTop: -BUBBLE_HEIGHT - 10,
+    marginTop: -BUBBLE_HEIGHT - TAIL - 8,
     alignItems: 'center',
   },
   bubble: {
@@ -241,10 +250,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs / 2,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.sm + 2,
     borderRadius: radius.pill,
   },
+  bubbleTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: TAIL,
+    borderRightWidth: TAIL,
+    borderTopWidth: TAIL,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
   bubbleText: {
-    fontFamily: fontFamily.semibold,
+    fontFamily: fontFamily.extrabold,
   },
 });

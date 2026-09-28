@@ -2,7 +2,7 @@ import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } f
 
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
-import { radius, spacing, touchTarget } from '@/design/tokens';
+import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 
 export type RunAvailability = 'ready' | 'disabledGPS' | 'disabledPermission';
 
@@ -23,6 +23,7 @@ const defaultReason: Record<Exclude<RunAvailability, 'ready'>, string> = {
 };
 
 // 95장: signal accent를 가장 강하게 쓰는 핵심 action. 한 화면에 하나만 둔다.
+// 레퍼런스: NRC 알약 버튼, 플랜핏 민트 채움 + 검정 글자.
 export function PrimaryRunButton({
   label,
   availability = 'ready',
@@ -34,6 +35,7 @@ export function PrimaryRunButton({
   const { colors } = useTheme();
   const ready = availability === 'ready';
   const blockedReason = ready ? null : (reason ?? defaultReason[availability]);
+  const fg = ready ? colors.action.onPrimary : colors.text.secondary;
 
   return (
     <View style={[styles.root, style]}>
@@ -46,27 +48,14 @@ export function PrimaryRunButton({
         style={({ pressed }) => [
           styles.button,
           {
-            backgroundColor: ready
-              ? pressed
-                ? colors.action.primaryPressed
-                : colors.action.primary
-              : colors.border.subtle,
+            backgroundColor: ready ? (pressed ? colors.action.primaryPressed : colors.action.primary) : colors.border.subtle,
           },
         ]}
         feedback="none"
       >
         <View style={styles.content}>
-          {loading ? (
-            <ActivityIndicator color={colors.action.onPrimary} />
-          ) : (
-            <AppIcon name="start" size={20} color={ready ? colors.action.onPrimary : colors.text.secondary} />
-          )}
-          <AppText
-            role="sectionTitle"
-            style={{ color: ready ? colors.action.onPrimary : colors.text.secondary }}
-            numberOfLines={1}
-            maxFontSizeMultiplier={1.3}
-          >
+          {loading ? <ActivityIndicator color={fg} /> : <AppIcon name="start" size={20} color={fg} />}
+          <AppText role="sectionTitle" style={[styles.label, { color: fg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
             {label}
           </AppText>
         </View>
@@ -90,8 +79,7 @@ const styles = StyleSheet.create({
   },
   button: {
     minHeight: touchTarget.primary,
-    borderRadius: radius.control,
-    borderCurve: 'continuous',
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
   },
@@ -100,9 +88,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  label: {
+    fontFamily: fontFamily.extrabold,
+  },
   reason: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.xs,
   },
   reasonText: {

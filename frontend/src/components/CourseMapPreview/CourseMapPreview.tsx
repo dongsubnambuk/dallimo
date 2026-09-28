@@ -56,7 +56,10 @@ export function CourseMapPreview({
   const { colors, scheme } = useTheme();
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
-  const background = scheme === 'dark' ? colors.bg.surface : colors.border.subtle;
+  const background = colors.mapBase.land;
+  // 밝은 바탕에서는 민트 선이 묻히지 않게 검정 테두리를 두른다 (signal line 공통 규칙)
+  const cased = scheme === 'light';
+  const pin = cased ? colors.route.casing : colors.route.course;
 
   if (loading || route.length < 2) {
     return (
@@ -92,6 +95,9 @@ export function CourseMapPreview({
               <Polyline key={i} points={toPoints(o)} fill="none" stroke={colors.border.strong} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
             ))}
             {/* 코스 기준선: 가장 굵은 signal 선 */}
+            {cased ? (
+              <Polyline points={toPoints(route)} fill="none" stroke={colors.route.casing} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
+            ) : null}
             <Polyline points={toPoints(route)} fill="none" stroke={colors.route.course} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
             {actual ? (
               <Polyline points={toPoints(actual)} fill="none" stroke={colors.route.actual} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -99,11 +105,11 @@ export function CourseMapPreview({
             {deviationPts ? (
               <Polyline points={toPoints(deviationPts)} fill="none" stroke={colors.status.danger} strokeWidth={4} strokeDasharray="6 5" strokeLinecap="round" />
             ) : null}
-            <Circle cx={end[0]} cy={end[1]} r={6} fill={colors.route.course} />
-            <Circle cx={start[0]} cy={start[1]} r={7} fill={background} stroke={colors.route.course} strokeWidth={3} />
+            <Circle cx={end[0]} cy={end[1]} r={6} fill={pin} />
+            <Circle cx={start[0]} cy={start[1]} r={7} fill={colors.bg.elevated} stroke={pin} strokeWidth={3} />
             {annotations.map((a, i) => {
               const p = project(pointAt(route, a.at));
-              return <Circle key={i} cx={p[0]} cy={p[1]} r={6} fill={toneColor(a.tone, colors)} stroke={background} strokeWidth={2} />;
+              return <Circle key={i} cx={p[0]} cy={p[1]} r={6} fill={toneColor(a.tone, colors)} stroke={colors.bg.elevated} strokeWidth={2} />;
             })}
           </Svg>
           <Tag x={start[0]} y={start[1]} text={startLabel} fill={colors.route.course} ink={colors.action.onPrimary} />
@@ -184,6 +190,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   tagText: {
-    fontFamily: fontFamily.semibold,
+    fontFamily: fontFamily.bold,
   },
 });
