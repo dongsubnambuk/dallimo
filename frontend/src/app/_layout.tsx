@@ -52,6 +52,7 @@ export default function RootLayout() {
             name="together/[roomId]/live"
             options={{ headerShown: false, gestureEnabled: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }}
           />
+          <Stack.Screen name="together/[roomId]/result" options={{ headerShown: false, animation: 'fade' }} />
           {/* Result는 light로 돌아온다 (89장) */}
           <Stack.Screen name="run/result" options={{ headerShown: false, animation: 'fade' }} />
         </Stack>

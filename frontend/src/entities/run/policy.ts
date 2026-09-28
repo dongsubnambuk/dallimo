@@ -11,6 +11,8 @@ export type RunPolicy = {
   courseDeviationM: number;
   // CRUN-003 "지속 이탈": 이 시간(초) 넘게 벗어나 있으면 안내한다 — PoC 전 임시값.
   courseDeviationSec: number;
+  // run.live_state_interval_sec: Together 러닝 중 내 상태를 보내는 간격(초). 명세 "3~5초 후보".
+  liveStateIntervalSec: number;
 };
 
 const MOCK_RUN_POLICY: RunPolicy = {
@@ -19,6 +21,7 @@ const MOCK_RUN_POLICY: RunPolicy = {
   minPaceSampleM: 50,
   courseDeviationM: 50,
   courseDeviationSec: 10,
+  liveStateIntervalSec: 3,
 };
 
 export async function getRunPolicy(): Promise<RunPolicy> {

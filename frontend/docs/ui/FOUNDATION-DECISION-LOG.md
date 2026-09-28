@@ -539,3 +539,26 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 데이터 | `entities/live`: `LiveRoom`(모드·목표·예약·상태·출발 시각·참가자, GPS 좌표 없음), `LiveRoomRepository`(listUpcoming/listRecent/listFriends/create/get/join/setReady/leave). mock은 초대한 친구가 차례로 들어와 준비하는 흐름을 시간으로 흉내 | 45장 REST, 6.3장 LiveRoomStatus/LiveMemberStatus |
 | `useNow` | 렌더 중 `Date.now()`를 부르지 않도록 현재 시각을 주기적으로 갱신하는 hook | React 순수성 규칙(lint) |
 | 개발용 | `/together?scenario=` normal / loading / empty / error, `/together/demo?scenario=` normal / disconnected / canceled | |
+
+## 20. Together Live (SCR-T04~T05) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 범위 | `/together/[roomId]/live` Live(SCR-T04, dark), `/together/[roomId]/result` Live 결과(SCR-T05, light). 대기실 카운트다운이 끝나면 Live로 넘어온다 | 72장 11번 Together Live, SCREEN-SPECS SCR-T04~T05, 89장 Result는 light 복귀 |
+| 레이아웃 | 위: 목표 · "N/M명 달리는 중" · 연결 점 → 내 순위(가장 큰 숫자) · 내 거리 / 목표 → 참가자 진행 rail → 선두와 차이 · 평균 페이스 → 일시정지 | 94장 Live 레이아웃, 89장 self metric 항상 고정 |
+| 모드별 hero | 레이스: 순위 + 거리 / 목표. 타임 어택: 순위 + 거리 + 남은 시간. 함께: 순위 없이 거리를 가장 크게 + 함께 달린 시간 | 45.1장 모드 불변식, 62.1장 TOGETHER는 승패를 강조하지 않음 |
+| 참가자 표시 | 지도 marker 대신 `ParticipantChip` rail. 진행률(목표 거리 대비, 타임 어택은 선두 대비)과 나와의 거리 차이("+72m" / "−110m")만 보인다. 상대 좌표는 모델에 없다 | 94장, CLAUDE.md 6항 원격 Together에서 정확한 위치 비노출 |
+| 순위 규칙(화면) | 레이스: 완주한 사람(기록 순) → 달리는 사람(거리 순). 타임 어택: 거리 순. 중도 포기는 맨 뒤. 최종 순위는 서버 결과 값 | 46.1장 결과는 서버 finalization |
+| Live 채널 | `LiveChannel`(connect / sendState / close)과 이벤트 MEMBER_STATE · CONNECTION · ROOM_FINISHED. WebSocket 연동 전 mock은 참가자 페이스로 상태를 만든다 | 46장 RUN_STATE · 방 이벤트 |
+| 상태 전송 간격 | `run.live_state_interval_sec` 기본 3초. `entities/run/policy.ts`에 추가 | 10.5장 정책 값 "3~5초 후보" 중 가장 짧은 값 |
+| 내 기록 | 개인 Run은 항상 만든다. 러닝 엔진이 기록하고, 끝나면 `runResultRepository`에 저장한 뒤 runId를 채널에 보낸다. 결과 화면 "내 러닝 기록 자세히"로 연결 | 45.1장 개인 Run 항상 생성 |
+| 끝나는 조건 | 레이스·함께: 목표 거리 도달. 타임 어택: 목표 시간 도달. 모두 FINISHED/DNF가 되면 서버가 방을 끝낸다(ROOM_FINISHED) | 45.1장 |
+| 내가 먼저 끝나면 | 아래 카드 "완주 · 기록" 또는 "중도 포기했어요" + "모두 끝나면 결과가 나와요". 다른 참가자 rail은 계속 갱신 | SCREEN-SPECS Together finished |
+| 일시정지 · 그만두기 | 일시정지 → 위에 "일시정지 중이에요. 다른 참가자는 계속 달려요" + 그만두기 / 계속 달리기. 그만두기는 확인 sheet(중도 포기로 기록, 순위에서 빠짐, 내 기록은 남음). 중도 포기 뒤에는 순위 숫자와 선두 차이를 숨긴다 | TGT-011 DNF, Active Run 일시정지 흐름과 같게 |
+| 연결 끊김 | 내 연결: 위 점이 경고색 + "연결이 끊겼어요. 내 기록은 계속되고, 다시 연결되면 순위를 맞춰요". 마지막으로 받은 상태를 그대로 둔다. 다른 참가자: rail에 "연결 끊김" | SCREEN-SPECS Together disconnected, reconnecting |
+| 햅틱 | 순위가 바뀌면 약한 햅틱, 완주·방 종료는 complete | 69장 Rank change |
+| 뒤로 가기 | Android 하드웨어 뒤로 가기로 Live를 빠져나가지 않는다 | 러닝 중 실수 이탈 방지 |
+| 결과 | 헤드라인("N위로 들어왔어요" / "함께 완주했어요" / "중도 포기했어요"), 내 기록(타임 어택은 거리), 순위표(나와의 차이, 중도 포기는 "—"), 공유 · 같은 멤버로 다시 · 내 러닝 기록 자세히 | TGT-011~012 |
+| 재대결 | "같은 멤버로 다시"는 같은 모드 · 목표 · 코스 · 참가자로 새 방을 만들고 대기실로 간다 | TGT-012 |
+| 데이터 | `LiveMemberState`, `LiveResult`, `LiveResultEntry` 타입. `LiveRoomRepository`에 `getResult`, `rematch` 추가 | 45장, 46장 |
+| 개발용 | `/together/demo/live?mode=` LIVE_RACE / TIME_ATTACK / TOGETHER, `&scenario=` normal / memberDisconnected / dnf / offline, `&speed=`. 마이 탭 개발용 링크 | |
