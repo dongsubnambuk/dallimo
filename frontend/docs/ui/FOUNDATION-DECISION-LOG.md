@@ -482,3 +482,22 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 엔진 | `prepare({ course })`로 기준 코스를 받고 snapshot `course`(길이·진행·이탈·완주 시점), 결과 `courseTimeSec` 추가. 계산은 `entities/run/courseProgress.ts` | 49.1장 경계 유지 |
 | 결과 | 코스명·완주 기록·목표를 결과 화면(8번 단계 준비 중)으로 넘김 | |
 | 개발용 | `scenario=offRoute`(진행 방향 옆으로 90m 벗어났다 돌아옴), `behind`(목표보다 느리게). 마이 탭 개발용 링크에 코스 러닝 4종 | |
+
+## 17. Run Result 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 화면 | `/run/result?id=` light 화면. 위에서부터 감정 피드백 → 핵심 수치 → 지도 → 공식 검증 상태 → PB·주간 순위·친구 → 공유/다시 도전 → 구간 기록·고도 | 63.1장 우선순위, 93장 레이아웃, 89장 "light로 복귀, 처음부터 세부 splits 표 금지" |
+| 감정 피드백 | 한 줄 결과 + 설명 + 결과 표시(트로피·깃발·러너 아이콘, 좋은 결과는 민트 원). PB 갱신 / 첫 공식 기록 / 목표 달성 / 라이벌 기록을 넘었어요 / 목표보다 N초 느렸어요 / 코스를 끝까지 달리지 못했어요 / 자유 달리기 완료 | 63.1장 1순위 "완주/PB/Challenge 성공 여부" |
+| PB 판정 | 서버가 VERIFIED 기록으로 판정(RST-002). 검증 전에는 목표 비교만 보여주고, 검증되면 "PB 갱신"으로 바뀐다 | 1장 "VERIFIED 기록만 공식 랭킹", CRUN-005 |
+| 핵심 수치 | 코스 러닝은 코스 기록(코스 끝에 닿은 시점)을 크게. 완주 뒤 더 달렸으면 "완주 뒤까지 합친 전체 2.26km · 11:58"을 따로 | 코스 기록과 활동 기록을 섞지 않는다 |
+| 지도 | 밝은 브랜드 지도 위 기준 코스(짙은 민트 테두리 + 형광 민트)와 달린 길(검정 가는 선), 출발·도착 점 | RST-001, CLAUDE.md 8항 |
+| 상태 | local-only(휴대폰에만 저장됨) / syncing(기록 올리는 중) / verification pending(검증 중, PB·순위 "검증 뒤 반영") / verified / unverified·rejected(사유 + "랭킹에 반영되지 않아요") / PB / no PB / 완주 못 함 / 찾을 수 없음 | SCREEN-SPECS Result 상태, CLAUDE.md 7항 |
+| 검증 갱신 | 올리는 중이거나 검증 중이면 1초마다 다시 읽어 화면이 스스로 바뀐다 | 25.3장 FINISHED → PENDING VERIFICATION → VERIFIED/UNVERIFIED |
+| 경쟁 변화 | 내 PB(이전 → 이번), 이번 주 순위(18위 → 14위, 오르면 아이콘), 친구 최고와 차이. 값이 아직 없으면 흐린 작은 글자 | RST-002~004 |
+| 행동 | 코스: 공유(보조) + 다시 도전(민트, 핵심 하나). PB를 새로 세웠으면 다음 목표는 이번 기록. 자유 달리기: 공유 + 확인(검정) | 63장 "완주 → 검증 → PB/랭킹 → 공유 → rematch", 95장 핵심 행동 하나 |
+| 공유 | 지금은 시스템 공유로 결과 요약 + 코스 딥링크(`dallimo://course/{id}`). 공유 카드(SCR-R05 Map/Record/Ranking/Battle 템플릿)는 별도 화면이라 이번에 넣지 않음 | RST-005, SHR-004 |
+| 저장 경계 | 러닝이 끝나면 서버에 올렸든 못 올렸든 먼저 `RunResultRepository.saveFinished`로 기기에 저장하고 id로 결과를 연다. mock은 앱을 켜 둔 동안만 기억하고 동기화·검증을 시간으로 흉내 | RUN-006 Local First, 119장 repository 경계, 42.4장 Finish 응답 |
+| 순위 mock | 이번 주 상위 기록보다 빠르면 그 자리, 아니면 기존 순위에서 조금 오르는 규칙. 실제 순위는 서버 값 | mock 전용 |
+| `ElevationProfile` | 코스 상세와 결과가 함께 써서 `components/`로 옮김 | CLAUDE.md 13항 |
+| 개발용 | `/run/result?demo=` pb / noPb / free / dnf, `&scenario=` normal / localOnly / syncing / unverified / rejected. 마이 탭 개발용 링크에 8종 | |

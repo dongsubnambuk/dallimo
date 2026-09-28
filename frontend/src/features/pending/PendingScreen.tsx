@@ -91,6 +91,24 @@ export function PendingScreen({
               </AppText>
             </Link>
           ))}
+          {(
+            [
+              ['PB 갱신', 'pb', 'normal'],
+              ['PB 못 넘음', 'noPb', 'normal'],
+              ['미인증', 'pb', 'unverified'],
+              ['거부', 'pb', 'rejected'],
+              ['휴대폰에만 저장', 'pb', 'localOnly'],
+              ['올리는 중', 'pb', 'syncing'],
+              ['완주 못 함', 'dnf', 'normal'],
+              ['자유 달리기', 'free', 'normal'],
+            ] as const
+          ).map(([name, demo, scenario]) => (
+            <Link key={`result-${name}`} href={{ pathname: '/run/result', params: { demo, scenario } }}>
+              <AppText role="label" tone="accent">
+                러닝 결과 · {name}
+              </AppText>
+            </Link>
+          ))}
         </View>
       ) : null}
     </View>

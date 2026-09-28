@@ -16,7 +16,7 @@ import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
 
 import { CompetitionCard } from './components/CompetitionCard';
 import { CourseRouteMap } from './components/CourseRouteMap';
-import { ElevationProfile } from './components/ElevationProfile';
+import { ElevationProfile } from '@/components/ElevationProfile';
 import type { CourseScenario } from './scenario';
 import { useCourseDetail } from './useCourseDetail';
 

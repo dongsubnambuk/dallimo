@@ -55,6 +55,8 @@ export type RunFinishResult = {
   synced: boolean;
   // 코스 러닝: 코스 끝에 닿은 시점까지 걸린 시간(초). 완주하지 못했으면 null.
   courseTimeSec: number | null;
+  // 결과 지도용 실제 경로 (줄인 것)
+  path: GeoPoint[];
 };
 
 export interface RunningEngine {
