@@ -13,7 +13,7 @@ export type MetricBlockProps = {
   value: string;
   unit?: string;
   status?: MetricStatus;
-  size?: 'hero' | 'large' | 'medium';
+  size?: 'giant' | 'hero' | 'large' | 'medium';
   // bottom: 92장 Active Run 배치(값 아래 라벨). top: 요약 행(라벨 위, 국내 앱 결과 화면 패턴).
   labelPosition?: 'top' | 'bottom';
   align?: 'start' | 'center';
@@ -40,7 +40,7 @@ export function MetricBlock({
   const a11yParts = [label, unavailable ? '측정 전' : `${shown}${unit ? ` ${unit}` : ''}`];
   if (status === 'warning') a11yParts.unshift('주의');
 
-  const valueRole = size === 'hero' ? 'metricHero' : size === 'large' ? 'metricLarge' : 'screenTitle';
+  const valueRole = size === 'giant' ? 'metricGiant' : size === 'hero' ? 'metricHero' : size === 'large' ? 'metricLarge' : 'screenTitle';
 
   const labelRow = (
     <View style={styles.labelRow}>

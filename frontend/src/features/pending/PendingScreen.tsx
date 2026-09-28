@@ -70,6 +70,13 @@ export function PendingScreen({
               </AppText>
             </Link>
           ))}
+          {(['normal', 'poorGps', 'offline', 'recovering', 'finishPending'] as const).map((s) => (
+            <Link key={`active-${s}`} href={{ pathname: '/run/active', params: { scenario: s, speed: '20' } }}>
+              <AppText role="label" tone="accent">
+                러닝 중 · {s} (20배속)
+              </AppText>
+            </Link>
+          ))}
         </View>
       ) : null}
     </View>

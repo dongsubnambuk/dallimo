@@ -1,0 +1,228 @@
+import { MOCK_COURSE_ROUTES } from '@/entities/course/api/mockCourseRoutes';
+import { addPoint, averagePace, breakSegment, currentPace, initialMetrics, type MetricsState } from '@/entities/run/metrics';
+import { getRunPolicySync } from '@/entities/run/policy';
+import type { RunMode, RunPoint } from '@/entities/run/types';
+import { distanceM, pointAt, type GeoPoint } from '@/shared/geo';
+
+import { createMemoryRunPointStore } from './memoryRunPointStore';
+import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine, type RunPrepareInput } from './runningEngine';
+
+// 개발 빌드에서 Active Run 상태를 만들어 QA하기 위한 값 (SCREEN-SPECS: running, paused, GPS poor, offline, recovering, finish pending).
+// route deviation은 COURSE 모드(72장 7번)에서 다룬다.
+export const ACTIVE_RUN_SCENARIOS = ['normal', 'poorGps', 'offline', 'recovering', 'finishPending'] as const;
+export type ActiveRunScenario = (typeof ACTIVE_RUN_SCENARIOS)[number];
+
+export function parseActiveRunScenario(value: unknown): ActiveRunScenario {
+  if (!__DEV__) return 'normal';
+  return (ACTIVE_RUN_SCENARIOS as readonly unknown[]).includes(value) ? (value as ActiveRunScenario) : 'normal';
+}
+
+type MockOptions = {
+  scenario: ActiveRunScenario;
+  // 개발용 시간 배속. 1이면 실제 시간.
+  speed: number;
+};
+
+// 가짜 러너: 수성못 호안 한 바퀴를 5'15"/km 안팎으로 계속 돈다.
+const LOOP: GeoPoint[] = MOCK_COURSE_ROUTES['c-suseongmot'].route.map(([latitude, longitude]) => ({ latitude, longitude }));
+const LOOP_M = LOOP.slice(1).reduce((a, p, i) => a + distanceM(LOOP[i], p), 0);
+const BASE_MPS = 1000 / 315;
+// GPS 약함 구간(엔진 시각 기준 출발 후 초)
+const POOR_FROM_SEC = 20;
+const POOR_TO_SEC = 45;
+// Batch Sync 간격(초). 명세에 값이 없어 mock에서만 쓴다.
+const SYNC_EVERY_SEC = 5;
+const PATH_EVERY = 5;
+
+export function createMockRunningEngine({ scenario, speed }: MockOptions): RunningEngine {
+  const policy = getRunPolicySync();
+  const store = createMemoryRunPointStore();
+  const listeners = new Set<() => void>();
+  const real0 = Date.now();
+  const now = () => real0 + (Date.now() - real0) * speed;
+
+  let mode: RunMode = 'FREE';
+  let metrics: MetricsState = initialMetrics();
+  let travelledM = 0;
+  let seq = 0;
+  let startedAt = 0;
+  let lastTickAt = 0;
+  let lastSyncAt = 0;
+  let acceptedCount = 0;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let snap: ActiveRunSnapshot = {
+    status: 'PREPARING',
+    mode,
+    gps: 'acquiring',
+    network: scenario === 'offline' ? 'offline' : 'online',
+    unsyncedPoints: 0,
+    distanceM: 0,
+    avgPaceSec: null,
+    currentPaceSec: null,
+    splits: [],
+    path: [],
+    position: null,
+    activeMsBase: 0,
+    runningSince: null,
+    recovered: false,
+  };
+
+  const emit = (patch: Partial<ActiveRunSnapshot>) => {
+    snap = { ...snap, ...patch };
+    listeners.forEach((l) => l());
+  };
+
+  const positionAt = (m: number): GeoPoint => {
+    const p = pointAt(LOOP, (m % LOOP_M) / LOOP_M);
+    // 몇 m 안쪽의 흔들림 (난수 대신 sin, 같은 입력이면 같은 결과)
+    const j = 0.000015;
+    return { latitude: p.latitude + Math.sin(m / 37) * j, longitude: p.longitude + Math.cos(m / 53) * j };
+  };
+
+  const tick = () => {
+    const t = now();
+    if (snap.status !== 'RUNNING') {
+      lastTickAt = t;
+      return;
+    }
+    const sinceStart = (t - startedAt) / 1000;
+    const poor = scenario === 'poorGps' && sinceStart >= POOR_FROM_SEC && sinceStart < POOR_TO_SEC;
+    const patch: Partial<ActiveRunSnapshot> = { gps: poor ? 'poor' : 'good' };
+    // 1초마다 point 하나 (배속이면 한 번에 여러 개)
+    while (lastTickAt + 1000 <= t) {
+      lastTickAt += 1000;
+      const v = BASE_MPS * (1 + 0.06 * Math.sin(lastTickAt / 1000 / 40));
+      travelledM += v;
+      const pos = positionAt(travelledM);
+      const point: RunPoint = {
+        seq: seq++,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        accuracy: poor ? 35 : 5,
+        speed: v,
+        recordedAt: lastTickAt,
+        qualityFlag: poor ? 'LOW_ACCURACY' : 'OK',
+      };
+      store.append(point);
+      const at = activeMs(snap, lastTickAt);
+      metrics = addPoint(metrics, point, at, policy);
+      if (point.qualityFlag === 'OK' && acceptedCount++ % PATH_EVERY === 0) patch.path = [...(patch.path ?? snap.path), pos];
+      patch.position = pos;
+    }
+    if (snap.network === 'online' && t - lastSyncAt >= SYNC_EVERY_SEC * 1000) {
+      lastSyncAt = t;
+      store.markSynced(0, seq - 1);
+    }
+    emit({
+      ...patch,
+      distanceM: metrics.distanceM,
+      splits: metrics.splits,
+      avgPaceSec: averagePace(metrics, activeMs(snap, t), policy),
+      currentPaceSec: poor ? null : currentPace(metrics, policy),
+      unsyncedPoints: store.unsyncedCount(),
+    });
+  };
+
+  const ensureTimer = () => {
+    if (!timer) timer = setInterval(tick, Math.max(50, 1000 / speed));
+  };
+
+  return {
+    async prepare(input: RunPrepareInput) {
+      mode = input.mode;
+      emit({ mode, gps: 'good', position: positionAt(0) });
+    },
+    async start() {
+      const t = now();
+      startedAt = t;
+      lastTickAt = t;
+      lastSyncAt = t;
+      emit({ status: 'RUNNING', runningSince: t, activeMsBase: 0 });
+      ensureTimer();
+      return snap;
+    },
+    async pause() {
+      if (snap.status !== 'RUNNING') return;
+      const t = now();
+      metrics = breakSegment(metrics);
+      emit({ status: 'PAUSED', activeMsBase: activeMs(snap, t), runningSince: null, currentPaceSec: null });
+    },
+    async resume() {
+      if (snap.status !== 'PAUSED') return;
+      const t = now();
+      lastTickAt = t;
+      emit({ status: 'RUNNING', runningSince: t });
+    },
+    async finish() {
+      const t = now();
+      const ms = activeMs(snap, t);
+      emit({ status: 'FINISHING', activeMsBase: ms, runningSince: null, currentPaceSec: null });
+      if (timer) clearInterval(timer);
+      timer = null;
+      const result = (synced: boolean): RunFinishResult => ({
+        mode,
+        distanceM: metrics.distanceM,
+        activeSec: Math.round(ms / 1000),
+        avgPaceSec: averagePace(metrics, ms, policy),
+        splits: metrics.splits,
+        synced,
+      });
+      // 오프라인: 기록은 휴대폰에 남기고 연결되면 올린다 (local-only 결과)
+      if (snap.network === 'offline') return result(false);
+      // 남은 point를 올린 뒤 종료 (RUN-010). finishPending은 업로드가 오래 걸리는 경우.
+      await new Promise((r) => setTimeout(r, scenario === 'finishPending' ? 3000 : 700));
+      await store.markSynced(0, seq - 1);
+      emit({ status: 'FINISHED', unsyncedPoints: 0 });
+      return result(true);
+    },
+    async recover() {
+      if (scenario !== 'recovering') return null;
+      // 앱이 꺼지기 전까지 1.2km, 6분 40초를 달린 기록이 남아 있던 경우
+      const t = now();
+      const prevMs = 400_000;
+      for (let m = 0, i = 0; m <= 1200; m += BASE_MPS, i++) {
+        const pos = positionAt(m);
+        const point: RunPoint = { seq: seq++, latitude: pos.latitude, longitude: pos.longitude, accuracy: 5, recordedAt: t - prevMs + i * 1000, qualityFlag: 'OK' };
+        store.append(point);
+        metrics = addPoint(metrics, point, i * 1000, policy);
+        travelledM = m;
+      }
+      metrics = breakSegment(metrics);
+      const path = Array.from({ length: 25 }, (_, i) => positionAt((1200 * i) / 24));
+      emit({
+        status: 'RECOVERY',
+        recovered: true,
+        gps: 'acquiring',
+        distanceM: metrics.distanceM,
+        splits: metrics.splits,
+        avgPaceSec: averagePace(metrics, prevMs, policy),
+        path,
+        position: positionAt(travelledM),
+        activeMsBase: prevMs,
+        runningSince: null,
+        unsyncedPoints: store.unsyncedCount(),
+      });
+      // GPS를 다시 잡으면 이어서 기록
+      setTimeout(() => {
+        const t2 = now();
+        startedAt = t2 - prevMs;
+        lastTickAt = t2;
+        lastSyncAt = t2;
+        emit({ status: 'RUNNING', gps: 'good', runningSince: t2 });
+        ensureTimer();
+      }, 1800);
+      return snap;
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    getSnapshot: () => snap,
+    now,
+    dispose() {
+      if (timer) clearInterval(timer);
+      timer = null;
+      listeners.clear();
+    },
+  };
+}

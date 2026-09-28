@@ -9,7 +9,9 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { fontFamily, motion, spacing } from '@/design/tokens';
-import { PendingScreen } from '@/features/pending/PendingScreen';
+import { ActiveRunScreen } from '@/features/active-run/ActiveRunScreen';
+import { beginActiveRun, endActiveRun } from '@/features/run/engine/activeRunSession';
+import type { ActiveRunScenario } from '@/features/run/engine/mockRunningEngine';
 import { MODE_TITLE, parseRunPlan, type RunPlanParams } from '@/features/run-ready/runPlanParams';
 import { formatDuration } from '@/shared/format';
 import { haptics } from '@/shared/haptics';
@@ -19,29 +21,44 @@ const COUNT_FROM = 3;
 const GO_MS = 700;
 
 // RUN-003 카운트다운. 69장 Run Start: 3-2-1 숫자 scale/fade, 각 숫자 약한 햅틱, 출발 강한 햅틱.
-// 카운트다운이 끝나면 Active Run(72장 6번 단계)으로 이어진다. 그 전까지는 준비 중 화면으로 흐름만 확인한다.
-export function RunStartScreen({ params }: { params: RunPlanParams }) {
+// 카운트다운 동안 엔진을 준비(prepare)하고 "출발"에서 기록을 시작(start)한 뒤 Active Run으로 이어진다.
+// 앱이 꺼졌다 켜져 이어서 기록하는 경우(recovering)는 카운트다운 없이 바로 Active Run으로 간다.
+type Props = { params: RunPlanParams; scenario: ActiveRunScenario; speed: number };
+
+export function RunStartScreen(props: Props) {
   return (
     <ThemeProvider scheme="dark">
-      <RunStart params={params} />
+      <RunStart {...props} />
     </ThemeProvider>
   );
 }
 
-function RunStart({ params }: { params: RunPlanParams }) {
+function RunStart({ params, scenario, speed }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
   const plan = parseRunPlan(params);
   // COUNT_FROM..1 → 0(출발) → -1(러닝)
-  const [count, setCount] = useState(COUNT_FROM);
+  const recovering = scenario === 'recovering';
+  const [count, setCount] = useState(recovering ? -1 : COUNT_FROM);
+  const [engine] = useState(() => beginActiveRun({ scenario, speed }));
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
   useEffect(() => {
+    if (recovering) engine.recover();
+    else engine.prepare({ mode: plan.kind === 'free' ? 'FREE' : plan.plan.mode, ...(plan.kind === 'course' ? { courseId: plan.plan.courseId, targetSec: plan.plan.targetSec } : {}) });
+    // 계획은 이 화면에 들어올 때 한 번만 읽는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, recovering]);
+
+  useEffect(() => {
     if (count < 0) return;
     if (count > 0) haptics.countdownTick();
-    else haptics.runStart();
+    else {
+      haptics.runStart();
+      engine.start();
+    }
     if (!reduced) {
       scale.value = 1.35;
       opacity.value = 0;
@@ -50,7 +67,7 @@ function RunStart({ params }: { params: RunPlanParams }) {
     }
     const timer = setTimeout(() => setCount((c) => c - 1), count > 0 ? motion.countdownStep : GO_MS);
     return () => clearTimeout(timer);
-  }, [count, reduced, scale, opacity]);
+  }, [count, reduced, scale, opacity, engine]);
 
   const numberStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }], opacity: opacity.value }));
 
@@ -69,7 +86,7 @@ function RunStart({ params }: { params: RunPlanParams }) {
     return (
       <>
         <StatusBar style="light" />
-        <PendingScreen title="달리는 중" order="Active Run 단계(72장 6~7번)" handoff={summary} action={{ label: '준비 화면으로', onPress: () => router.back() }} />
+        <ActiveRunScreen engine={engine} summary={summary} />
       </>
     );
   }
@@ -91,7 +108,14 @@ function RunStart({ params }: { params: RunPlanParams }) {
       {go ? (
         <View style={styles.cancel} />
       ) : (
-        <SecondaryButton label="취소" onPress={() => router.back()} style={styles.cancel} />
+        <SecondaryButton
+          label="취소"
+          onPress={() => {
+            endActiveRun();
+            router.back();
+          }}
+          style={styles.cancel}
+        />
       )}
     </View>
   );

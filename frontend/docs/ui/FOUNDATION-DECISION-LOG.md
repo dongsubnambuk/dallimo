@@ -444,3 +444,24 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 카운트다운 뒤 | Active Run(72장 6번) 전까지 준비 중 화면에 넘겨받은 계획을 표시하고 "준비 화면으로" 버튼 | 흐름 확인용 |
 | 탭 바 | 달리기 탭이 선택되면 탭 바도 dark. 선택 탭 민트 점 테두리를 탭 색에 맞춤 | 110.1장 러닝 컨텍스트 dark |
 | 개발용 | `/run?scenario=` normal / denied / acquiring / poor / far. 마이 탭 개발용 링크에 추가 | 탐색·코스 상세와 같은 방식 |
+
+## 15. Active Run — FREE (공통 Run Shell) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 화면 | 카운트다운 뒤 `/run/active`에서 이어짐. near-black 위에 GPS·기록 상태 → giant 거리 → 시간·평균 페이스 → 강조 strip 하나 → 넓은 일시정지 | 92장 레이아웃, 89장 "화면 중심에 2~3개 giant metrics, 모드별 강조 strip 하나", 62.1장 FREE 1차 정보(시간·거리·현재/평균 페이스) |
+| FREE strip | 현재 페이스 · 지난 1km 구간 기록(민트) · 다음 1km까지 진행(`SignalRail`) | 92장 "FREE에서는 split", 62.1장 2차 정보 split. 모드별 패널(진행률·gap)은 7번 단계에서 이 자리에 끼운다 |
+| 지도 | 오른쪽 위 버튼으로 지도 보기 ↔ 기록 크게 보기 전환. 지도는 어두운 바탕 + 지나온 길(흰 선) + 내 위치(민트), 아래에 거리·시간·평균 페이스 한 줄 | SCR-R02 지도, 62.2장 "지도는 경로 확인용으로 단순화", 89장 "지도와 데이터 50:50 분할" 회피(둘 중 하나만 크게) |
+| `metricGiant` 토큰 | 112/116 Black 기울임. `MetricBlock` size `giant` 추가. 거리 한 곳에만 씀 | 89·92장 giant metric. 기존 `metricHero`(72)로는 1초 glance 위계가 부족 |
+| 조작 | 달리는 중: 넓은 흰색 "일시정지" 하나. 일시정지 중: "종료" + "계속 달리기"(민트). 종료는 확인 sheet(SCR-R03)를 거친다 | 62.2장 "Pause/Finish 파괴적 동작은 확인 구조", SCR-R03 "계속 달리기, 종료 확인" |
+| 뒤로 가기 | 러닝 중 Android 뒤로 가기와 iOS 뒤로 밀기를 막는다. 끝내려면 일시정지 → 종료 | 오작동 방지 (62.2장) |
+| 상태 | running / paused / GPS poor("거리를 잠시 세지 않아요") / offline("기록은 휴대폰에 저장") / recovering(카운트다운 없이 이전 기록을 불러와 이어서) / finish pending("남은 기록 N개를 올리는 중") / local-only 결과("인터넷이 연결되면 자동으로 올려요", 결과 보기) | SCREEN-SPECS Active Run 상태, CLAUDE.md 7항 offline·local-only. route deviation은 COURSE(7번) |
+| 햅틱 | 일시정지·재개: 중간 햅틱, GPS가 약해지는 순간: 경고 햅틱. `shared/haptics.ts`로 끌 수 있음 | CLAUDE.md 6항 "중요한 상태 변화는 음성/햅틱", 62.2장. 음성 안내(km 알림 등)는 명세 기준이 없어 넣지 않음 |
+| 러닝 엔진 경계 | `features/run/engine/runningEngine.ts`: 49.1장 `RunningEngine`(prepare/start/pause/resume/finish/recover) + 화면 구독용 subscribe/getSnapshot, `RunPointStore`(append/getUnsyncedRange/markSynced) | 49.1장 "UI는 expo-location·SQLite를 직접 부르지 않는다". 명세 위치 `features/run/*` |
+| 지금 구현 | mock 엔진(수성못 호안을 5'15"/km 안팎으로 도는 가짜 러너, 1초에 point 1개) + 메모리 point 저장소. 개발 빌드 `?speed=`로 배속 | 실제 GPS 수신, SQLite 선저장(RUN-006), Batch Sync(RUN-007), 백그라운드 기록(RUN-005)은 GPS PoC(WBS 1)에서 같은 인터페이스로 구현 |
+| 지표 계산 | `entities/run/metrics.ts`: 정확도 낮은 point는 거리에서 빼고 다음 point와도 잇지 않음. 평균 페이스 = active 경과 / accepted 거리. 현재 페이스 = 최근 창의 거리/시간. 일시정지·재개 때 창을 끊음. 1km 경계는 구간 안에서 비율로 나눠 스플릿 계산 | 51장 파이프라인, 51.2장 Pace |
+| 정책 임시값 | `currentPaceWindowSec` 20초, `minPaceSampleM` 50m(이 거리 전에는 '--'). `getRunPolicy`에 두고 PoC 뒤 확정. 순간 이동(속도 이상치) 기준은 아직 적용하지 않음 | 10.3장 "윈도우 크기와 이상치 기준은 실제 야외 PoC에서 결정", 51.2장 "표본이 부족하면 '--'" |
+| 성능 | 초 단위 경과 시간은 `ElapsedMetric` 안에서만 갱신. 각 지표 컴포넌트가 `useRunSnapshot(selector)`로 필요한 값만 구독. 지도 경로는 accepted point 5개마다 하나만 저장 | VISUAL-QA "metric state 분리, 필요한 컴포넌트만 갱신", CLAUDE.md 9항, 77장 경로 단순화 |
+| 결과 | 종료 뒤 `/run/result`(light)로 결과 요약을 넘김. Result 화면은 72장 8번 단계라 지금은 준비 중 화면에 요약 표시 | 89장 Result는 light로 복귀 |
+| 아이콘 | pause, stop, map, metrics, offline 추가 | expo-symbols 하나만 사용 |
+| 개발용 | `/run/active?scenario=` normal / poorGps / offline / recovering / finishPending, `&speed=` 배속. 마이 탭 개발용 링크에 추가 | |
