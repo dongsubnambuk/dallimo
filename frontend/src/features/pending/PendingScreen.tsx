@@ -109,6 +109,13 @@ export function PendingScreen({
               </AppText>
             </Link>
           ))}
+          {(['normal', 'loading', 'empty', 'unranked', 'error'] as const).map((s) => (
+            <Link key={`ranking-${s}`} href={{ pathname: '/course/[id]/ranking', params: { id: 'c-suseongmot', scenario: s } }}>
+              <AppText role="label" tone="accent">
+                코스 랭킹 · {s}
+              </AppText>
+            </Link>
+          ))}
         </View>
       ) : null}
     </View>

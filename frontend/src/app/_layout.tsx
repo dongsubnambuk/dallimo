@@ -34,6 +34,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="course/[id]/index" options={{ headerShown: false }} />
+          <Stack.Screen name="course/[id]/ranking" options={{ headerShown: false }} />
           {/* Play Mode는 코스 상세 위 하단 sheet (89장) */}
           <Stack.Screen
             name="course/[id]/play"

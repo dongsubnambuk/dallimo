@@ -166,6 +166,12 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
                   />
                 </>
               ) : null}
+              <SecondaryButton
+                label="전체 랭킹 보기"
+                size="sm"
+                onPress={() => router.push({ pathname: '/course/[id]/ranking', params: { id: course.id } })}
+                style={styles.rankingLink}
+              />
             </View>
           ) : (
             <AppText role="body" tone="secondary">
@@ -347,6 +353,10 @@ function countLabel(n: number | null) {
 const CTA_BAR = touchTarget.primary + spacing.md * 2;
 
 const styles = StyleSheet.create({
+  rankingLink: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+  },
   root: {
     flex: 1,
   },

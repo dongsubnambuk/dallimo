@@ -501,3 +501,18 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 순위 mock | 이번 주 상위 기록보다 빠르면 그 자리, 아니면 기존 순위에서 조금 오르는 규칙. 실제 순위는 서버 값 | mock 전용 |
 | `ElevationProfile` | 코스 상세와 결과가 함께 써서 `components/`로 옮김 | CLAUDE.md 13항 |
 | 개발용 | `/run/result?demo=` pb / noPb / free / dnf, `&scenario=` normal / localOnly / syncing / unverified / rejected. 마이 탭 개발용 링크에 8종 | |
+
+## 18. Ranking(SCR-E04) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 진입 | 코스 상세 "이번 주 랭킹" 아래 "전체 랭킹 보기", 결과 화면 경쟁 카드 아래 "코스 랭킹 보기" → `/course/[id]/ranking` (light) | 64장 결과/랭킹 → 재도전 루프, 코스가 중심 객체 |
+| 기간·범위 | 칩 4개: 이번 주 · 이번 달 · 전체 기간 · 친구. 이번 주가 기본(코스 상세 미리보기와 같은 기준) | SCR-E04 "전체/주간/월간/친구", RNK-001~004, RUNPLE 주간 리그 |
+| self anchor | 맨 위 검정 카드: 내 순위(민트 큰 숫자) / 총 인원, 내 기록, "17위까지 7초", 내 앞뒤 2명씩(RNK-005). 목록에서 내 행은 민트 연한 배경 + "나" | 89장 "self-anchor가 중요, 나를 기준으로 위/아래 rank가 읽힘", 루티니스트 "총 N명 중 M등", 탐색 티켓·경쟁 카드와 같은 검정 표면 |
+| podium | 1~3위는 검정 원 배지만. 금·은·동 색·장식 없음 | 89장 "podium은 과장하지 않음" |
+| 목록 | `FlatList` 가상화 + cursor 페이지(20개씩) 이어 받기. 끝이면 "마지막 순위예요 · 총 N명" | 43장 scope/period/cursor/size, CLAUDE.md 9항 긴 목록 가상화 |
+| 내 순위로 돌아가기 | 카드가 화면 밖으로 나가면 아래 가운데 "● 내 순위 18위" 버튼 하나. 누르면 맨 위로 | self visible 상태. 떠 있는 버튼은 이것 하나만 둔다(CLAUDE.md 5항) |
+| 상태 | loading / empty(기간별 문구 + 이 코스 달리기) / user unranked(카드에 "아직 순위가 없어요" + 이 코스 달리기) / self visible / cursor loading(목록 끝 로딩 심볼) / error(다시 시도) | SCREEN-SPECS Ranking 상태 |
+| 데이터 | `entities/ranking`: `RankingRepository.getPage(scope, period, cursor, size)`, `getMyStanding`(RNK-005). 공식 랭킹은 사용자별 최고 VERIFIED 기록 | 43장, 23.1장, 1장 |
+| mock | 1위 기록과 내 기록(코스 상세의 이번 주 순위)을 지나는 곡선으로 순위표를 만든다. 이번 주 1~3위와 내 순위는 코스 상세와 같게, 친구 최고 기록은 기록이 맞는 자리에 둔다 | mock 전용. 실제 순위는 서버 값 |
+| 개발용 | `?scenario=` normal / loading / empty / unranked / error, `?tab=` weekly / monthly / all / friends. 마이 탭 개발용 링크 | |

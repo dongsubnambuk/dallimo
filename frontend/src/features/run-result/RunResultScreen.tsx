@@ -126,7 +126,17 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
       <RecordState result={r} />
 
       {/* 5. PB · 랭킹 · 친구 */}
-      {r.course ? <Competition result={r} /> : null}
+      {r.course ? (
+        <View style={styles.competition}>
+          <Competition result={r} />
+          <SecondaryButton
+            label="코스 랭킹 보기"
+            size="sm"
+            onPress={() => router.push({ pathname: '/course/[id]/ranking', params: { id: r.course!.id, tab: 'weekly' } })}
+            style={styles.rankingLink}
+          />
+        </View>
+      ) : null}
 
       {/* 6. 공유 · 다시 도전 */}
       <Actions result={r} outcome={outcome} />
@@ -319,6 +329,12 @@ function useCourse(id: string | null): CourseDetail | null {
 }
 
 const styles = StyleSheet.create({
+  competition: {
+    gap: spacing.md,
+  },
+  rankingLink: {
+    alignSelf: 'flex-start',
+  },
   root: {
     flex: 1,
   },
