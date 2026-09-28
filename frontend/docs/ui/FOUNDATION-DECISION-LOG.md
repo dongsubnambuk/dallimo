@@ -610,3 +610,24 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | `Avatar` | 새 컴포넌트. 프로필 사진, 없으면 검정 원에 닉네임 첫 글자. 마이 · 설정 · 프로필 입력에서 쓴다. 마이 탭 오른쪽 위에 설정 버튼 추가 | CLAUDE.md 13항 |
 | mock 계정 | 카카오 = 기록이 있는 기존 계정(수성러너), Apple · Google = 처음 가입하는 계정(지난 기록 없음). 계정 상태는 기기에 저장해 새로고침해도 이어진다. 탈퇴하면 처음 상태로 돌아간다 | mock 전용 |
 | 개발용 | `/login?scenario=error`(서버 연결 실패). 이제 앱 화면은 로그인한 뒤에 열린다(웹은 한 번 로그인하면 유지) | |
+
+## 23. 공유 카드 (SCR-R05) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 순서 | 72장 13단계가 끝난 뒤 사용자 선택으로 진행 | 72장 이후 순서는 명세에 없음 |
+| 진입 | 러닝 결과 · Live 결과의 "공유" → `/share/compose?runId=` · `?roomId=` (modal). 전에는 텍스트만 보냈다 | RST-005 "공유 카드 생성", TGT-011~012 공유 |
+| 성격 | 앱 화면 캡처가 아니라 공유 전용 이미지 한 장. 9:16 세로(1080×1920)로 스토리 · 메신저에 바로 올린다 | 66장 Share Composer "앱 UI 캡처가 아닌 공유 전용 asset", 63장 루티니스트 스토리 공유 카드 |
+| 템플릿 | 지도(어두운 지도 위 코스 · 달린 길) · 기록(영수증처럼 큰 기록 + 항목) · 순위(이번 주 순위와 변화) · 대결(나와 목표/라이벌, Live는 순위표). 만들 수 있는 것만 보여준다: 순위는 인증된 순위가 있을 때, 대결은 비교 상대가 있을 때 | SCR-R05 "Map/Record/Ranking/Battle", 67.1장 ShareTemplateCard |
+| 처음 템플릿 | Live 결과는 대결, 코스 기록은 지도(코스가 중심 객체), 코스 없는 기록은 기록 카드 | 16장 privacy zone 검토 전 출발 지점 노출을 피함 |
+| 출발 지점 안내 | 코스 없는 기록에서 지도 카드를 고르면 "지도에 출발 지점이 그대로 보여요. 집 근처에서 시작했다면 기록 카드를 권해요" | 16장, OI-08 privacy zone (마스킹은 개인정보 검토 뒤) |
+| 공식 기록 표시 | 서버 검증을 통과한 기록에만 "✓ 공식 기록". PB · 순위 변화도 인증된 값만 쓴다 | 1장 VERIFIED 기록만 공식 |
+| 카드 그리기 | 기준 폭 360에 비례해 그리고 기기 글자 크기 설정을 따르지 않는다(어느 기기에서 만들어도 같은 이미지). 색은 dark 토큰, 숫자는 브랜드 기울임 숫자 | ROUTE SIGNAL, 83장 |
+| 공유 방법 | "이미지 공유"(`react-native-view-shot`로 1080×1920 PNG → `expo-sharing`), "링크 보내기"(POST /shares로 share_code 링크를 만들어 메시지로). 웹(개발 확인용)은 이미지를 내려받는다 | 14.3장 "이미지 카드 + URL" |
+| 링크 | 서버에 올라간 기록만 링크를 만든다(휴대폰에만 있는 기록은 "기록을 올린 뒤에 링크를 만들 수 있어요", 이미지는 바로 공유). 링크를 못 만들면 이미지는 지금도 공유할 수 있다고 알린다 | 22장 share_link, RUN-006 |
+| 링크 주소 | Web Landing 범위가 정해지기 전까지 앱 딥링크 `dallimo://share/{code}`. 주소 앞부분은 `SHARE_URL_BASE` 한 곳에서 바꾼다 | 20.2장 "공유 Web Landing – Phase 2~3" |
+| 링크 열기 | `/share/[code]` → GET /shares/{code}로 해석해 코스가 있으면 코스 상세, 없으면 기록 상세. 잘못된 링크면 "공유 링크를 열 수 없어요" | SHR-004 Deep Link |
+| 공용 로직 | Live 결과 헤드라인 계산을 `together/liveOutcome`으로 분리해 결과 화면과 카드가 함께 쓴다 | CLAUDE.md 13항 |
+| 데이터 | `entities/share`: `ShareRepository.create(type, referenceId)` · `resolve(code)`, `ShareType` RUN / COURSE / CHALLENGE | 22장 share_link.type, SHR-001~004 |
+| 애니메이션 | 템플릿 전환에 애니메이션을 넣지 않았다 | INTERACTION-SPECS Share "과한 애니메이션 없음" |
+| 개발용 | `/share/compose?runId=…&scenario=offline`(링크 만들기 실패) | |

@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
-import { ScrollView, Share, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLoader } from '@/components/Brand';
@@ -17,6 +17,7 @@ import type { LiveResult, LiveResultEntry } from '@/entities/live/types';
 import { formatDistanceKm, formatDuration, formatDurationSpoken } from '@/shared/format';
 
 import { goalLabel, MODE_INFO } from './labels';
+import { liveHeadline } from './liveOutcome';
 
 // SCR-T05 Live 결과 (TGT-011~012): 순위, 기록, 차이, DNF, 공유/재대결.
 // 89장 Result는 light로 복귀. 결과는 서버 finalization 값을 쓴다 (46.1장). TOGETHER는 승패를 강조하지 않는다 (62.1장).
@@ -57,7 +58,7 @@ export function LiveResultScreen({ roomId }: { roomId: string }) {
           <Headline result={result.data} />
           <Standings result={result.data} />
           <View style={styles.actions}>
-            <SecondaryButton label="공유" onPress={() => shareResult(result.data!)} style={styles.share} />
+            <SecondaryButton label="공유" onPress={() => router.push({ pathname: '/share/compose', params: { roomId } })} style={styles.share} />
             <PrimaryRunButton label="같은 멤버로 다시" loading={rematch.isPending} onPress={() => rematch.mutate()} style={styles.flex} />
           </View>
           {result.data.myRunId ? (
@@ -77,23 +78,7 @@ export function LiveResultScreen({ roomId }: { roomId: string }) {
 function Headline({ result: r }: { result: LiveResult }) {
   const { colors } = useTheme();
   const me = r.entries.find((e) => e.isMe);
-  const first = r.entries[0];
-  const finished = r.entries.filter((e) => e.status === 'FINISHED').length;
-  let title: string;
-  let detail: string;
-  if (!me || me.status === 'DNF') {
-    title = '중도 포기했어요';
-    detail = `${finished}명이 끝까지 달렸어요`;
-  } else if (r.mode === 'TOGETHER') {
-    title = '함께 완주했어요';
-    detail = `${r.entries.length}명이 같은 시간에 달렸어요`;
-  } else if (me.rank === 1) {
-    title = '1위로 들어왔어요';
-    detail = second(r) ?? '혼자 끝까지 달렸어요';
-  } else {
-    title = `${me.rank}위로 들어왔어요`;
-    detail = behind(r, me, first) ?? '';
-  }
+  const { title, detail } = liveHeadline(r);
   const good = me?.rank === 1 || (r.mode === 'TOGETHER' && me?.status === 'FINISHED');
 
   return (
@@ -163,31 +148,10 @@ function diffCopy(r: LiveResult, e: LiveResultEntry, me: LiveResultEntry) {
   return d === 0 ? '같음' : `나보다 ${formatDurationSpoken(d)} ${d < 0 ? '빠름' : '느림'}`;
 }
 
-function second(r: LiveResult) {
-  const me = r.entries.find((e) => e.isMe);
-  const s = r.entries.find((e) => e.rank === 2);
-  if (!me || !s) return null;
-  return r.mode === 'TIME_ATTACK' ? `2위 ${s.name}님보다 ${Math.round(me.distanceM - s.distanceM)}m 더 달렸어요` : `2위 ${s.name}님보다 ${formatDurationSpoken((s.timeSec ?? 0) - (me.timeSec ?? 0))} 빨랐어요`;
-}
-
-function behind(r: LiveResult, me: LiveResultEntry, first: LiveResultEntry) {
-  return r.mode === 'TIME_ATTACK' ? `1위 ${first.name}님과 ${Math.round(first.distanceM - me.distanceM)}m 차이` : `1위 ${first.name}님과 ${formatDurationSpoken((me.timeSec ?? 0) - (first.timeSec ?? 0))} 차이`;
-}
-
 function rowLabel(r: LiveResult, e: LiveResultEntry) {
   return [e.rank != null ? `${e.rank}위` : null, e.name, e.isMe ? '나' : null, e.status === 'DNF' ? '중도 포기' : r.mode === 'TIME_ATTACK' ? `${formatDistanceKm(e.distanceM)}킬로미터` : formatDuration(e.timeSec)]
     .filter(Boolean)
     .join(', ');
-}
-
-async function shareResult(r: LiveResult) {
-  const me = r.entries.find((e) => e.isMe);
-  const line = me?.status === 'DNF' ? '중도 포기' : r.mode === 'TOGETHER' ? '함께 완주' : `${r.entries.length}명 중 ${me?.rank}위`;
-  try {
-    await Share.share({ message: `달리모 ${goalLabel(r)} · ${line}\n다음엔 같이 달려요` });
-  } catch {
-    // 사용자가 취소했거나 공유를 지원하지 않는 환경
-  }
 }
 
 const styles = StyleSheet.create({
