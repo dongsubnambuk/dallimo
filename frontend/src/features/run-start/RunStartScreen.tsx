@@ -112,8 +112,7 @@ function RunStart({ params, scenario, speed }: Props) {
         <ActiveRunScreen
           engine={engine}
           summary={summary}
-          courseName={courseQuery.data?.name ?? params.courseName ?? null}
-          courseRoute={courseQuery.data?.route ?? null}
+          course={courseQuery.data ? { id: courseQuery.data.id, name: courseQuery.data.name, route: courseQuery.data.route } : null}
           target={plan.kind === 'course' && plan.plan.targetSec != null ? { sec: plan.plan.targetSec, label: plan.plan.targetLabel ?? '목표' } : null}
         />
       </>

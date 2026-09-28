@@ -9,6 +9,7 @@ import { MetricBlock } from '@/components/MetricBlock';
 import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
+import { runResultRepository } from '@/entities/run/api';
 import { endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSession';
 import type { RunFinishResult, RunningEngine } from '@/features/run/engine/runningEngine';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
@@ -26,20 +27,19 @@ import { useElapsedSec } from './useElapsedSec';
 type Props = {
   engine: RunningEngine;
   summary: string;
-  courseName: string | null;
-  // 코스 러닝이면 기준 코스 경로 (CRUN-001 기준 코스/실제 경로 동시 표시)
-  courseRoute: GeoPoint[] | null;
+  // 코스 러닝이면 기준 코스 (CRUN-001 기준 코스/실제 경로 동시 표시)
+  course: { id: string; name: string; route: GeoPoint[] } | null;
   // PB ATTACK / CHALLENGE 목표
   target: RunTarget | null;
 };
 
-export function ActiveRunScreen({ engine, summary, courseName, courseRoute, target }: Props) {
+export function ActiveRunScreen({ engine, summary, course, target }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const status = useRunSnapshot(engine, (s) => s.status);
   const [view, setView] = useState<'metrics' | 'map'>('metrics');
   const [confirming, setConfirming] = useState(false);
-  const [finished, setFinished] = useState<RunFinishResult | null>(null);
+  const [finished, setFinished] = useState<{ result: RunFinishResult; id: string } | null>(null);
   const completed = useRunSnapshot(engine, (s) => s.course?.completedActiveMs != null);
   useCourseAlerts(engine, target);
 
@@ -52,30 +52,32 @@ export function ActiveRunScreen({ engine, summary, courseName, courseRoute, targ
   const finish = async () => {
     setConfirming(false);
     const result = await engine.finish();
-    setFinished(result);
+    // RUN-006 Local First: 서버에 올렸든 못 올렸든 먼저 기기에 결과를 남긴다
+    const id = await runResultRepository.saveFinished(
+      {
+        mode: result.mode,
+        distanceM: result.distanceM,
+        activeSec: result.activeSec,
+        avgPaceSec: result.avgPaceSec,
+        splits: result.splits,
+        path: result.path,
+        course: course ? { id: course.id, name: course.name, timeSec: result.courseTimeSec } : null,
+        target,
+      },
+      result.synced,
+    );
+    setFinished({ result, id });
     // 동기화까지 끝나면 결과로 넘어간다. 오프라인이면 안내를 보여주고 사용자가 결과를 연다.
-    if (result.synced) openResult(result);
+    if (result.synced) openResult(id);
   };
 
-  const openResult = (r: RunFinishResult) => {
+  const openResult = (id: string) => {
     endActiveRun();
-    router.replace({
-      pathname: '/run/result',
-      params: {
-        mode: r.mode,
-        distanceM: String(Math.round(r.distanceM)),
-        activeSec: String(r.activeSec),
-        ...(r.avgPaceSec != null ? { avgPaceSec: String(Math.round(r.avgPaceSec)) } : {}),
-        synced: r.synced ? '1' : '0',
-        ...(courseName ? { courseName } : {}),
-        ...(r.courseTimeSec != null ? { courseTimeSec: String(r.courseTimeSec) } : {}),
-        ...(target ? { targetSec: String(target.sec), targetLabel: target.label } : {}),
-      },
-    });
+    router.replace({ pathname: '/run/result', params: { id } });
   };
 
   if (status === 'FINISHING' || status === 'FINISHED') {
-    return <FinishingView engine={engine} result={finished} onOpenResult={openResult} />;
+    return <FinishingView engine={engine} result={finished?.result ?? null} onOpenResult={() => finished && openResult(finished.id)} />;
   }
 
   const paused = status === 'PAUSED';
@@ -96,7 +98,7 @@ export function ActiveRunScreen({ engine, summary, courseName, courseRoute, targ
       ) : (
         <View style={styles.mapView}>
           <View style={[styles.mapFrame, { borderColor: colors.border.subtle }]}>
-            <MapLayer engine={engine} courseRoute={courseRoute} />
+            <MapLayer engine={engine} courseRoute={course?.route ?? null} />
           </View>
           <View style={styles.row}>
             <DistanceCompact engine={engine} />
@@ -380,7 +382,7 @@ function FinishConfirm({ engine, summary, onContinue, onFinish }: { engine: Runn
 }
 
 // 종료 처리 중(finish pending) · 오프라인이면 기기에만 저장된 결과(local-only)
-function FinishingView({ engine, result, onOpenResult }: { engine: RunningEngine; result: RunFinishResult | null; onOpenResult: (r: RunFinishResult) => void }) {
+function FinishingView({ engine, result, onOpenResult }: { engine: RunningEngine; result: RunFinishResult | null; onOpenResult: () => void }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const unsynced = useRunSnapshot(engine, (s) => s.unsyncedPoints);
@@ -404,7 +406,7 @@ function FinishingView({ engine, result, onOpenResult }: { engine: RunningEngine
         </AppText>
       </View>
       {localOnly && result ? (
-        <AppPressable onPress={() => onOpenResult(result)} accessibilityLabel="결과 보기" style={[styles.control, { backgroundColor: colors.action.primary }]}>
+        <AppPressable onPress={onOpenResult} accessibilityLabel="결과 보기" style={[styles.control, { backgroundColor: colors.action.primary }]}>
           <AppText role="sectionTitle" style={[styles.controlText, { color: colors.action.onPrimary }]}>
             결과 보기
           </AppText>

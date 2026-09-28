@@ -213,6 +213,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
         splits: metrics.splits,
         synced,
         courseTimeSec: courseState.completedActiveMs != null ? Math.round(courseState.completedActiveMs / 1000) : null,
+        path: snap.position ? [...snap.path, snap.position] : snap.path,
       });
       // 오프라인: 기록은 휴대폰에 남기고 연결되면 올린다 (local-only 결과)
       if (snap.network === 'offline') return result(false);
