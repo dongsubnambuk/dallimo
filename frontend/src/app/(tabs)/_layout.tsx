@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { View, type ColorValue } from 'react-native';
 
 import { AppIcon, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
@@ -28,9 +29,34 @@ export default function TabsLayout() {
         <Tabs.Screen
           key={t.name}
           name={t.name}
-          options={{ title: t.title, tabBarIcon: ({ color }) => <AppIcon name={t.icon} size={22} color={color} /> }}
+          options={{ title: t.title, tabBarIcon: ({ color, focused }) => <TabIcon name={t.icon} color={color} focused={focused} /> }}
         />
       ))}
     </Tabs>
+  );
+}
+
+// 선택된 탭 아이콘 오른쪽 위에 민트 출발점을 찍는다 (브랜드 심볼 "모"의 출발점 모티프, FOUNDATION-DECISION-LOG 11항).
+function TabIcon({ name, color, focused }: { name: IconName; color: ColorValue; focused: boolean }) {
+  const { colors } = useTheme();
+  return (
+    <View>
+      <AppIcon name={name} size={22} color={color} />
+      {focused ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: -3,
+            right: -5,
+            width: 9,
+            height: 9,
+            borderRadius: 5,
+            backgroundColor: colors.action.primary,
+            borderWidth: 2,
+            borderColor: colors.text.primary,
+          }}
+        />
+      ) : null}
+    </View>
   );
 }

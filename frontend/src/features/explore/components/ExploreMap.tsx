@@ -1,7 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, G, Path, Polygon, Polyline } from 'react-native-svg';
 
+import { BrandLoader } from '@/components/Brand';
 import type { CourseSummary } from '@/entities/course/types';
 import { AppIcon, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
@@ -198,8 +199,8 @@ export function ExploreMap({
       ) : null}
 
       {loading ? (
-        <View pointerEvents="none" style={styles.loading} accessibilityLabel="지도 불러오는 중">
-          <ActivityIndicator color={colors.text.secondary} />
+        <View pointerEvents="none" style={styles.loading}>
+          <BrandLoader size={44} label="지도 불러오는 중" />
         </View>
       ) : null}
     </View>

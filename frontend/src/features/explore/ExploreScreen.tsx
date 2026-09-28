@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { FlatList, Linking, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandSymbol } from '@/components/Brand';
 import { CourseCard } from '@/components/CourseCard';
 import { FilterChip } from '@/components/FilterChip';
 import { SecondaryButton } from '@/components/SecondaryButton';
@@ -205,7 +206,8 @@ export function ExploreScreen() {
   );
 }
 
-// 지도 위 첫 문장: 이 동네에서 이번 주에 몇 명이 달렸는지 (64.1장 사회적 신호). 검정 알약 + 민트 점.
+// 지도 위 첫 문장: 이번 주 이 동네에서 몇 명이 달렸는지 (64.1장 사회적 신호). 서비스명 '달리모'(달리러 모여)를 문장으로 풀었다.
+// 검정 알약 + 브랜드 심볼.
 function RunnerPulse({ count, area }: { count: number; area: string }) {
   return (
     <ThemeProvider scheme="dark">
@@ -219,16 +221,16 @@ function RunnerPulseBody({ count, area }: { count: number; area: string }) {
   return (
     <View
       accessible
-      accessibilityLabel={`이번 주 ${area}에서 ${count}명이 달렸어요`}
+      accessibilityLabel={`이번 주 ${area}에서 ${count}명이 달리러 모였어요`}
       style={[styles.pulse, { backgroundColor: colors.bg.canvas, boxShadow: elevation.mapOverlay }]}
     >
-      <View style={[styles.pulseDot, { backgroundColor: colors.action.primary }]} />
+      <BrandSymbol size={22} />
       <AppText role="label" style={styles.pulseText} numberOfLines={1}>
-        이번 주 {area}{' '}
+        이번 주{' '}
         <AppText role="label" tone="accent" tabular style={styles.pulseCount}>
           {formatCount(count)}명
-        </AppText>{' '}
-        달렸어요
+        </AppText>
+        이 달리러 모였어요
       </AppText>
     </View>
   );
@@ -503,15 +505,11 @@ const styles = StyleSheet.create({
     height: TOP_BAR_HEIGHT - 4,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    gap: spacing.sm - 2,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.lg,
     borderRadius: radius.pill,
     flexShrink: 1,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
   pulseText: {
     fontFamily: fontFamily.bold,

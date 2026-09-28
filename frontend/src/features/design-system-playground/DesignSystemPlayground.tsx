@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { PixelRatio, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandLoader, BrandSymbol, Wordmark } from '@/components/Brand';
 import { CourseCard } from '@/components/CourseCard';
 import { FilterChip } from '@/components/FilterChip';
 import { GapIndicator } from '@/components/GapIndicator';
@@ -78,6 +79,9 @@ export function DesignSystemPlayground() {
           ))}
         </View>
 
+        <Group title="브랜드" count={4}>
+          <Contexted mode={mode}>{() => <BrandCases />}</Contexted>
+        </Group>
         <Group title="색 역할" count={Object.values(colors).reduce((n, g) => n + Object.keys(g).length, 0)}>
           <Contexted mode={mode}>{() => <ColorRoleList />}</Contexted>
         </Group>
@@ -148,6 +152,35 @@ export function DesignSystemPlayground() {
         </Group>
       </View>
     </ScrollView>
+  );
+}
+
+// 달리모 아이덴티티: 워드마크, 심볼("모" = 코스 루프 + 출발점), 로딩 (FOUNDATION-DECISION-LOG 11항)
+function BrandCases() {
+  return (
+    <View style={styles.stack}>
+      <Case label="워드마크 · 32 / 20">
+        <View style={styles.row}>
+          <Wordmark height={32} />
+          <Wordmark height={20} />
+        </View>
+      </Case>
+      <Case label="심볼 signal · ink · 64 / 32 / 20">
+        <View style={styles.row}>
+          <BrandSymbol size={64} />
+          <BrandSymbol size={32} />
+          <BrandSymbol size={20} />
+          <BrandSymbol size={64} tone="ink" />
+          <BrandSymbol size={32} tone="ink" />
+        </View>
+      </Case>
+      <Case label="로딩 (동작 줄이기면 정지)">
+        <View style={styles.row}>
+          <BrandLoader size={48} />
+          <BrandLoader size={28} />
+        </View>
+      </Case>
+    </View>
   );
 }
 
