@@ -27,14 +27,15 @@ export const palette = {
   warningDark: '#D99500',
   dangerDark: '#F06262',
 
-  // placeholder 지도 바탕 (지도 SDK 전까지). 국내 지도 앱처럼 연회색 땅 + 회색 테두리 흰 길 + 채도 낮은 물·공원.
-  mapLandLight: '#F1F1EE',
-  mapWaterLight: '#B8D8EE',
-  mapParkLight: '#D3E9C8',
+  // placeholder 지도 바탕 (지도 SDK 전까지). 브랜드 지도: 채도를 뺀 회색조 바탕 위에 형광 민트 코스만 색으로 보이게 한다
+  // (스트라바 히트맵·NRC 경로 화면처럼 지도는 무채색, 경로가 주인공).
+  mapLandLight: '#ECEDEA',
+  mapWaterLight: '#D3DCE2',
+  mapParkLight: '#E0E5DD',
   mapRoadLight: '#FFFFFF',
   mapRoadMajorLight: '#FFFFFF',
-  mapRoadCasingLight: '#DCDDD7',
-  mapPathLight: '#A9B8A2',
+  mapRoadCasingLight: '#DDDEDA',
+  mapPathLight: '#C3C8C1',
   mapLandDark: '#17181A',
   mapWaterDark: '#10222B',
   mapParkDark: '#14241B',

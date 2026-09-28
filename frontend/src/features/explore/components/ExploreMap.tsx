@@ -138,21 +138,22 @@ export function ExploreMap({
                 <Path d={toPath(base.major)} fill="none" stroke={b.roadMajor} strokeWidth={6.5} strokeLinecap="round" strokeLinejoin="round" />
               </>
             ) : null}
+            {/* 모든 코스를 형광 민트 선으로: 무채색 지도 위에서 '달릴 수 있는 길'이 먼저 보인다 (83장 route signal) */}
             {courses
               .filter((c) => c.id !== selectedId)
               .map((c) => (
                 <G key={c.id}>
-                  <Polyline points={toPoints(c.displayRoute)} fill="none" stroke={colors.bg.elevated} strokeWidth={6.5} strokeLinecap="round" strokeLinejoin="round" />
-                  <Polyline points={toPoints(c.displayRoute)} fill="none" stroke={colors.text.secondary} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
+                  <Polyline points={toPoints(c.displayRoute)} fill="none" stroke={colors.route.casing} strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round" strokeOpacity={0.9} />
+                  <Polyline points={toPoints(c.displayRoute)} fill="none" stroke={colors.route.course} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
                 </G>
               ))}
             {selected ? (
               <>
-                {/* 선택 코스: 흰 여백 + 짙은 민트 테두리 + 형광 민트 선 (83장 route signal, 스트라바식 경로 강조) */}
-                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.bg.elevated} strokeWidth={12} strokeLinecap="round" strokeLinejoin="round" />
-                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.casing} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />
-                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.course} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" />
-                {start ? <Circle cx={start[0]} cy={start[1]} r={6.5} fill={colors.bg.elevated} stroke={colors.route.casing} strokeWidth={3} /> : null}
+                {/* 선택 코스: 넓은 민트 번짐 + 짙은 민트 테두리 + 굵은 형광 민트 */}
+                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.course} strokeOpacity={0.28} strokeWidth={20} strokeLinecap="round" strokeLinejoin="round" />
+                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.casing} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
+                <Polyline points={toPoints(selected.displayRoute)} fill="none" stroke={colors.route.course} strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round" />
+                {start ? <Circle cx={start[0]} cy={start[1]} r={7} fill={colors.bg.elevated} stroke={colors.route.casing} strokeWidth={3.5} /> : null}
               </>
             ) : null}
             {me ? (

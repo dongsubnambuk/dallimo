@@ -2,7 +2,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
 import { AppPressable, AppText } from '@/design/primitives';
-import { useTheme } from '@/design/theme';
+import { darkTheme, useTheme } from '@/design/theme';
 import { fontFamily, OBLIQUE_SKEW, radius, spacing, stroke, typography } from '@/design/tokens';
 import { formatDistanceKm } from '@/shared/format';
 import { makeProjection, type GeoPoint } from '@/shared/geo';
@@ -30,7 +30,7 @@ export type CourseCardProps = {
 
 // 113장: course identity > distance > metadata.
 // 95장: 사진 thumbnail 없는 버전이 기본. 경로 모양은 사진이 아니라 코스 geometry이므로 route가 있을 때만 그린다.
-// 레퍼런스: NRC 활동 목록(회색 칸 안 경로 모양 + 굵은 기울임 거리). 선택은 경로 칸을 민트로 바꿔 표시하고
+// 레퍼런스: NRC 활동 목록(어두운 경로 썸네일 + 굵은 기울임 거리). 선택은 경로 칸에 민트 테두리를 둘러 표시하고
 // 지도 route highlight와 연결된다(90장). 행 전체를 채운 상자로 감싸지 않는다 (P10).
 export function CourseCard({
   title,
@@ -105,22 +105,26 @@ export function CourseCard({
 const GLYPH = 60;
 const GLYPH_COMPACT = 44;
 
-// 코스 경로 모양 (사진 thumbnail이 아닌 geometry). 선택되면 칸을 연한 민트로, 경로를 짙은 민트로 그린다.
+// 코스 경로 모양 (사진 thumbnail이 아닌 geometry). 검정 칸 위 형광 민트 경로 — 지도 위 코스와 같은 signal line 언어.
+// 칸은 항상 dark 컨텍스트 색을 쓴다. 선택되면 칸 테두리를 민트로 두른다 (색 + 테두리로 구분).
 function RouteGlyph({ route, active, size }: { route: GeoPoint[]; active: boolean; size: number }) {
   const { colors } = useTheme();
   const project = makeProjection([route], size, size, spacing.md);
   const pts = route.map(project);
-  const line = active ? colors.route.casing : colors.text.secondary;
-  const bg = active ? colors.action.tint : colors.bg.surface;
   return (
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[styles.glyph, { width: size, height: size, backgroundColor: bg }]}
+      style={[
+        styles.glyph,
+        { width: size, height: size, backgroundColor: darkTheme.colors.bg.canvas },
+        active && { borderWidth: 3, borderColor: colors.action.primary },
+      ]}
     >
-      <Svg width={size} height={size}>
-        <Polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={line} strokeWidth={active ? 3 : 2.2} strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx={pts[0][0]} cy={pts[0][1]} r={3.5} fill={active ? colors.action.primary : colors.bg.elevated} stroke={line} strokeWidth={1.5} />
+      <Svg width={size} height={size} style={active ? styles.glyphInset : undefined}>
+        <Polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={colors.route.course} strokeOpacity={0.3} strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" />
+        <Polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={colors.route.course} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+        <Circle cx={pts[0][0]} cy={pts[0][1]} r={3.5} fill={darkTheme.colors.text.primary} />
       </Svg>
     </View>
   );
@@ -202,6 +206,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     letterSpacing: -0.4,
     transform: [{ skewX: OBLIQUE_SKEW }],
+  },
+  glyphInset: {
+    margin: -3,
   },
   glyph: {
     borderRadius: radius.card,

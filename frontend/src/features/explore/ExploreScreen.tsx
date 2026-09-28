@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { FlatList, Linking, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,7 +8,7 @@ import { FilterChip } from '@/components/FilterChip';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import type { CourseSummary } from '@/entities/course/types';
 import { AppDivider, AppIcon, AppPressable, AppSurface, AppText } from '@/design/primitives';
-import { useTheme } from '@/design/theme';
+import { ThemeProvider, useTheme } from '@/design/theme';
 import { elevation, fontFamily, OBLIQUE_SKEW, radius, spacing, touchTarget, typography } from '@/design/tokens';
 import { formatCount, formatDistanceKm, formatDuration } from '@/shared/format';
 
@@ -22,18 +22,15 @@ import { useNearbyCourses } from './useNearbyCourses';
 // SCR-E01 Explore 홈 (CRS-001 주변 코스, CRS-004 빠른 필터·정렬, LOC-001/002 위치 권한).
 // 89장: 밝은 지도 55~65% + 하단 코스 결과, 상단 검색은 지도 위 고정, 선택 코스가 route signal로 강조.
 // 74장 필수 상태: loading, location denied, no nearby course, network error, map ready, list ready.
-// 레퍼런스(REFERENCE-RESEARCH-2026-09.md): 지도 위 경로·출발 표시(P1), 코스 위 러너 수(고스트러너), 선택 코스 요약 카드(AllTrails·Runnect),
-// 목록 경로 모양(P7), 기울임 숫자(P4), 정렬(Runnect), 내 위치 버튼.
-// v0.3 스타일(uibowl·wwit 조사): 토스 적립 매장 지도(지도 위 알약 검색 + 흰 칩 + 목록 시트), 쏘카 검정 지도 핀, NRC 기간 선택.
+// v0.5 (FOUNDATION-DECISION-LOG 10항): 무채색 브랜드 지도 위 형광 민트 코스, 검정 코스 티켓(1위 기록·내 PB·이번 주 러너),
+// 지도 위에는 이번 주 러너 수와 검색만 두고 필터·정렬은 시트로 내렸다.
 
 const DEFAULT_RADIUS_M = 3000;
 const WIDE_RADIUS_M = 10000;
-const MAP_RATIO = 0.6;
+const MAP_RATIO = 0.64;
 const SHEET_OVERLAP = spacing.xxl;
-const CHIP_HEIGHT = 36;
-const SORT_HEIGHT = 32;
-const SORT_SHADOW = '0 1px 3px rgba(0, 0, 0, 0.12)';
-const SELECTED_CARD_HEIGHT = 84;
+const TOP_BAR_HEIGHT = 44;
+const TICKET_HEIGHT = 148;
 
 type QuickFilter = { key: string; label: string; match: (c: CourseSummary) => boolean };
 
@@ -66,6 +63,7 @@ export function ExploreScreen() {
   const [radiusM, setRadiusM] = useState(DEFAULT_RADIUS_M);
   const [filters, setFilters] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
   const [sort, setSort] = useState<SortKey>('near');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focus, setFocus] = useState<'selection' | 'user'>('selection');
@@ -83,11 +81,14 @@ export function ExploreScreen() {
       .sort(sorters[sort]);
   }, [all, filters, query, sort]);
 
+  const weeklyRunners = all.reduce((n, c) => n + c.weeklyRunnerCount, 0);
+  const topId = all.reduce<CourseSummary | null>((top, c) => (!top || c.weeklyRunnerCount > top.weeklyRunnerCount ? c : top), null)?.id;
+
   // 선택이 목록에서 사라지면 첫 코스를 선택한다
   const selected = visible.find((c) => c.id === selectedId) ?? visible[0] ?? null;
   const mapHeight = Math.round(windowHeight * MAP_RATIO);
-  const topObscured = insets.top + spacing.sm + touchTarget.min + spacing.xs + spacing.sm + CHIP_HEIGHT;
-  const bottomObscured = SHEET_OVERLAP + (selected ? SELECTED_CARD_HEIGHT + spacing.md : 0);
+  const topObscured = insets.top + spacing.sm + TOP_BAR_HEIGHT;
+  const bottomObscured = SHEET_OVERLAP + (selected ? TICKET_HEIGHT + spacing.md : 0);
 
   const openDetail = (c: CourseSummary) => router.push({ pathname: '/course/[id]', params: { id: c.id, name: c.name } });
   const select = (id: string) => {
@@ -112,30 +113,47 @@ export function ExploreScreen() {
           obscured={{ top: topObscured, bottom: bottomObscured }}
         />
 
-        <View style={[styles.overlay, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
-          <AppSurface level="elevated" radius="pill" style={styles.search}>
-            <AppIcon name="search" size={20} color={colors.text.primary} />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="코스, 지역, 장소 검색"
-              placeholderTextColor={colors.text.secondary}
-              accessibilityLabel="코스 검색"
-              returnKeyType="search"
-              style={[styles.searchInput, { color: colors.text.primary }]}
-            />
-          </AppSurface>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-            {QUICK_FILTERS.map((f) => (
-              <FilterChip
-                key={f.key}
-                label={f.label}
-                selected={!!filters[f.key]}
-                onPress={() => setFilters((s) => ({ ...s, [f.key]: !s[f.key] }))}
-                variant="map"
+        <View style={[styles.topBar, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
+          {searching ? (
+            <AppSurface level="elevated" radius="pill" style={styles.search}>
+              <AppIcon name="search" size={18} color={colors.text.primary} />
+              <TextInput
+                autoFocus
+                value={query}
+                onChangeText={setQuery}
+                placeholder="코스 이름, 태그 검색"
+                placeholderTextColor={colors.text.secondary}
+                accessibilityLabel="코스 검색"
+                returnKeyType="search"
+                style={[styles.searchInput, { color: colors.text.primary }]}
               />
-            ))}
-          </ScrollView>
+              <AppPressable
+                onPress={() => {
+                  setQuery('');
+                  setSearching(false);
+                }}
+                accessibilityLabel="검색 닫기"
+                style={styles.searchClose}
+              >
+                <AppIcon name="close" size={18} color={colors.text.secondary} />
+              </AppPressable>
+            </AppSurface>
+          ) : (
+            <>
+              {state.kind === 'ready' && all.length > 0 ? (
+                <RunnerPulse count={weeklyRunners} area={locationDenied ? '수성구' : '내 주변'} />
+              ) : (
+                <View />
+              )}
+              <AppPressable
+                onPress={() => setSearching(true)}
+                accessibilityLabel="코스 검색"
+                style={[styles.roundButton, { backgroundColor: colors.bg.elevated, boxShadow: elevation.mapOverlay }]}
+              >
+                <AppIcon name="search" size={20} color={colors.text.primary} />
+              </AppPressable>
+            </>
+          )}
         </View>
 
         {position ? (
@@ -144,6 +162,7 @@ export function ExploreScreen() {
             accessibilityLabel="내 위치로 이동"
             accessibilityState={{ selected: focus === 'user' }}
             style={[
+              styles.roundButton,
               styles.locate,
               {
                 bottom: bottomObscured + spacing.sm,
@@ -152,12 +171,12 @@ export function ExploreScreen() {
               },
             ]}
           >
-            <AppIcon name="gpsGood" size={22} color={focus === 'user' ? colors.action.onSecondary : colors.text.primary} />
+            <AppIcon name="gpsGood" size={20} color={focus === 'user' ? colors.action.onSecondary : colors.text.primary} />
           </AppPressable>
         ) : null}
 
         {selected ? (
-          <SelectedCourseCard course={selected} bottom={SHEET_OVERLAP + spacing.md} onOpen={() => openDetail(selected)} />
+          <CourseTicket course={selected} popular={selected.id === topId} bottom={SHEET_OVERLAP + spacing.md} onOpen={() => openDetail(selected)} />
         ) : null}
       </View>
 
@@ -172,6 +191,8 @@ export function ExploreScreen() {
           radiusM={radiusM}
           sort={sort}
           onSort={setSort}
+          filters={filters}
+          onToggleFilter={(key) => setFilters((s) => ({ ...s, [key]: !s[key] }))}
           onPressCard={onPressCard}
           onWiden={() => setRadiusM(WIDE_RADIUS_M)}
           onClearFilters={() => {
@@ -184,39 +205,124 @@ export function ExploreScreen() {
   );
 }
 
-// 선택 코스 요약 (AllTrails·Runnect의 지도 위 코스 카드). 89장: 지도보다 커지지 않게 한 줄 요약만.
-function SelectedCourseCard({ course, bottom, onOpen }: { course: CourseSummary; bottom: number; onOpen: () => void }) {
-  const { colors } = useTheme();
+// 지도 위 첫 문장: 이 동네에서 이번 주에 몇 명이 달렸는지 (64.1장 사회적 신호). 검정 알약 + 민트 점.
+function RunnerPulse({ count, area }: { count: number; area: string }) {
   return (
-    <AppSurface
-      level="elevated"
-      radius="card"
-      style={[styles.selectedCard, { bottom, height: SELECTED_CARD_HEIGHT, boxShadow: elevation.mapOverlay }]}
-    >
-      <View style={styles.selectedBody}>
-        <AppText role="sectionTitle" numberOfLines={1}>
-          {course.name}
-        </AppText>
-        <View style={styles.selectedStats}>
-          <Stat value={formatDistanceKm(course.distanceM, 1)} unit="km" />
-          <Stat value={`${Math.round(course.estimatedSec / 60)}`} unit="분" />
-          <View style={[styles.runners, { backgroundColor: colors.action.tint }]}>
-            <AppIcon name="running" size={12} color={colors.text.primary} />
-            <AppText role="caption" tabular style={styles.runnersText}>
-              이번 주 {formatCount(course.weeklyRunnerCount)}명
-            </AppText>
-          </View>
-        </View>
-      </View>
-      <SecondaryButton label="코스 보기" size="sm" emphasized onPress={onOpen} />
-    </AppSurface>
+    <ThemeProvider scheme="dark">
+      <RunnerPulseBody count={count} area={area} />
+    </ThemeProvider>
   );
 }
 
-function Stat({ value, unit }: { value: string; unit: string }) {
+function RunnerPulseBody({ count, area }: { count: number; area: string }) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.inlineRow}>
-      <AppText role="sectionTitle" tabular style={styles.statValue}>
+    <View
+      accessible
+      accessibilityLabel={`이번 주 ${area}에서 ${count}명이 달렸어요`}
+      style={[styles.pulse, { backgroundColor: colors.bg.canvas, boxShadow: elevation.mapOverlay }]}
+    >
+      <View style={[styles.pulseDot, { backgroundColor: colors.action.primary }]} />
+      <AppText role="label" style={styles.pulseText} numberOfLines={1}>
+        이번 주 {area}{' '}
+        <AppText role="label" tone="accent" tabular style={styles.pulseCount}>
+          {formatCount(count)}명
+        </AppText>{' '}
+        달렸어요
+      </AppText>
+    </View>
+  );
+}
+
+// 선택 코스 티켓. 거리·시간과 함께 "1위 기록 / 내 PB"를 보여 도전하고 싶게 만든다 (62장 PB/Rival, 64.1장 Competition-aware).
+// 밝은 지도 위에서 가장 먼저 읽히도록 검정(dark 컨텍스트) 표면을 쓴다.
+function CourseTicket({ course, popular, bottom, onOpen }: { course: CourseSummary; popular: boolean; bottom: number; onOpen: () => void }) {
+  return (
+    <ThemeProvider scheme="dark">
+      <CourseTicketBody course={course} popular={popular} bottom={bottom} onOpen={onOpen} />
+    </ThemeProvider>
+  );
+}
+
+function CourseTicketBody({ course, popular, bottom, onOpen }: { course: CourseSummary; popular: boolean; bottom: number; onOpen: () => void }) {
+  const { colors } = useTheme();
+  const gapToLeader = course.myBestSec != null && course.leaderSec != null ? course.myBestSec - course.leaderSec : null;
+
+  return (
+    <View style={[styles.ticket, { bottom, height: TICKET_HEIGHT, backgroundColor: colors.bg.canvas, boxShadow: elevation.mapOverlay }]}>
+      <View style={styles.ticketHead}>
+        <AppText role="sectionTitle" numberOfLines={1} style={styles.ticketName}>
+          {course.name}
+        </AppText>
+        {popular ? (
+          <View style={[styles.hot, { backgroundColor: colors.action.primary }]}>
+            <AppText role="caption" style={[styles.hotText, { color: colors.action.onPrimary }]}>
+              이번 주 인기
+            </AppText>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.ticketStats}>
+        <BigStat value={formatDistanceKm(course.distanceM, 1)} unit="km" />
+        <BigStat value={`${Math.round(course.estimatedSec / 60)}`} unit="분" />
+        <BigStat value={formatCount(course.weeklyRunnerCount)} unit="명 달림" />
+      </View>
+
+      <View style={styles.ticketFoot}>
+        <View style={styles.records}>
+          <View style={styles.recordRow}>
+            <AppIcon name="finished" size={13} color={colors.text.secondary} />
+            <AppText role="caption" tone="secondary">
+              코스 1위
+            </AppText>
+            <AppText role="caption" tabular style={styles.recordValue}>
+              {course.leaderSec != null ? formatDuration(course.leaderSec) : '기록 없음'}
+            </AppText>
+          </View>
+          <View style={styles.recordRow}>
+            <AppIcon name="running" size={13} color={colors.text.secondary} />
+            <AppText role="caption" tone="secondary">
+              내 PB
+            </AppText>
+            {course.myBestSec != null ? (
+              <>
+                <AppText role="caption" tabular tone="accent" style={styles.recordValue}>
+                  {formatDuration(course.myBestSec)}
+                </AppText>
+                {gapToLeader != null && gapToLeader > 0 ? (
+                  <AppText role="caption" tone="secondary" tabular>
+                    1위까지 {formatDuration(gapToLeader)}
+                  </AppText>
+                ) : null}
+              </>
+            ) : (
+              <AppText role="caption" tone="accent" style={styles.recordValue}>
+                첫 기록에 도전
+              </AppText>
+            )}
+          </View>
+        </View>
+        <AppPressable
+          onPress={onOpen}
+          accessibilityLabel={`${course.name} 코스 보기`}
+          hitSlop={(touchTarget.min - CTA_HEIGHT) / 2}
+          style={({ pressed }) => [styles.cta, { backgroundColor: pressed ? colors.action.primaryPressed : colors.action.primary }]}
+          feedback="none"
+        >
+          <AppText role="label" style={[styles.ctaText, { color: colors.action.onPrimary }]}>
+            코스 보기
+          </AppText>
+        </AppPressable>
+      </View>
+    </View>
+  );
+}
+
+function BigStat({ value, unit }: { value: string; unit: string }) {
+  return (
+    <View style={styles.bigStat}>
+      <AppText role="metricLarge" tabular style={styles.bigStatValue} numberOfLines={1}>
         {value}
       </AppText>
       <AppText role="label" tone="secondary">
@@ -235,6 +341,8 @@ function SheetBody({
   radiusM,
   sort,
   onSort,
+  filters,
+  onToggleFilter,
   onPressCard,
   onWiden,
   onClearFilters,
@@ -247,6 +355,8 @@ function SheetBody({
   radiusM: number;
   sort: SortKey;
   onSort: (s: SortKey) => void;
+  filters: Record<string, boolean>;
+  onToggleFilter: (key: string) => void;
   onPressCard: (c: CourseSummary) => void;
   onWiden: () => void;
   onClearFilters: () => void;
@@ -289,6 +399,10 @@ function SheetBody({
     );
   }
 
+  const sorts = SORTS.filter((s) => !(locationDenied && s.key === 'near'));
+  const current = sorts.find((s) => s.key === sort) ?? sorts[0];
+  const nextSort = () => onSort(sorts[(sorts.indexOf(current) + 1) % sorts.length].key);
+
   const header = (
     <>
       {locationDenied ? (
@@ -303,9 +417,20 @@ function SheetBody({
       <SheetHeader
         title={locationDenied ? '대구 수성구 코스' : '내 주변 코스'}
         count={visible.length}
-        sub={locationDenied ? undefined : `${formatDistanceKm(radiusM, 0)}km 안`}
+        right={
+          <AppPressable onPress={nextSort} accessibilityLabel={`정렬: ${current.label}. 눌러서 바꾸기`} style={styles.sortButton}>
+            <AppText role="label" style={styles.sortText}>
+              {current.label}
+            </AppText>
+            <AppIcon name="swap" size={14} />
+          </AppPressable>
+        }
       />
-      <SortTabs value={sort} onChange={onSort} options={SORTS.filter((s) => !(locationDenied && s.key === 'near'))} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        {QUICK_FILTERS.map((f) => (
+          <FilterChip key={f.key} label={f.label} selected={!!filters[f.key]} onPress={() => onToggleFilter(f.key)} />
+        ))}
+      </ScrollView>
     </>
   );
 
@@ -331,7 +456,7 @@ function SheetBody({
           route={item.displayRoute}
           socialContext={`이번 주 ${formatCount(item.weeklyRunnerCount)}명`}
           proximityM={locationDenied ? undefined : (item.startDistanceM ?? undefined)}
-          recordContext={item.myBestSec != null ? `내 PB ${formatDuration(item.myBestSec)}` : undefined}
+          recordContext={item.myBestSec != null ? `내 PB ${formatDuration(item.myBestSec)}` : item.leaderSec != null ? `1위 ${formatDuration(item.leaderSec)}` : undefined}
           selected={item.id === selectedId}
           onPress={() => onPressCard(item)}
           accessibilityHint={item.id === selectedId ? '코스 상세로 이동' : '지도에서 이 코스를 표시'}
@@ -342,128 +467,157 @@ function SheetBody({
   );
 }
 
-// 정렬: iOS·토스 segmented control처럼 회색 트랙 위 선택 칸만 흰색으로 띄운다.
-function SortTabs({ value, onChange, options }: { value: SortKey; onChange: (s: SortKey) => void; options: typeof SORTS }) {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.sorts, { backgroundColor: colors.bg.surface }]} accessibilityRole="tablist">
-      {options.map((s) => {
-        const on = value === s.key;
-        return (
-          <AppPressable
-            key={s.key}
-            onPress={() => onChange(s.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: on }}
-            hitSlop={(touchTarget.min - SORT_HEIGHT) / 2}
-            style={[styles.sort, on && { backgroundColor: colors.bg.elevated, boxShadow: SORT_SHADOW }]}
-          >
-            <AppText role="label" style={[on ? styles.sortTextOn : styles.sortText, { color: on ? colors.text.primary : colors.text.secondary }]}>
-              {s.label}
-            </AppText>
-          </AppPressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function SheetHeader({ title, count, sub }: { title: string; count?: number; sub?: string }) {
+function SheetHeader({ title, count, right }: { title: string; count?: number; right?: ReactNode }) {
   return (
     <View style={styles.sheetHeader}>
       <AppText role="sectionTitle" accessibilityRole="header" style={styles.sheetTitle}>
         {title}
       </AppText>
       {count != null ? (
-        <AppText role="sectionTitle" tone="secondary" tabular style={styles.countText}>
+        <AppText role="sectionTitle" tone="accent" tabular style={styles.sheetTitle}>
           {count}
         </AppText>
       ) : null}
-      {sub ? (
-        <AppText role="caption" tone="secondary" style={styles.sheetSub}>
-          {sub}
-        </AppText>
-      ) : null}
+      {right ? <View style={styles.sheetRight}>{right}</View> : null}
     </View>
   );
 }
+
+const CTA_HEIGHT = 40;
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  overlay: {
+  topBar: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    left: spacing.lg,
+    right: spacing.lg,
+    height: TOP_BAR_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  search: {
-    marginHorizontal: spacing.lg,
+  pulse: {
+    height: TOP_BAR_HEIGHT - 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg + spacing.xs,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+    flexShrink: 1,
+  },
+  pulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pulseText: {
+    fontFamily: fontFamily.bold,
+  },
+  pulseCount: {
+    fontFamily: fontFamily.extrabold,
+  },
+  roundButton: {
+    width: TOP_BAR_HEIGHT,
+    height: TOP_BAR_HEIGHT,
+    minHeight: TOP_BAR_HEIGHT,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  search: {
+    flex: 1,
+    height: TOP_BAR_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingLeft: spacing.lg,
     boxShadow: elevation.mapOverlay,
   },
   searchInput: {
     flex: 1,
-    minHeight: touchTarget.min + spacing.xs,
+    height: TOP_BAR_HEIGHT,
     fontFamily: fontFamily.medium,
     fontSize: typography.body.fontSize,
   },
-  chips: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xs,
+  searchClose: {
+    width: TOP_BAR_HEIGHT,
+    alignItems: 'center',
   },
   locate: {
     position: 'absolute',
     right: spacing.lg,
-    width: touchTarget.min,
-    borderRadius: radius.pill,
-    alignItems: 'center',
   },
-  selectedCard: {
+  ticket: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
+    left: spacing.md,
+    right: spacing.md,
+    borderRadius: radius.sheet,
+    borderCurve: 'continuous',
+    paddingHorizontal: spacing.lg + spacing.xs,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md + spacing.xs,
+    justifyContent: 'space-between',
+  },
+  ticketHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
-  selectedBody: {
-    flex: 1,
-    gap: spacing.xs,
+  ticketName: {
+    flexShrink: 1,
+    fontFamily: fontFamily.extrabold,
   },
-  selectedStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  runners: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
+  hot: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: radius.pill,
   },
-  runnersText: {
-    fontFamily: fontFamily.bold,
+  hotText: {
+    fontFamily: fontFamily.extrabold,
   },
-  inlineRow: {
+  ticketStats: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: spacing.xs / 2,
+    gap: spacing.lg + spacing.xs,
   },
-  statValue: {
-    fontFamily: fontFamily.extrabold,
-    fontSize: 19,
-    letterSpacing: -0.4,
+  bigStat: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 3,
+  },
+  bigStatValue: {
+    fontSize: 30,
+    lineHeight: 34,
+    letterSpacing: -1,
     transform: [{ skewX: OBLIQUE_SKEW }],
+  },
+  ticketFoot: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.md,
+  },
+  records: {
+    flex: 1,
+    gap: 2,
+  },
+  recordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  recordValue: {
+    fontFamily: fontFamily.extrabold,
+  },
+  cta: {
+    minHeight: CTA_HEIGHT,
+    paddingHorizontal: spacing.lg + spacing.xs,
+    borderRadius: radius.pill,
+  },
+  ctaText: {
+    fontFamily: fontFamily.extrabold,
   },
   sheet: {
     flex: 1,
@@ -481,40 +635,31 @@ const styles = StyleSheet.create({
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.sm - 2,
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   sheetTitle: {
+    fontFamily: fontFamily.extrabold,
     fontSize: 20,
     lineHeight: 28,
   },
-  countText: {
-    fontSize: 20,
-    lineHeight: 28,
-  },
-  sheetSub: {
+  sheetRight: {
     marginLeft: 'auto',
   },
-  sorts: {
+  sortButton: {
     flexDirection: 'row',
-    alignSelf: 'flex-start',
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.xs,
-    padding: 3,
-    gap: 2,
-    borderRadius: radius.pill,
-  },
-  sort: {
-    minHeight: SORT_HEIGHT,
-    paddingHorizontal: spacing.md + spacing.xs,
-    borderRadius: radius.pill,
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 40,
   },
   sortText: {
-    fontFamily: fontFamily.medium,
-  },
-  sortTextOn: {
     fontFamily: fontFamily.bold,
+  },
+  chips: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
   listContent: {
     paddingBottom: spacing.xl,
