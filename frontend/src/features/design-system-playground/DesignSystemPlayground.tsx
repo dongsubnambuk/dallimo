@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLoader, BrandSymbol, Wordmark } from '@/components/Brand';
 import { CourseCard } from '@/components/CourseCard';
+import { PlayModeCard } from '@/components/PlayModeCard';
 import { FilterChip } from '@/components/FilterChip';
 import { GapIndicator } from '@/components/GapIndicator';
 import { GpsStatus, type GpsQuality } from '@/components/GpsStatus';
@@ -94,6 +95,9 @@ export function DesignSystemPlayground() {
         <Group title="버튼 · 필터" count={8}>
           <Contexted mode={mode}>{() => <ActionCases />}</Contexted>
         </Group>
+        <Group title="플레이 모드" count={4}>
+          <Contexted mode={mode}>{() => <PlayModeCases />}</Contexted>
+        </Group>
         <Group title="기록 수치" count={6}>
           <Contexted mode={mode}>{() => <MetricCases />}</Contexted>
         </Group>
@@ -178,6 +182,22 @@ function BrandCases() {
         <View style={styles.row}>
           <BrandLoader size={48} />
           <BrandLoader size={28} />
+        </View>
+      </Case>
+    </View>
+  );
+}
+
+// 67.1장 PlayModeCard: default / selected / locked (+ 최근 사용)
+function PlayModeCases() {
+  return (
+    <View style={styles.stack}>
+      <Case label="default · selected · locked · 최근">
+        <View style={[styles.row, { flexWrap: 'nowrap' }]}>
+          <PlayModeCard icon="modeCourse" title="완주" caption="끝까지 달리기" />
+          <PlayModeCard icon="modePB" title="PB 어택" caption="내 기록 깨기" state="selected" />
+          <PlayModeCard icon="modeRival" title="라이벌" caption="기록에 도전" state="locked" lockedReason="랭킹을 불러오지 못했어요" />
+          <PlayModeCard icon="modeTogether" title="함께" caption="친구와 동시에" recent />
         </View>
       </Case>
     </View>

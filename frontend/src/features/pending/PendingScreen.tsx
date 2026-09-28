@@ -8,7 +8,7 @@ import { useTheme } from '@/design/theme';
 import { spacing } from '@/design/tokens';
 
 // 아직 구현 순서(72장)가 오지 않은 탭의 자리. 제품 화면이 아니다.
-export function PendingScreen({ title, order, showDevLinks }: { title: string; order: string; showDevLinks?: boolean }) {
+export function PendingScreen({ title, order, showDevLinks, handoff }: { title: string; order: string; showDevLinks?: boolean; handoff?: string | null }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
@@ -22,6 +22,15 @@ export function PendingScreen({ title, order, showDevLinks }: { title: string; o
       <AppText role="body" tone="secondary">
         {order}에서 구현합니다.
       </AppText>
+      {handoff ? (
+        // 앞 화면에서 넘겨받은 선택 (흐름 확인용)
+        <View style={[styles.handoff, { backgroundColor: colors.bg.surface }]}>
+          <AppText role="caption" tone="secondary">
+            넘겨받은 선택
+          </AppText>
+          <AppText role="label">{handoff}</AppText>
+        </View>
+      ) : null}
       {showDevLinks && __DEV__ ? (
         <View style={styles.dev}>
           <AppText role="caption" tone="secondary">
@@ -53,6 +62,12 @@ const styles = StyleSheet.create({
   },
   brand: {
     marginBottom: spacing.xl,
+  },
+  handoff: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: 12,
+    gap: spacing.xs,
   },
   dev: {
     marginTop: spacing.xxl,

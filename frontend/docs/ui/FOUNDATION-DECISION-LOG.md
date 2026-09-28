@@ -409,3 +409,19 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 구조 이동 | 코스 repository·mock을 `entities/course/api/`로, 지도 바탕 데이터를 `shared/map/`으로, 지도 바탕 그리기를 `components/MapBaseLayer`로, `StateNotice`를 `components/`로 옮김 | 탐색과 코스 상세가 함께 쓰게 되어 (CLAUDE.md 13항) |
 | 아이콘 | back, bookmark, bookmarked, share, signals, nightLight, crowd, surface, toilet, water, elevation, time, trophy 추가 | expo-symbols 하나만 사용 |
 | AppDivider section | 띠 색을 `bg.canvas` → `bg.surface` | v0.3에서 canvas가 흰색이 되어 띠가 보이지 않았다 |
+
+## 13. Play Mode Selector 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 진입 | 코스 상세 "이 코스 달리기" → 코스 상세 위 하단 sheet (`/course/[id]/play`, transparentModal). 배경을 누르거나 ✕로 닫는다 | 89장 "하단 sheet", 64장 COURSE DETAIL → PICK A PLAY MODE, 125장 "Explore에서 코스를 고르면 COURSE로 진입" |
+| 모드 | 완주(COURSE) · PB 어택(PB) · 라이벌(CHALLENGE) · 함께(TOGETHER) 4개 | 64장 SOLO / PB ATTACK / RIVAL·CHALLENGE / LIVE·TOGETHER, 125장 COURSE 안의 COURSE_NORMAL·PB_ATTACK·RIVAL. 전송 값은 6.3장 RunMode |
+| 모양 | 같은 크기 카드를 세로로 쌓지 않고 가로 타일 4개(아이콘·제목·한 줄 설명) + 선택한 모드의 목표 패널(검정) | 89장 "동일 크기 카드 4개로 쌓지 말고 주요 모드와 context-aware target", "설정 화면 같은 radio list 금지", 73장 아이콘/제목/짧은 설명으로 구분 |
+| `PlayModeCard` | default(회색) / selected(검정 + 민트 아이콘) / locked(자물쇠 + 열리는 조건) + "최근" 배지. `components/PlayModeCard` | 67.1장 PlayModeCard selected/default/locked, 66장 최근 사용 강조 |
+| 잠김 조건 | PB 어택: 내 기록이 없으면 "완주하면 열려요". 라이벌: 인증 기록이 없거나 랭킹을 못 받으면 잠김 | 980행 "검증된 기록만 목표로 사용" |
+| 기본 선택 | 최근 고른 모드 → 기록이 있으면 PB 어택 → 완주 | 89장 context-aware. 최근 모드는 앱을 켜 둔 동안만 기억(저장소 연동은 My 단계) |
+| 목표 패널 | 완주: 거리·예상 시간. PB: 목표 기록·km당 페이스, "PB 그대로 / 10초 / 30초 빠르게". 라이벌: 코스 1위·친구 최고·이번 주 상위 중 선택(내 PB와 차이). 함께: 위치 대신 진행률만 보인다는 안내 | 62장 PB/Rival, 94장 위치 대신 진행률 |
+| 행동 | 버튼 하나. 문구가 선택에 따라 바뀜: "완주 시작", "10:12 목표로 시작", "지수 기록에 도전", "함께 달릴 방 만들기" | 66장 single primary action |
+| 다음 화면 | 달리기 탭으로 `mode·courseId·targetSec·targetLabel`을 넘긴다(`RunPlan`). 함께는 함께 탭으로 `courseId`. 두 탭은 아직 준비 중 화면이라 넘겨받은 선택을 표시해 흐름을 확인 | Run Ready 72장 5번, Together 10번 |
+| 라우트 | `app/course/[id].tsx` → `app/course/[id]/index.tsx`, `app/course/[id]/play.tsx` 추가. 헤더·표시 방식은 루트 `_layout`에서 지정 | |
+| 타입·아이콘 | `entities/run/types.ts`(RunMode, PlayModeKey, RunPlan), 아이콘 modeCourse·modePB·modeRival·modeTogether·lock | |

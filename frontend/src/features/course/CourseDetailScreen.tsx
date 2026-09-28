@@ -103,8 +103,11 @@ export function CourseDetailScreen({ id, scenario }: { id: string; scenario: Cou
 
       {course ? (
         <View style={[styles.ctaBar, { paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.bg.elevated, borderTopColor: colors.border.subtle }]}>
-          {/* CRS-106: 코스를 선택한 상태로 달리기 탭(Run Ready)으로 넘어간다. Run Ready는 72장 5번 단계에서 구현한다. */}
-          <PrimaryRunButton label="이 코스 달리기" onPress={() => router.push({ pathname: '/run', params: { courseId: course.id } })} />
+          {/* CRS-106: 코스 러닝 시작 → 플레이 방식 선택 sheet (64장 PICK A PLAY MODE) */}
+          <PrimaryRunButton
+            label="이 코스 달리기"
+            onPress={() => router.push({ pathname: '/course/[id]/play', params: { id: course.id, ...(scenario !== 'normal' ? { scenario } : {}) } })}
+          />
         </View>
       ) : null}
     </View>
