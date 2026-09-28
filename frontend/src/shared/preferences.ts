@@ -10,6 +10,8 @@ export type Preferences = {
   autoPause: boolean;
   // AUD-001~003 음성 안내
   voice: boolean;
+  // AUD-003 구간 안내 빈도(km). 0이면 끔
+  voiceSplitKm: 0 | 1 | 2;
   // ACCESSIBILITY: 햅틱은 끌 수 있어야 한다
   haptics: boolean;
   // 14.2장 Push 이벤트 묶음
@@ -18,7 +20,7 @@ export type Preferences = {
   pushRecord: boolean;
 };
 
-const DEFAULTS: Preferences = { autoPause: false, voice: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true };
+const DEFAULTS: Preferences = { autoPause: false, voice: true, voiceSplitKm: 1, haptics: true, pushLive: true, pushFriend: true, pushRecord: true };
 const KEY = 'dallimo.preferences';
 
 let current: Preferences = DEFAULTS;
