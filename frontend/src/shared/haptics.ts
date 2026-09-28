@@ -20,4 +20,8 @@ export const haptics = {
   countdownTick: () => run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
   // 출발: 강한 햅틱
   runStart: () => run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)),
+  // 일시정지·재개: 누른 것이 반영됐다는 확인 (화면을 보지 않아도)
+  runControl: () => run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
+  // GPS 약함처럼 기록에 영향을 주는 상태 변화 경고
+  warning: () => run(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
 };

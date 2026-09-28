@@ -38,7 +38,7 @@ const PARTICIPANT_STATES: { status: ParticipantStatus; progress?: number }[] = [
   { status: 'finished', progress: 1 },
   { status: 'dnf' },
 ];
-const TEXT_ROLES: TextRole[] = ['metricHero', 'metricLarge', 'screenTitle', 'sectionTitle', 'body', 'label', 'caption'];
+const TEXT_ROLES: TextRole[] = ['metricGiant', 'metricHero', 'metricLarge', 'screenTitle', 'sectionTitle', 'body', 'label', 'caption'];
 
 export function DesignSystemPlayground() {
   const insets = useSafeAreaInsets();

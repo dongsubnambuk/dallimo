@@ -44,6 +44,8 @@ export default function RootLayout() {
             name="run/active"
             options={{ headerShown: false, gestureEnabled: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }}
           />
+          {/* Result는 light로 돌아온다 (89장) */}
+          <Stack.Screen name="run/result" options={{ headerShown: false, animation: 'fade' }} />
         </Stack>
       </ThemeProvider>
     </QueryClientProvider>
