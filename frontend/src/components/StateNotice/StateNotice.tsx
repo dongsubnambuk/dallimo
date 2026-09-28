@@ -14,8 +14,8 @@ export type StateNoticeProps = {
   actions?: ReactNode;
 };
 
-// 탐색 화면의 로딩 외 상태(권한 거부, 결과 없음, 네트워크 오류) 안내.
-// 다른 화면에서도 쓰이면 src/components로 승격한다.
+// 로딩 외 상태(권한 거부, 결과 없음, 네트워크 오류, 비공개 코스) 안내. 탐색·코스 상세에서 함께 쓴다.
+// 탐색 전용이었다가 코스 상세에서도 쓰여 src/components로 옮겼다 (CLAUDE.md 13항).
 export function StateNotice({ icon, tone = 'neutral', title, body, actions }: StateNoticeProps) {
   const { colors } = useTheme();
   const iconColor = tone === 'warning' ? colors.status.warning : tone === 'danger' ? colors.status.danger : colors.text.secondary;

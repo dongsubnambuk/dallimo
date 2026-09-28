@@ -388,3 +388,24 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 
 - 117.1장 표기 규칙대로 사용자 화면 표기는 "달리모"만 쓴다. 영문 워드마크(DALLIMO)는 아직 만들지 않았다.
 - 명세서의 미결 항목 "최종 브랜드 색상 확정" 전 단계의 후보다. 상표 검토는 하지 않았다.
+
+## 12. Course Detail (SCR-E03) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 배치 | 지도(화면 36%) → 지역·태그 → 코스명 → 거리·예상 시간·난이도·오르막 → 경쟁 카드 → 이번 주 랭킹 → 고도 → 러닝 환경 → 코스 소개. "이 코스 달리기"는 하단 고정 | 61.1장 1~4차 정보 계층, 89·91장. 73장 "첫 viewport에서 형태·거리·난이도·내 기록/경쟁·RUN CTA" — 375×667에서도 경쟁 카드 윗부분과 CTA가 첫 화면에 보인다 |
+| 헤더 | 기본 헤더를 숨기고 지도 위에 뒤로·저장·공유 둥근 버튼 | 지도 영역을 줄이지 않기 위해. 탐색 검색 버튼과 같은 모양 |
+| 지도 | `CourseRouteMap`: 탐색과 같은 브랜드 지도(무채색 OSM 바탕) + 민트 번짐 경로 + 1km 표시 + "출발"/"출발 · 도착" 핀. 도착점이 출발점과 60m 안이면 순환으로 본다 | 83장 route signal, Komoot·AllTrails 경로 미리보기 |
+| 경쟁 카드 | 검정(dark) 카드: 내 PB(민트 44pt 기울임) + 인증 배지 + 이번 주 순위, 최근 기록·완주 횟수, 코스 1위와 1위까지 차이, 친구 최고와 차이. 기록이 없으면 "첫 완주 기록이 이번 주 랭킹에 올라가요" | 91장 "내 PB · 주간 순위 · 친구 최고", 탐색 코스 티켓과 같은 표면으로 연결 |
+| 랭킹 미리보기 | 이번 주 1~3위 + (4위 밖이면) ⋯ + 내 행. `RankingRow` 재사용 | CRS-104, 89장 self-anchor. 전체 랭킹(SCR-E04)은 72장 9번 단계 |
+| 고도 | `ElevationProfile`: 오르막·최고·최저 + 면 그래프. 평지가 과장되지 않게 세로 범위 최소 30m | 61.1장 3차, Komoot |
+| 고도 데이터 | mock 코스 경로를 40m 간격으로 나눠 Open-Meteo Elevation API(Copernicus DEM 90m)에서 받고 5점 이동평균. `mockCourseRoutes.ts`에 저장 | 실제 지형과 맞는 예시 (범어공원 +83m, 수성못 +9m) |
+| 러닝 환경 | 2열 회색 칸: 신호·야간 조명·혼잡·노면·화장실·급수대, 모르면 "정보 없음" | CRS-102 |
+| 저장 | 화면 안 토글(선택 시 민트 잉크 아이콘). API 연결 시 POST/DELETE bookmarks | CRS-105 |
+| 공유 | RN `Share`로 코스명·거리·`dallimo://course/{id}` 공유. 지원하지 않는 환경에서는 조용히 넘어감 | CRS-107, scheme `dallimo` |
+| 달리기 시작 | `/run?courseId=`로 이동 (Run Ready는 72장 5번 단계) | CRS-106 |
+| 상태 | loading(지도 로딩 심볼 + 본문 skeleton, CTA 숨김) / hidden(볼 수 없는 코스 + 다른 코스 찾기) / error(다시 시도) / noRecord / has PB / rankingUnavailable(경쟁 카드 안내 + 랭킹 자리 안내·다시 시도) | 74장. 개발 빌드 `?scenario=` |
+| 데이터 | `CourseDetail` 타입(43장 CourseDetail 앱 모델), `CourseRepository.getDetail`, TanStack Query `useCourseDetail`. 비공개·삭제는 `CourseRepositoryError('hidden' / 'notFound')` | 119장 repository 경계, 9.1장 |
+| 구조 이동 | 코스 repository·mock을 `entities/course/api/`로, 지도 바탕 데이터를 `shared/map/`으로, 지도 바탕 그리기를 `components/MapBaseLayer`로, `StateNotice`를 `components/`로 옮김 | 탐색과 코스 상세가 함께 쓰게 되어 (CLAUDE.md 13항) |
+| 아이콘 | back, bookmark, bookmarked, share, signals, nightLight, crowd, surface, toilet, water, elevation, time, trophy 추가 | expo-symbols 하나만 사용 |
+| AppDivider section | 띠 색을 `bg.canvas` → `bg.surface` | v0.3에서 canvas가 흰색이 되어 띠가 보이지 않았다 |
