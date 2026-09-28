@@ -62,6 +62,10 @@ const icons = {
   tabRun: { ios: 'figure.run', android: 'directions_run' },
   tabTogether: { ios: 'person.2', android: 'group' },
   tabMy: { ios: 'person.crop.circle', android: 'account_circle' },
+  settings: { ios: 'gearshape', android: 'settings' },
+  camera: { ios: 'camera.fill', android: 'photo_camera' },
+  document: { ios: 'doc.text', android: 'description' },
+  external: { ios: 'arrow.up.right', android: 'open_in_new' },
 } satisfies Record<string, { ios: SFSymbol; android: AndroidSymbol }>;
 
 export type IconName = keyof typeof icons;

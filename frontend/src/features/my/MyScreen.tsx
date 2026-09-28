@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/Avatar';
 import { BrandLoader } from '@/components/Brand';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { StateNotice } from '@/components/StateNotice';
@@ -110,15 +111,14 @@ function Profile({ me }: { me: Me }) {
   const { colors } = useTheme();
   return (
     <View style={styles.profile}>
-      {/* 프로필 이미지가 없으면 닉네임 첫 글자 (AUTH-002 이미지 선택은 13번 단계) */}
-      <View style={[styles.avatar, { backgroundColor: colors.action.secondary }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-        <AppText role="sectionTitle" style={[styles.bold, { color: colors.action.onSecondary }]}>
-          {me.profile.nickname.slice(0, 1)}
-        </AppText>
-      </View>
-      <AppText role="screenTitle" accessibilityRole="header" numberOfLines={1} style={styles.flexShrink}>
+      <Avatar nickname={me.profile.nickname} imageUrl={me.profile.profileImageUrl} />
+      <AppText role="screenTitle" accessibilityRole="header" numberOfLines={1} style={styles.flex}>
         {me.profile.nickname}
       </AppText>
+      {/* SCR-M07 설정 */}
+      <AppPressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="설정" style={[styles.round, { backgroundColor: colors.bg.surface }]}>
+        <AppIcon name="settings" size={22} color={colors.text.primary} />
+      </AppPressable>
     </View>
   );
 }
@@ -193,9 +193,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  avatar: {
-    width: 52,
-    height: 52,
+  round: {
+    width: touchTarget.min,
+    height: touchTarget.min,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',

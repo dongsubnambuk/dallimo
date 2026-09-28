@@ -582,3 +582,31 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | mock | 지난 기록 31개. 코스 상세 mock(수성못 PB 10:12, 신천 PB 24:40)과 함께 탭 최근 결과(어제 3km 레이스, 사흘 전 5km 함께)에 맞췄다. 이번 실행에서 달린 기록은 목록 맨 위에 더한다 | mock 전용 |
 | 개발용 링크 | 자리 표시 화면(`PendingScreen`)을 지우고 개발용 링크를 `features/dev/DevLinks`로 옮겨 마이 탭 맨 아래에 둔다(`__DEV__`에서만) | 마이 탭이 실제 화면이 됨 |
 | 개발용 | `/my?scenario=` · `/my/runs?scenario=` normal / loading / empty / error / localOnly, `/my/runs/run-missing`(없는 기록) | |
+
+## 22. Auth / Onboarding / Settings (SCR-A01~A02, SCR-M07) 구현 판단
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 범위 | `/login` 로그인(SCR-A01, dark), `/onboarding/profile` 최초 프로필(SCR-A02), `/settings` 설정(SCR-M07), `/settings/profile` 프로필 수정, `/legal/[kind]` 약관 · 개인정보 처리방침 | 72장 12번 Onboarding/Auth/Settings, AUTH-001~004, MY-006 |
+| 온보딩 | 로그인 → (처음 가입이면) 프로필 설정 → 탐색. 소개 슬라이드는 명세에 없어 넣지 않았다. 위치 권한은 지금처럼 탐색 · 러닝 준비에서 필요할 때 묻는다 | SCREEN-SPECS SCR-A01~A02, LOC-001~002 |
+| 라우트 보호 | 루트 Stack을 `Stack.Protected`로 나눈다: 로그인 전에는 로그인만, 프로필 설정이 남았으면 프로필 설정만, 로그인 뒤에는 앱 전체. 약관 화면은 어느 상태에서나 연다 | 로그인 없이 앱 화면에 들어가지 않게 |
+| 자동 로그인 | 앱을 켜면 splash를 유지한 채 저장된 Refresh Token으로 새 토큰을 받는다. 토큰이 폐기(401)됐으면 로그인으로, 서버에 닿지 못했으면 저장된 세션으로 계속한다 | AUTH-003, RUN-006 오프라인에서도 러닝 기록 |
+| 토큰 저장 | Refresh Token만 기기(SecureStore: iOS Keychain · Android Keystore)에 두고 Access Token은 메모리에만 둔다. 웹은 개발 확인용으로 localStorage. `expo-secure-store` 추가 | 14.1장 "Refresh Token은 안전한 형태로", 41.1장 deviceId |
+| 가입 중 앱 종료 | 처음 가입한 뒤 프로필 설정을 끝내기 전에 앱을 닫아도 다시 프로필 설정부터 이어진다(기기에 표시를 남김) | 닉네임 없이 앱에 들어가지 않게 |
+| 로그인 화면 | splash와 같은 검정 바탕에 심볼 · 워드마크 · 짧은 문구(BRAND-AND-PROJECT Short copy), 아래에 카카오 · Apple · Google 버튼과 약관 동의 문구 | SCR-A01 "Apple/Google/Kakao 버튼, 약관/정책 진입" |
+| `SocialLoginButton` | 새 컴포넌트. 버튼 색과 로고는 각 provider 가이드 값(카카오 #FEE500, Apple 검정, Google 흰 바탕 4색 G)이라 브랜드 토큰에 넣지 않고 컴포넌트 안에만 둔다 | 외부 가이드 준수. CLAUDE.md 5항 "보기 좋아서 토큰 추가" 금지 |
+| provider SDK | 소셜 로그인 범위(3개 모두 또는 단계 도입)가 오픈 이슈라 SDK 연동 전까지 credential을 mock으로 받는다(`features/auth/providerSignIn`). 서버가 credential을 검증하는 구조(41.1장)는 그대로 | 20.2장 "소셜 로그인 범위 – Auth 개발 전" |
+| 프로필 설정 | 프로필 사진(사진 보관함에서 정사각형으로 자르기, `expo-image-picker` 추가) · 닉네임. 입력을 멈추면 중복 확인하고 "쓸 수 있는 이름이에요 / 이미 다른 사람이 쓰고 있어요"를 아이콘과 함께 보여준다. 사진이 없으면 닉네임 첫 글자 | AUTH-002 "닉네임 중복 확인, 프로필 이미지 선택" |
+| 닉네임 길이 | 명세에 길이 규칙이 없어 DB 컬럼(nickname VARCHAR(40))만 따른다: 비어 있지 않고 40자 이하 | tbl_user.nickname. 정책이 정해지면 `checkNicknameLocal`만 바꾼다 |
+| 친구 코드 | 서버가 가입 때 만든다. 설정 > 계정에서 보여주고 공유할 수 있다 | AUTH-002 "친구코드 생성" |
+| 설정 구성 | 프로필 → 러닝(자동 일시정지 · 음성 안내 · 진동) → 알림(함께 달리기 · 친구 요청 · 기록 도전/갱신) → 개인정보(위치 권한 → 휴대폰 설정, 개인정보 처리방침, 이용약관) → 계정(로그인 방식, 친구 코드, 로그아웃, 탈퇴) → 앱 버전 | SCR-M07 "자동일시정지, 음성, Push, 개인정보, 로그아웃/탈퇴" |
+| 설정 저장 | `shared/preferences`에 모아 기기에 저장하고 앱 시작 때 읽는다. 음성 · 진동은 바로 `voice` · `haptics`에 반영 | ACCESSIBILITY 햅틱 끌 수 있음, AUD-001~003 |
+| 자동 일시정지 | 켜고 끄는 값만 저장한다. 멈춤 판단 기준(속도/시간)은 필드 테스트 뒤 정하므로 mock 엔진은 아직 자동으로 멈추지 않는다 | RUN-009(P1), 20.2장 "자동 일시정지 – 필드 테스트" |
+| 알림 | 14.2장 Push 이벤트를 세 묶음으로: 함께 달리기(LIVE_INVITE · LIVE_REMINDER · LIVE_START), 친구 요청(FRIEND_REQUEST), 기록 도전 · 갱신(CHALLENGE · RECORD_BEATEN). 휴대폰 알림 권한 표시는 Expo Notifications 연동(WBS 10) 때 붙인다 | 14.2장, NTF-001~007 |
+| 약관 · 개인정보 처리방침 | 본문은 서비스 정책 · 법적 검토 뒤 확정이라 "문서를 준비하고 있어요" 안내만 둔다 | 16장, OI-07 |
+| 로그아웃 | 확인 sheet. 아직 올리지 못한 기록이 있으면 개수를 알려 주고 올린 뒤 로그아웃하길 권한다. 서버에 닿지 못해도 기기의 세션은 지운다. 로그아웃하면 이전 계정의 서버 데이터 캐시를 비운다 | AUTH-004, RUN-006 |
+| 탈퇴 | 빨간 확인 버튼 sheet. 서버 처리가 끝나야 세션을 지운다. 실패하면 sheet 안에 다시 시도 안내. 경로는 41장 표에 없어 OpenAPI 확정 시 맞춘다 | AUTH-004 |
+| 진행 중 러닝 보호 | 러닝이 진행 중이면 로그아웃 · 탈퇴 대신 "러닝을 끝내고 기록을 저장한 뒤에…" 안내만 보여준다 | AUTH-004 "진행 중 러닝 보호 후 세션 종료/탈퇴" |
+| `Avatar` | 새 컴포넌트. 프로필 사진, 없으면 검정 원에 닉네임 첫 글자. 마이 · 설정 · 프로필 입력에서 쓴다. 마이 탭 오른쪽 위에 설정 버튼 추가 | CLAUDE.md 13항 |
+| mock 계정 | 카카오 = 기록이 있는 기존 계정(수성러너), Apple · Google = 처음 가입하는 계정(지난 기록 없음). 계정 상태는 기기에 저장해 새로고침해도 이어진다. 탈퇴하면 처음 상태로 돌아간다 | mock 전용 |
+| 개발용 | `/login?scenario=error`(서버 연결 실패). 이제 앱 화면은 로그인한 뒤에 열린다(웹은 한 번 로그인하면 유지) | |

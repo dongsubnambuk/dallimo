@@ -1,6 +1,7 @@
 import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
 import { MOCK_COURSE_ROUTES } from '@/entities/course/api/mockCourseRoutes';
 
+import { currentMockAccount } from '@/entities/auth/api/mockAccounts';
 import { legRoute, loopRoute, type GeoPoint } from '@/shared/geo';
 
 import { toRunSummary, type RunSummary } from '../history';
@@ -53,7 +54,8 @@ export function createMockRunResultRepository(history: HistoryScenario = 'normal
       const all: RunSummary[] = [
         ...mine.map(toRunSummary),
         ...(history === 'localOnly' ? [toRunSummary(localOnlyRun())] : []),
-        ...(history === 'empty' ? [] : pastRuns().map(toRunSummary)),
+        // 처음 가입한 계정에는 지난 기록이 없다
+        ...(history === 'empty' || currentMockAccount()?.hasHistory === false ? [] : pastRuns().map(toRunSummary)),
       ].sort((a, b) => b.finishedAt - a.finishedAt);
       const start = cursor ? Number(cursor) : 0;
       const items = all.slice(start, start + size);
