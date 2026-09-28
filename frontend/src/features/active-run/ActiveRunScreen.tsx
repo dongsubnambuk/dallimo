@@ -55,6 +55,8 @@ export function ActiveRunScreen({ engine, summary, course, target }: Props) {
     // RUN-006 Local First: 서버에 올렸든 못 올렸든 먼저 기기에 결과를 남긴다
     const id = await runResultRepository.saveFinished(
       {
+        clientRunUuid: result.clientRunUuid,
+        startedAt: result.startedAt,
         mode: result.mode,
         distanceM: result.distanceM,
         activeSec: result.activeSec,

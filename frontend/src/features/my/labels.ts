@@ -10,9 +10,9 @@ export function runTitle(r: Pick<RunSummary, 'course' | 'mode'>): string {
   return r.course?.name ?? MODE_TITLE[r.mode];
 }
 
-// 시작 시각. 서버 값이 오기 전까지는 끝난 시각에서 달린 시간을 빼서 쓴다.
-export function startedAt(r: Pick<RunSummary, 'finishedAt' | 'activeSec'>): Date {
-  return new Date(r.finishedAt - r.activeSec * 1000);
+// 시작 시각 (run.started_at)
+export function startedAt(r: Pick<RunSummary, 'startedAt'>): Date {
+  return new Date(r.startedAt);
 }
 
 /** "오후 7:12" */

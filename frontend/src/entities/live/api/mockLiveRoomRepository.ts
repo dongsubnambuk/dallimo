@@ -233,6 +233,14 @@ export function createMockLiveRoomRepository(scenario: LiveScenario): LiveRoomRe
       await wait(DELAY_MS);
       find(roomId).left = true;
     },
+    async cancel(roomId) {
+      await wait(DELAY_MS);
+      const s = find(roomId);
+      // 45.1장: 방 상태 전이는 서버가 정한다. 시작 전 방만 취소할 수 있다.
+      if (s.room.status === 'RUNNING' || s.room.status === 'FINISHED') throw new LiveRoomError('notFound', '이미 시작한 방은 취소할 수 없어요');
+      s.room = { ...s.room, status: 'CANCELED' };
+      s.left = true;
+    },
   };
 }
 

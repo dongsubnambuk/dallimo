@@ -8,6 +8,7 @@ import type { RunMode } from './types';
 export type RunSummary = {
   id: string;
   mode: RunMode;
+  startedAt: number;
   finishedAt: number;
   distanceM: number;
   activeSec: number;
@@ -32,6 +33,7 @@ export function toRunSummary(r: RunResult): RunSummary {
   return {
     id: r.id,
     mode: r.mode,
+    startedAt: r.startedAt,
     finishedAt: r.finishedAt,
     distanceM: r.distanceM,
     activeSec: r.activeSec,

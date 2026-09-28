@@ -3,6 +3,7 @@ import { MOCK_COURSE_ROUTES } from '@/entities/course/api/mockCourseRoutes';
 
 import { currentMockAccount } from '@/entities/auth/api/mockAccounts';
 import { legRoute, loopRoute, type GeoPoint } from '@/shared/geo';
+import { createUuid } from '@/shared/uuid';
 
 import { toRunSummary, type RunSummary } from '../history';
 import type { RunResult, RunVerification } from '../result';
@@ -204,7 +205,9 @@ function pastRuns(): RunResult[] {
     const verification: RunVerification = p.verification ?? (p.courseId ? 'verified' : 'none');
     return {
       id: `run-past-${i + 1}`,
+      clientRunUuid: `past-${i + 1}`,
       mode: p.mode,
+      startedAt: finishedAt - p.sec * 1000,
       finishedAt,
       distanceM: p.distanceM,
       activeSec: p.sec,
@@ -232,10 +235,13 @@ function localOnlyRun(): RunResult {
   at.setHours(6, 40, 0, 0);
   const distanceM = 3120;
   const sec = 1015;
+  const finishedAt = Math.min(at.getTime(), Date.now() - 600_000);
   return {
     id: LOCAL_ONLY_ID,
+    clientRunUuid: 'local-1',
     mode: 'FREE',
-    finishedAt: Math.min(at.getTime(), Date.now() - 600_000),
+    startedAt: finishedAt - sec * 1000,
+    finishedAt,
     distanceM,
     activeSec: sec,
     avgPaceSec: Math.round(sec / (distanceM / 1000)),
@@ -268,10 +274,12 @@ export function seedDemoResult(kind: 'pb' | 'noPb' | 'free' | 'dnf', scenario: R
   const distanceM = kind === 'dnf' ? 1320 : 1915;
   const activeSec = kind === 'dnf' ? 430 : time;
   const input: NewRunResult = {
+    clientRunUuid: createUuid(),
     mode: kind === 'free' ? 'FREE' : 'PB',
+    startedAt: Date.now() - activeSec * 1000,
     distanceM,
     activeSec,
-    avgPaceSec: activeSec / (distanceM / 1000),
+    avgPaceSec: Math.round(activeSec / (distanceM / 1000)),
     splits: distanceM >= 1000 ? [{ km: 1, sec: Math.round(activeSec * (1000 / distanceM)) - 3 }] : [],
     path: kind === 'dnf' ? route.slice(0, 20) : route,
     course,

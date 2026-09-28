@@ -4,6 +4,7 @@ import { addPoint, averagePace, breakSegment, currentPace, initialMetrics, type 
 import { getRunPolicySync } from '@/entities/run/policy';
 import type { RunMode, RunPoint } from '@/entities/run/types';
 import { distanceM, pointAt, type GeoPoint } from '@/shared/geo';
+import { createUuid } from '@/shared/uuid';
 
 import { createMemoryRunPointStore } from './memoryRunPointStore';
 import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine, type RunPrepareInput } from './runningEngine';
@@ -49,18 +50,25 @@ function sideStep(p: GeoPoint, ahead: GeoPoint, m: number): GeoPoint {
   return { latitude: p.latitude - (dx / len) * deg, longitude: p.longitude + ((dy / len) * deg) / k };
 }
 
+// 7.4장: 페이스는 sec/km 정수
+const roundPace = (p: number | null) => (p == null ? null : Math.round(p));
+
 export function createMockRunningEngine({ scenario, speed }: MockOptions): RunningEngine {
   const policy = getRunPolicySync();
   const store = createMemoryRunPointStore();
   const listeners = new Set<() => void>();
   const real0 = Date.now();
   const now = () => real0 + (Date.now() - real0) * speed;
+  // 엔진 시계(개발용 배속 포함)를 실제 시각으로 바꾼다
+  const realTime = (t: number) => Math.round(real0 + (t - real0) / speed);
 
   let mode: RunMode = 'FREE';
   let metrics: MetricsState = initialMetrics();
   let travelledM = 0;
   let seq = 0;
   let startedAt = 0;
+  // 42.1장 clientRunUuid. 실제 엔진은 start 때 POST /runs에 이 값을 보낸다
+  const runUuid = createUuid();
   let lastTickAt = 0;
   let lastSyncAt = 0;
   let acceptedCount = 0;
@@ -140,7 +148,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     }
     if (snap.network === 'online' && t - lastSyncAt >= SYNC_EVERY_SEC * 1000) {
       lastSyncAt = t;
-      store.markSynced(0, seq - 1);
+      store.markSynced(runUuid, 0, seq - 1);
     }
     emit({
       ...patch,
@@ -206,10 +214,12 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
       if (timer) clearInterval(timer);
       timer = null;
       const result = (synced: boolean): RunFinishResult => ({
+        clientRunUuid: runUuid,
         mode,
+        startedAt: realTime(startedAt),
         distanceM: metrics.distanceM,
         activeSec: Math.round(ms / 1000),
-        avgPaceSec: averagePace(metrics, ms, policy),
+        avgPaceSec: roundPace(averagePace(metrics, ms, policy)),
         splits: metrics.splits,
         synced,
         courseTimeSec: courseState.completedActiveMs != null ? Math.round(courseState.completedActiveMs / 1000) : null,
@@ -219,7 +229,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
       if (snap.network === 'offline') return result(false);
       // 남은 point를 올린 뒤 종료 (RUN-010). finishPending은 업로드가 오래 걸리는 경우.
       await new Promise((r) => setTimeout(r, scenario === 'finishPending' ? 3000 : 700));
-      await store.markSynced(0, seq - 1);
+      await store.markSynced(runUuid, 0, seq - 1);
       emit({ status: 'FINISHED', unsyncedPoints: 0 });
       return result(true);
     },

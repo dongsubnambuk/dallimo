@@ -46,11 +46,16 @@ export type ActiveRunSnapshot = {
 };
 
 export type RunFinishResult = {
+  // 42.1장 clientRunUuid: POST /runs 멱등 키이자 기기 저장(local_run) 키
+  clientRunUuid: string;
   mode: RunMode;
+  // 시작 시각(epoch ms). API로는 ISO-8601로 보낸다 (7.4장)
+  startedAt: number;
   distanceM: number;
   activeSec: number;
   avgPaceSec: number | null;
   splits: RunSplit[];
+  // 평균 페이스는 sec/km 정수 (7.4장)
   // 서버 동기화 전이면 false (local-only 결과)
   synced: boolean;
   // 코스 러닝: 코스 끝에 닿은 시점까지 걸린 시간(초). 완주하지 못했으면 null.
@@ -77,8 +82,8 @@ export interface RunningEngine {
 // 49.1장 RunPointStore. 실제 구현은 SQLite(11.1장 local_run_point).
 export interface RunPointStore {
   append(point: RunPoint): Promise<void>;
-  getUnsyncedRange(limit: number): Promise<RunPoint[]>;
-  markSynced(fromSeq: number, toSeq: number): Promise<void>;
+  getUnsyncedRange(runUuid: string, limit: number): Promise<RunPoint[]>;
+  markSynced(runUuid: string, fromSeq: number, toSeq: number): Promise<void>;
   unsyncedCount(): number;
 }
 
