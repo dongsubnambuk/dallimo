@@ -113,6 +113,10 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
 
       <RecordState result={r} />
 
+      {r.mode === 'FREE' ? (
+        // CREG-001 자유 달리기 경로를 코스로 등록
+        <SecondaryButton label="이 경로를 코스로 등록" size="sm" onPress={() => router.push({ pathname: '/course/new', params: { runId: r.id } })} style={styles.selfStart} />
+      ) : null}
       {r.course ? (
         <SecondaryButton
           label={`${r.course.name} 코스 보기`}

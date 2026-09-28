@@ -1,4 +1,4 @@
-import type { CourseDetail, CourseRankingEntry, CourseSummary, NearbyCourseQuery, RecordVerification } from '@/entities/course/types';
+import type { CourseDetail, CourseRankingEntry, CourseStatus, CourseSummary, MyCourse, NearbyCourseQuery, RecordVerification } from '@/entities/course/types';
 import { distanceM, loopRoute, type GeoPoint } from '@/shared/geo';
 
 import { CourseRepositoryError, type CourseRepository } from './courseRepository';
@@ -100,7 +100,7 @@ type MockDetailExtra = Pick<CourseDetail, 'description' | 'region' | 'creatorNam
   top: [string, number][];
 };
 
-const MOCK_DETAIL: Record<string, MockDetailExtra> = {
+const MOCK_DETAIL: Record<string, MockDetailExtra | undefined> = {
   'c-suseongmot': {
     description: '수성못을 한 바퀴 도는 평지 루프. 호숫가 산책로라 신호가 없고, 밤에도 조명이 밝아 퇴근 후 달리기 좋아요.',
     region: '대구 수성구',
@@ -212,8 +212,36 @@ function toDetail(c: MockCourse, scenario: MockCourseScenario): CourseDetail {
       scenario === 'rankingUnavailable'
         ? null
         : { leaderSec: c.leaderSec, myWeeklyRank: hasRecord ? x.myWeeklyRank : null, friendBest: x?.friendBest ?? null, weeklyTop: top, myEntry },
-    bookmarked: c.id === 'c-sincheon',
+    bookmarked: bookmarks.has(c.id),
+    status: statusOf(c),
   };
+}
+
+// CRS-105 저장한 코스, 앱을 켜 둔 동안 등록한 코스 (mock)
+const bookmarks = new Set<string>(['c-sincheon']);
+const created = new Map<string, number>();
+
+function statusOf(c: MockCourse): CourseStatus {
+  if (created.has(c.id)) return 'NEW';
+  return c.finisherCount >= 1000 ? 'POPULAR' : 'VERIFIED';
+}
+
+/** mock 코스 등록: 새 코스를 목록에 더한다. 실제로는 서버가 POST /courses에서 만든다. */
+export function addMockCourse(summary: MockCourse, extra: Pick<CourseDetail, 'description' | 'creatorName' | 'recommendedTime'>) {
+  MOCK_COURSES.push(summary);
+  MOCK_DETAIL[summary.id] = {
+    ...extra,
+    region: '대구 수성구',
+    difficulty: null,
+    environment: { signals: null, nightLight: null, crowd: null, surface: null, toilets: null, waterFountains: null },
+    lastSec: null,
+    finishCount: 0,
+    bestVerification: 'pending',
+    myWeeklyRank: null,
+    friendBest: null,
+    top: [],
+  };
+  created.set(summary.id, Date.now());
 }
 
 const DELAY_MS = 600;
@@ -241,6 +269,30 @@ export function createMockCourseRepository(scenario: MockCourseScenario): Course
       const c = MOCK_COURSES.find((m) => m.id === id);
       if (!c) throw new CourseRepositoryError('notFound', '코스를 찾을 수 없어요');
       return toDetail(c, scenario);
+    },
+    async setBookmark(id, saved) {
+      await wait(300);
+      if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
+      if (saved) bookmarks.add(id);
+      else bookmarks.delete(id);
+    },
+    async getMine(kind): Promise<MyCourse[]> {
+      if (scenario === 'loading') return new Promise(() => {});
+      await wait(DELAY_MS);
+      if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
+      if (scenario === 'empty') return [];
+      const pick = MOCK_COURSES.filter((c) =>
+        kind === 'created' ? created.has(c.id) : kind === 'saved' ? bookmarks.has(c.id) : c.myBestSec != null && (MOCK_DETAIL[c.id]?.finishCount ?? 0) > 0,
+      );
+      return pick
+        .map((c) => ({
+          ...c,
+          startDistanceM: null,
+          createdAt: created.get(c.id) ?? null,
+          finishCount: MOCK_DETAIL[c.id]?.finishCount ?? null,
+          status: statusOf(c),
+        }))
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     },
   };
 }

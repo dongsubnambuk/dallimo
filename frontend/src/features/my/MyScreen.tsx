@@ -61,6 +61,24 @@ export function MyScreen({ scenario }: { scenario: HistoryScenario }) {
         <>
           <Profile me={me.data} />
           <StatsCard me={me.data} />
+          {/* SCR-M04 내 코스 */}
+          <AppPressable
+            onPress={() => router.push('/my/courses')}
+            accessibilityRole="button"
+            accessibilityLabel="내 코스, 등록 · 저장 · 완주한 코스"
+            style={[styles.entry, { backgroundColor: colors.bg.surface }]}
+          >
+            <AppIcon name="map" size={22} color={colors.text.primary} />
+            <View style={styles.flex}>
+              <AppText role="body" style={styles.bold}>
+                내 코스
+              </AppText>
+              <AppText role="caption" tone="secondary">
+                등록 · 저장 · 완주한 코스
+              </AppText>
+            </View>
+            <AppIcon name="collapse" size={18} color={colors.text.secondary} />
+          </AppPressable>
 
           <View style={styles.section}>
             <View style={styles.sectionHead}>
@@ -219,6 +237,14 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.sm,
+  },
+  entry: {
+    minHeight: touchTarget.min + spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.card,
   },
   sectionHead: {
     flexDirection: 'row',

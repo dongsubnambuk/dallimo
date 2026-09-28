@@ -72,6 +72,9 @@ export default function RootLayout() {
             {/* My: 러닝 기록 목록 → 러닝 상세 (light) */}
             <Stack.Screen name="my/runs/index" options={{ headerShown: false }} />
             <Stack.Screen name="my/runs/[id]" options={{ headerShown: false }} />
+            {/* SCR-M04 내 코스, SCR-E05 코스 등록 */}
+            <Stack.Screen name="my/courses/index" options={{ headerShown: false }} />
+            <Stack.Screen name="course/new" options={{ headerShown: false, presentation: 'modal' }} />
             {/* SCR-M07 설정, 프로필 수정 */}
             <Stack.Screen name="settings/index" options={{ headerShown: false }} />
             <Stack.Screen name="settings/profile" options={{ headerShown: false }} />
