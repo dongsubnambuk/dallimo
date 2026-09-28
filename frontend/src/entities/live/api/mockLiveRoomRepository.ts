@@ -1,4 +1,4 @@
-import type { CreateRoomInput, Friend, LiveMember, LiveRoom, LiveRoomSummary } from '../types';
+import type { CreateRoomInput, Friend, LiveMember, LiveResult, LiveRoom, LiveRoomSummary } from '../types';
 import { LiveRoomError, type LiveRoomRepository } from './liveRoomRepository';
 
 // 개발 빌드에서 Together 상태를 만들어 QA하기 위한 값 (SCREEN-SPECS Together: invite, waiting, ready, disconnected, reconnecting …).
@@ -50,6 +50,14 @@ type Stored = {
 };
 
 const rooms = new Map<string, Stored>();
+const results = new Map<string, LiveResult>();
+
+/** mock 채널이 방 종료(ROOM_FINISHED) 때 최종 결과를 넣는다 */
+export function storeLiveResult(result: LiveResult) {
+  results.set(result.roomId, result);
+  const s = rooms.get(result.roomId);
+  if (s) s.room = { ...s.room, status: 'FINISHED' };
+}
 let nextId = 1;
 let seeded = false;
 
@@ -104,6 +112,7 @@ function snapshot(s: Stored): LiveRoom {
   const age = now - s.createdAt;
   const room = s.room;
   if (s.scenario === 'canceled' && age > 4000) return { ...room, status: 'CANCELED', startsAt: null };
+  if (room.status === 'FINISHED') return room;
 
   let friendIndex = 0;
   const members = room.members.map((m) => {
@@ -198,6 +207,28 @@ export function createMockLiveRoomRepository(scenario: LiveScenario): LiveRoomRe
       s.meReady = ready;
       return snapshot(s);
     },
+    async getResult(roomId) {
+      await wait(DELAY_MS);
+      const r = results.get(roomId);
+      if (!r) throw new LiveRoomError('notFound', '결과가 아직 없어요');
+      return r;
+    },
+    async rematch(roomId) {
+      await wait(DELAY_MS);
+      const prev = results.get(roomId) ?? null;
+      const s = rooms.get(roomId);
+      if (!s) throw new LiveRoomError('notFound', '방을 찾을 수 없어요');
+      // 같은 조건 · 같은 사람으로 새 방을 만든다 (TGT-012 재대결)
+      const inviteeIds = (prev ? prev.entries.map((e) => e.userId) : s.room.members.map((m) => m.userId)).filter((id) => id !== ME.userId);
+      return this.create({
+        mode: s.room.mode,
+        targetDistanceM: s.room.targetDistanceM,
+        targetSeconds: s.room.targetSeconds,
+        courseId: s.room.course?.id ?? null,
+        scheduledAt: null,
+        inviteeIds,
+      });
+    },
     async leave(roomId) {
       await wait(DELAY_MS);
       find(roomId).left = true;
@@ -221,5 +252,24 @@ export function seedDemoRoom(scenario: LiveScenario): string {
     members: [member(ME, 'JOINED', true), member(FRIENDS[0], 'INVITED'), member(FRIENDS[1], 'INVITED'), member(FRIENDS[2], 'INVITED')],
   };
   rooms.set(id, { room, createdAt: Date.now(), scenario, simulate: true, meReady: false, meJoined: true, left: false, allReadyAt: null });
+  return id;
+}
+
+/** 개발용: 바로 달리는 중인 방. /together/demo/live?mode=… 로 Live 화면을 연다. */
+export function seedDemoRunningRoom(mode: LiveRoom['mode'], members = 3): string {
+  seed();
+  const id = `r-live-${nextId++}`;
+  const room: LiveRoom = {
+    id,
+    mode,
+    targetDistanceM: mode === 'TIME_ATTACK' ? null : 3000,
+    targetSeconds: mode === 'TIME_ATTACK' ? 1200 : null,
+    course: null,
+    scheduledAt: null,
+    status: 'RUNNING',
+    startsAt: Date.now(),
+    members: [member(ME, 'READY', true), ...FRIENDS.slice(0, members).map((f) => member(f, 'READY'))],
+  };
+  rooms.set(id, { room, createdAt: Date.now(), scenario: 'normal', simulate: false, meReady: true, meJoined: true, left: false, allReadyAt: Date.now() });
   return id;
 }

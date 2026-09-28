@@ -50,3 +50,40 @@ export type CreateRoomInput = {
 };
 
 export type Friend = { userId: string; name: string };
+
+// ---- Live (SCR-T04, 46장 WebSocket MEMBER_STATE) ----
+// 실시간 경쟁에는 거리·경과·페이스·상태만 주고받는다 (30.2장). 위치 좌표는 없다.
+export type LiveMemberState = {
+  userId: string;
+  name: string;
+  isMe: boolean;
+  status: LiveMemberStatus;
+  distanceM: number;
+  elapsedSec: number;
+  paceSec: number | null;
+  // 완주 기록(초). 완주 전이면 null.
+  finishSec: number | null;
+};
+
+export type LiveResultEntry = {
+  userId: string;
+  name: string;
+  isMe: boolean;
+  // TOGETHER는 순위가 없다
+  rank: number | null;
+  status: 'FINISHED' | 'DNF';
+  timeSec: number | null;
+  distanceM: number;
+};
+
+// 45장 GET /live-runs/{roomId}/result. 결과 화면은 서버 finalization 값을 쓴다 (46.1장).
+export type LiveResult = {
+  roomId: string;
+  mode: LiveMode;
+  targetDistanceM: number | null;
+  targetSeconds: number | null;
+  finishedAt: number;
+  entries: LiveResultEntry[];
+  // 이 방에서 내 개인 Run 결과 id (개인 Run은 항상 생성, 45.1장)
+  myRunId: string | null;
+};

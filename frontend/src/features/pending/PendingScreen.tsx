@@ -116,6 +116,22 @@ export function PendingScreen({
               </AppText>
             </Link>
           ))}
+          {(
+            [
+              ['레이스', 'LIVE_RACE', 'normal'],
+              ['타임 어택', 'TIME_ATTACK', 'normal'],
+              ['함께', 'TOGETHER', 'normal'],
+              ['레이스 · 친구 연결 끊김', 'LIVE_RACE', 'memberDisconnected'],
+              ['레이스 · 친구 중도 포기', 'LIVE_RACE', 'dnf'],
+              ['레이스 · 내 연결 끊김', 'LIVE_RACE', 'offline'],
+            ] as const
+          ).map(([name, mode, scenario]) => (
+            <Link key={`live-${name}`} href={{ pathname: '/together/[roomId]/live', params: { roomId: 'demo', mode, scenario, speed: '20' } }}>
+              <AppText role="label" tone="accent">
+                함께 달리는 중 · {name} (20배속)
+              </AppText>
+            </Link>
+          ))}
         </View>
       ) : null}
     </View>
