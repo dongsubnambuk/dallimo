@@ -93,9 +93,11 @@ public final class RunDtos {
     /**
      * 코스 완주 검증 결과 (CRUN-005, RST-002). 판정 전(PENDING)이면 status만 있다.
      * recordSeconds: 공식 기록(VERIFIED일 때), previousBestSec: 이 기록 전 내 최고 기록, personalBest: 이 기록이 PB인가
+     * weeklyRankBefore · After: 기록한 주의 주간 순위, 이 기록 전(그 주 기록이 없었으면 null) → 후 (RST-003)
      */
     public record VerificationResponse(String status, String failureReason, Double matchRate, Integer recordSeconds,
-                                       Integer previousBestSec, Boolean personalBest, String policyVersion) {
+                                       Integer previousBestSec, Boolean personalBest, String policyVersion,
+                                       Integer weeklyRankBefore, Integer weeklyRankAfter) {
     }
 
     /** 상세 (GET /runs/{id}): 요약 + 스플릿 + 표시용 경로([위도, 경도]) + 검증(코스 러닝일 때) */

@@ -161,6 +161,12 @@ public class CourseService {
         return ids.stream().map(byId::get).filter(c -> c != null).toList();
     }
 
+    /** 없으면 COURSE_NOT_FOUND, 볼 수 없으면 RESOURCE_FORBIDDEN (랭킹 등 코스에 딸린 조회에서도 쓴다) */
+    @Transactional(readOnly = true)
+    public Course requireViewable(Long viewerId, long courseId) {
+        return viewable(viewerId, courseId);
+    }
+
     private Course viewable(Long viewerId, long courseId) {
         Course c = courses.findById(courseId).filter(x -> !x.deleted()).orElseThrow(() -> new ApiException(ErrorCode.COURSE_NOT_FOUND));
         if (!c.visibleTo(viewerId)) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN, "볼 수 없는 코스예요.");

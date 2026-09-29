@@ -16,6 +16,7 @@ import com.dallimo.dallimoserver.running.api.RunDtos.RunStatusResponse;
 import com.dallimo.dallimoserver.running.api.RunDtos.RunSummaryResponse;
 import com.dallimo.dallimoserver.running.api.RunDtos.VerificationResponse;
 import com.dallimo.dallimoserver.running.application.RunService;
+import com.dallimo.dallimoserver.ranking.application.RankingService;
 import com.dallimo.dallimoserver.running.domain.Run;
 import com.dallimo.dallimoserver.verification.application.CourseVerificationService;
 import jakarta.validation.Valid;
@@ -45,11 +46,13 @@ public class RunController {
 
     private final RunService runs;
     private final CourseVerificationService verification;
+    private final RankingService ranking;
     private final Clock clock;
 
-    public RunController(RunService runs, CourseVerificationService verification, Clock clock) {
+    public RunController(RunService runs, CourseVerificationService verification, RankingService ranking, Clock clock) {
         this.runs = runs;
         this.verification = verification;
+        this.ranking = ranking;
         this.clock = clock;
     }
 
@@ -116,9 +119,13 @@ public class RunController {
     private VerificationResponse verificationOf(Run r) {
         if (Run.VERIFICATION_NONE.equals(r.getVerificationStatus())) return null;
         return verification.summary(r.getId())
-                .map(v -> new VerificationResponse(r.getVerificationStatus(), v.failureReason(), v.matchRate(), v.recordSeconds(), v.previousBestSec(),
-                        v.recordSeconds() == null ? null : v.previousBestSec() == null || v.recordSeconds() < v.previousBestSec(), v.policyVersion()))
-                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null));
+                .map(v -> {
+                    RankingService.RankChange rank = v.recordId() == null ? null : ranking.weeklyChange(v.courseId(), r.getUserId(), v.recordId(), v.recordedAt());
+                    return new VerificationResponse(r.getVerificationStatus(), v.failureReason(), v.matchRate(), v.recordSeconds(), v.previousBestSec(),
+                            v.recordSeconds() == null ? null : v.previousBestSec() == null || v.recordSeconds() < v.previousBestSec(), v.policyVersion(),
+                            rank == null ? null : rank.before(), rank == null ? null : rank.after());
+                })
+                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null, null, null));
     }
 
     private static long userId(Jwt jwt) {
