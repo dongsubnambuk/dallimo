@@ -4,11 +4,13 @@ import type { CursorPage } from '@/shared/api/contract';
 import { toRunSummary, type RunSummary } from '../history';
 import type { RunResult, RunVerification } from '../result';
 import type { RunMode, RunSplit } from '../types';
+import { verificationReasonText } from '../verificationReason';
 import { RunResultNotFoundError, type NewRunResult, type RunResultRepository } from './runResultRepository';
 
 // 서버 주소가 있을 때의 러닝 기록 저장소.
 // 이번 실행에서 끝낸 러닝은 기기 값으로 바로 보여주고(RUN-006 Local First), 지난 기록은 서버 GET /api/v1/runs · /runs/{id}에서 읽는다.
 // 서버 기록 id는 앱 안에서 srv-{runId}로 쓴다.
+// 코스 러닝은 서버가 커밋 뒤 완주를 검증한다(26장). 기기 기록도 서버에 올라간 뒤에는 서버 판정(인증 · 미인증 · 거부 · PB)을 받아 보여준다.
 
 type ServerSummary = {
   runId: number;
@@ -16,6 +18,7 @@ type ServerSummary = {
   mode: RunMode;
   status: string;
   courseId: number | null;
+  courseName: string | null;
   startedAt: string;
   endedAt: string | null;
   distanceM: number;
@@ -23,7 +26,15 @@ type ServerSummary = {
   avgPaceSecPerKm: number | null;
   verificationStatus: string;
 };
-type ServerDetail = { summary: ServerSummary; splits: RunSplit[]; path: [number, number][] };
+// 판정 전(PENDING)이면 status만 있다
+type ServerVerification = {
+  status: string;
+  failureReason: string | null;
+  recordSeconds: number | null;
+  previousBestSec: number | null;
+  personalBest: boolean | null;
+};
+type ServerDetail = { summary: ServerSummary; splits: RunSplit[]; path: [number, number][]; verification: ServerVerification | null };
 
 const SERVER_PREFIX = 'srv-';
 
@@ -34,9 +45,20 @@ function toVerification(status: string): RunVerification {
   return v === 'pending' || v === 'verified' || v === 'unverified' || v === 'rejected' ? v : 'none';
 }
 
-// 코스 이름은 서버 코스 API가 생기면 채운다. 지금 서버 기록에는 코스 정보를 보여주지 않는다.
-function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number][]): RunResult {
+// 서버 판정 → 결과 화면 값. 인증되면 공식 기록(출발점~도착점, 일시정지 제외)과 PB 판정
+function verdict(v: ServerVerification | null, status: string) {
+  const verification = toVerification(v?.status ?? status);
+  return {
+    verification,
+    verificationReason: verification === 'unverified' || verification === 'rejected' ? verificationReasonText(v?.failureReason ?? null) : null,
+    recordSec: verification === 'verified' ? (v?.recordSeconds ?? null) : null,
+    pb: verification === 'verified' && v?.personalBest != null ? { previousSec: v.previousBestSec, improved: v.personalBest } : null,
+  };
+}
+
+function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number][], v: ServerVerification | null): RunResult {
   const startedAt = Date.parse(s.startedAt);
+  const { recordSec, ...judged } = verdict(v, s.verificationStatus);
   return {
     id: `${SERVER_PREFIX}${s.runId}`,
     clientRunUuid: s.clientRunUuid,
@@ -48,16 +70,16 @@ function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number]
     avgPaceSec: s.avgPaceSecPerKm,
     splits,
     path: path.map(([latitude, longitude]) => ({ latitude, longitude })),
-    course: null,
+    course: s.courseId != null ? { id: String(s.courseId), name: s.courseName ?? '', timeSec: recordSec } : null,
     target: null,
     sync: 'synced',
-    verification: toVerification(s.verificationStatus),
-    verificationReason: null,
-    pb: null,
+    ...judged,
     weeklyRank: null,
     friendBest: null,
   };
 }
+
+const detailOf = (runId: string) => apiRequest<ServerDetail>(`/api/v1/runs/${encodeURIComponent(runId)}`);
 
 export function createHttpRunResultRepository(): RunResultRepository {
   // 이번 실행에서 끝낸 러닝 (앱을 다시 켜면 서버에 올라간 기록만 남는다)
@@ -78,6 +100,16 @@ export function createHttpRunResultRepository(): RunResultRepository {
     weeklyRank: null,
     friendBest: null,
   });
+
+  // 서버에 올라간 코스 러닝은 서버 판정을 붙인다. 서버에 닿지 못하면 기기 값(검증 중)으로
+  const withServerVerdict = async (l: Local): Promise<RunResult> => {
+    const base = localResult(l);
+    if (!l.input.course || !l.synced || !l.serverRunId) return base;
+    const d = await detailOf(l.serverRunId).catch(() => null);
+    if (!d) return base;
+    const { recordSec, ...judged } = verdict(d.verification, d.summary.verificationStatus);
+    return { ...base, ...judged, course: { ...l.input.course, timeSec: recordSec ?? l.input.course.timeSec } };
+  };
 
   return {
     async saveFinished(input, synced) {
@@ -103,11 +135,11 @@ export function createHttpRunResultRepository(): RunResultRepository {
 
     async get(id) {
       const l = local.get(id);
-      if (l) return localResult(l);
+      if (l) return withServerVerdict(l);
       if (!id.startsWith(SERVER_PREFIX)) throw new RunResultNotFoundError(id);
       try {
-        const d = await apiRequest<ServerDetail>(`/api/v1/runs/${encodeURIComponent(id.slice(SERVER_PREFIX.length))}`);
-        return fromServer(d.summary, d.splits, d.path);
+        const d = await detailOf(id.slice(SERVER_PREFIX.length));
+        return fromServer(d.summary, d.splits, d.path, d.verification);
       } catch (e) {
         if (e instanceof ApiRequestError && (e.code === 'RUN_NOT_FOUND' || e.code === 'RESOURCE_FORBIDDEN')) throw new RunResultNotFoundError(id);
         throw e;
@@ -121,8 +153,12 @@ export function createHttpRunResultRepository(): RunResultRepository {
       // 이번 실행에서 끝낸 기록은 첫 페이지에 모두 기기 값(코스 이름 · 경로 포함)으로 보여준다.
       // 서버에 아직 없는 기록(기기에만 있음 · 올리는 중)도 여기에 들어간다. 다음 페이지에서는 같은 기록을 빼서 두 번 나오지 않게 한다.
       const localUuids = new Set([...local.values()].map((l) => l.input.clientRunUuid));
-      const items: RunSummary[] = page.items.filter((s) => !localUuids.has(s.clientRunUuid)).map((s) => toRunSummary(fromServer(s, [], [])));
-      if (!cursor) items.push(...[...local.values()].map((l) => toRunSummary(localResult(l))));
+      const items: RunSummary[] = page.items.filter((s) => !localUuids.has(s.clientRunUuid)).map((s) => toRunSummary(fromServer(s, [], [], null)));
+      if (!cursor) {
+        // 서버에 올라간 기기 기록은 서버 판정 상태를 쓴다
+        const judged = new Map(page.items.map((s) => [s.clientRunUuid, toVerification(s.verificationStatus)]));
+        items.push(...[...local.values()].map((l) => toRunSummary({ ...localResult(l), verification: judged.get(l.input.clientRunUuid) ?? localResult(l).verification })));
+      }
       items.sort((a, b) => b.finishedAt - a.finishedAt);
       return { items, nextCursor: page.nextCursor };
     },
