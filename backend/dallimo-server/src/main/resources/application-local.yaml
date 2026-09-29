@@ -23,3 +23,6 @@ dallimo:
   # 공유 페이지에 "웹에서 열기(개발용)"를 보여준다. 공유 URL은 요청이 들어온 서버 주소를 쓴다 (아이폰은 노트북 IP)
   share:
     web-app-url: http://localhost:8081
+  # Push: 로컬 · 테스트는 보내지 않고 로그만 (Expo 계정 · 실기기 없이)
+  push:
+    provider: log
