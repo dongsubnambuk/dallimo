@@ -1,4 +1,4 @@
-import { currentMockAccount, nicknameTaken, updateMockAccount } from '@/entities/auth/api/mockAccounts';
+import { currentMockAccount, DEMO_EMAIL, nicknameTaken, updateMockAccount } from '@/entities/auth/api/mockAccounts';
 import { createMockRunResultRepository, type HistoryScenario } from '@/entities/run/api/mockRunResultRepository';
 
 import type { Me, MyProfile, NicknameCheck } from '../types';
@@ -11,10 +11,10 @@ function profile(): MyProfile {
   const a = currentMockAccount();
   return {
     userId: a?.userId ?? 'me',
+    email: a?.email ?? DEMO_EMAIL,
     nickname: a?.nickname ?? '수성러너',
     profileImageUrl: a?.profileImageUrl ?? null,
-    friendCode: a?.friendCode ?? 'SUSEONG-7Q2K',
-    provider: a?.provider ?? 'KAKAO',
+    friendCode: a?.friendCode ?? 'RUN-7Q2KSU',
   };
 }
 
@@ -60,7 +60,8 @@ export function createMockUserRepository(scenario: HistoryScenario = 'normal'): 
     },
     async checkNickname(nickname) {
       await new Promise((r) => setTimeout(r, 300));
-      return checkNicknameLocal(nickname) ?? (nicknameTaken(nickname.trim(), profile().userId) ? 'taken' : 'ok');
+      // 로그인 전(가입 중)이면 모든 계정과 비교한다
+      return checkNicknameLocal(nickname) ?? (nicknameTaken(nickname.trim(), currentMockAccount()?.userId) ? 'taken' : 'ok');
     },
   };
 }

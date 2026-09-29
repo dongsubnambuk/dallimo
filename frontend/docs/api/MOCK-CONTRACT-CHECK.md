@@ -39,17 +39,20 @@
 | 400 `VALIDATION_ERROR` | 코스 등록은 `CourseRepositoryError('invalid')`에 서버 메시지 |
 | 429 · 500 · 연결 실패 | `network`. 화면은 "연결을 확인하고 다시 시도" |
 
-## 2. 인증 · 사용자 (41장)
+## 2. 인증 · 사용자 (41장 → 이메일 로그인으로 변경)
+
+**사용자 결정으로 소셜 로그인을 빼고 이메일 · 비밀번호 · 닉네임 가입으로 바꿨다** (FOUNDATION-DECISION-LOG 30항). 서버에 구현되어 있다.
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| POST /auth/social `provider, credential, deviceId` | `AuthRepository.socialLogin(provider, credential, deviceId)` | 일치 | 응답의 `isNewUser`는 명세 없음. 가입 직후 프로필 설정(SCR-A02)으로 보내려면 필요하다 |
-| POST /auth/refresh `refreshToken, deviceId` | `refresh(refreshToken, deviceId)` | 일치 | |
-| POST /auth/logout | `logout(refreshToken)` | 일치 | |
-| (탈퇴) | `withdraw()` | 명세 없음 | AUTH-004 탈퇴 경로가 41장 표에 없다 |
-| GET /users/me → UserProfileResponse | `UserRepository.getMe()` → `{ profile, stats }` | 명세 없음 | 응답 필드가 정해지지 않았다. 앱이 쓰는 필드: `userId, nickname, profileImageUrl, friendCode, provider`. 누적 통계(`totalDistanceM, totalActiveSec, runCount`, MY-002)는 어느 API에서 줄지 없다 |
-| PATCH /users/me `nickname?, profileImage?` | `updateMe({ nickname?, profileImageUri? })` | 일치 | 이미지 업로드 방식(multipart 또는 업로드 URL)이 정해지지 않았다 |
-| (닉네임 중복 확인) | `checkNickname(nickname)` | 명세 없음 | 명세로는 PATCH 409로만 알 수 있다. 입력 중 확인하려면 별도 API가 필요하다 |
+| POST /auth/signup `email, password, nickname, deviceId` → 201 | `AuthRepository.signup` | 구현 | 명세 41장 POST /auth/social 대신. 409 `EMAIL_ALREADY_EXISTS` · `NICKNAME_ALREADY_EXISTS`, 400 비밀번호 규칙 |
+| POST /auth/login `email, password, deviceId` | `login` | 구현 | 401 `INVALID_CREDENTIALS` (없는 이메일과 틀린 비밀번호를 구분하지 않음) |
+| POST /auth/refresh `refreshToken, deviceId` | `refresh` | 구현 | 응답에 새 Refresh Token(회전). 401 `AUTH_REQUIRED`면 다시 로그인 |
+| POST /auth/logout (Bearer) → 204 | `logout()` | 구현 | 요청 본문 없이 Access Token의 세션을 끊는다 |
+| DELETE /users/me (Bearer) → 204 | `withdraw()` | 구현 | 명세 표에 없던 탈퇴 경로 |
+| GET /users/me → `userId, email, nickname, profileImageUrl, friendCode` | `UserRepository.getMe()` | 구현 | provider 대신 email. 누적 통계(MY-002)는 아직 서버 집계가 없어 앱이 기기 기록으로 더한다 |
+| PATCH /users/me `nickname` | `updateMe` | 구현(닉네임만) | 프로필 이미지 업로드는 S3 결정 뒤. 그 전까지 사진은 기기에만 |
+| GET /users/nickname-availability?nickname= → `{ available }` | `checkNickname` | 구현 | 로그인 없이 부를 수 있다(가입 화면) |
 | GET /users/search | 없음 | 미구현 | 친구(SCR-M05) 화면 |
 
 ## 3. Run (42장, 27.2장)
@@ -152,10 +155,10 @@
 
 "명세 없음" 항목을 모은 것이다. 백엔드 착수 전에 명세에 넣을지, 앱에서 빼거나 다른 API로 대신할지 정한다.
 
-1. 탈퇴 API (AUTH-004)
-2. 소셜 로그인 응답의 가입 여부(`isNewUser`)
-3. UserProfileResponse 필드와 누적 통계(MY-002)를 줄 곳
-4. 닉네임 중복 확인 API (또는 PATCH 409만 쓰기)
+1. ~~탈퇴 API~~ → DELETE /users/me로 구현
+2. ~~소셜 로그인 응답의 가입 여부~~ → 이메일 가입으로 바뀌어 필요 없음
+3. 누적 통계(MY-002)를 줄 곳 (UserProfileResponse 필드는 구현됨)
+4. ~~닉네임 중복 확인 API~~ → GET /users/nickname-availability로 구현
 5. 프로필 이미지 업로드 방식
 6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부)
 7. 코스 상세 응답 필드, 경로를 상세에 포함할지

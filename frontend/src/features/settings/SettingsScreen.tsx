@@ -11,7 +11,6 @@ import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { radius, spacing, touchTarget } from '@/design/tokens';
 import { runResultRepository } from '@/entities/run/api';
-import type { MyProfile } from '@/entities/user/types';
 import { hasRunInProgress, signOut, withdraw } from '@/features/auth/session';
 import { useMe } from '@/features/my/useMy';
 import { setPreference, usePreferences } from '@/shared/preferences';
@@ -19,7 +18,6 @@ import { setPreference, usePreferences } from '@/shared/preferences';
 import { ConfirmSheet } from './components/ConfirmSheet';
 import { SettingChoice, SettingRow, SettingSection } from './components/SettingRow';
 
-const PROVIDER_NAME: Record<MyProfile['provider'], string> = { APPLE: 'Apple', GOOGLE: 'Google', KAKAO: '카카오' };
 
 type Sheet = 'logout' | 'withdraw' | 'running' | null;
 
@@ -125,7 +123,7 @@ export function SettingsScreen() {
         <SettingSection title="계정">
           {profile ? (
             <>
-              <SettingRow kind="value" label="로그인 방식" value={PROVIDER_NAME[profile.provider]} />
+              <SettingRow kind="value" label="이메일" value={profile.email} />
               <SettingRow
                 kind="value"
                 label="친구 코드"

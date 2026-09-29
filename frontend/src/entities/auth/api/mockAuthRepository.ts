@@ -1,48 +1,81 @@
+import type { MyProfile } from '@/entities/user/types';
+
+import type { AuthSession } from '../types';
 import { AuthError, type AuthRepository } from './authRepository';
-import { currentMockAccount, findAccount, signInMockAccount, signOutMockAccount, withdrawMockAccount } from './mockAccounts';
+import {
+  createMockAccount,
+  currentMockAccount,
+  findAccount,
+  findAccountByEmail,
+  nicknameTaken,
+  removeMockAccount,
+  setCurrentMockAccount,
+  type MockAccount,
+} from './mockAccounts';
 
-// 개발용 로그인 상황 (SCREEN-SPECS SCR-A01: 로그인, 기존 세션 복구)
-export const LOGIN_SCENARIOS = ['normal', 'error'] as const;
-export type LoginScenario = (typeof LOGIN_SCENARIOS)[number];
-
-export function parseLoginScenario(value: unknown): LoginScenario {
-  if (!__DEV__) return 'normal';
-  return (LOGIN_SCENARIOS as readonly unknown[]).includes(value) ? (value as LoginScenario) : 'normal';
-}
+// 서버 없이 쓸 때의 인증. 서버와 같은 오류를 흉내 낸다.
+// 개발용: 이메일에 "offline"이 들어가면 서버에 닿지 못한 경우를 흉내 낸다 (SCR-A01 오류 상태 확인)
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const tokenOf = (userId: string) => ({
-  accessToken: `mock-access-${userId}-${Date.now()}`,
-  refreshToken: `mock-refresh-${userId}-${Date.now()}`,
+const ACCESS_MS = 30 * 60_000;
+const REFRESH_MS = 30 * 24 * 3_600_000;
+
+const profileOf = (a: MockAccount): MyProfile => ({
+  userId: a.userId,
+  email: a.email,
+  nickname: a.nickname,
+  profileImageUrl: a.profileImageUrl,
+  friendCode: a.friendCode,
 });
 
-export function createMockAuthRepository(scenario: LoginScenario = 'normal'): AuthRepository {
+function sessionOf(a: MockAccount): AuthSession {
+  const now = Date.now();
   return {
-    async socialLogin(provider) {
-      await wait(700);
-      if (scenario === 'error') throw new AuthError('network', '서버에 연결하지 못했어요');
-      const a = await signInMockAccount(provider);
-      return {
-        tokens: tokenOf(a.userId),
-        user: { userId: a.userId, nickname: a.nickname ?? '', profileImageUrl: a.profileImageUrl, friendCode: a.friendCode, provider: a.provider },
-        isNewUser: a.nickname == null,
-      };
+    tokens: {
+      accessToken: `mock-access-${a.userId}-${now}`,
+      accessTokenExpiresAt: now + ACCESS_MS,
+      refreshToken: `mock-refresh-${a.userId}-${now}`,
+      refreshTokenExpiresAt: now + REFRESH_MS,
+    },
+    user: profileOf(a),
+  };
+}
+
+export function createMockAuthRepository(): AuthRepository {
+  const failIfOffline = (email: string) => {
+    if (__DEV__ && email.includes('offline')) throw new AuthError('network', '서버에 연결하지 못했어요');
+  };
+  return {
+    async signup(input) {
+      await wait(600);
+      failIfOffline(input.email);
+      if (findAccountByEmail(input.email)) throw new AuthError('emailTaken', '이미 가입한 이메일이에요.');
+      if (nicknameTaken(input.nickname.trim())) throw new AuthError('nicknameTaken', '이미 쓰고 있는 닉네임이에요.');
+      return sessionOf(await createMockAccount(input.email, input.password, input.nickname));
+    },
+    async login(email, password) {
+      await wait(600);
+      failIfOffline(email);
+      const a = findAccountByEmail(email);
+      if (!a || a.password !== password) throw new AuthError('invalidCredentials', '이메일 또는 비밀번호가 맞지 않아요.');
+      await setCurrentMockAccount(a.userId);
+      return sessionOf(a);
     },
     async refresh(refreshToken) {
-      await wait(300);
+      await wait(200);
       const userId = /^mock-refresh-(.+)-\d+$/.exec(refreshToken)?.[1] ?? null;
       const a = findAccount(userId);
-      if (!a || currentMockAccount()?.userId !== a.userId) throw new AuthError('unauthorized', '다시 로그인해 주세요');
-      return tokenOf(a.userId);
+      if (!a || currentMockAccount()?.userId !== a.userId) throw new AuthError('unauthorized', '다시 로그인해 주세요.');
+      return sessionOf(a);
     },
     async logout() {
-      await wait(300);
-      await signOutMockAccount();
+      await wait(200);
+      await setCurrentMockAccount(null);
     },
     async withdraw() {
-      await wait(600);
+      await wait(500);
       const a = currentMockAccount();
-      if (a) await withdrawMockAccount(a.userId);
+      if (a) await removeMockAccount(a.userId);
     },
   };
 }

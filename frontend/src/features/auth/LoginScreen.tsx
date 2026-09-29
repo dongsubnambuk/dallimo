@@ -1,106 +1,129 @@
 import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRef, useState } from 'react';
+import { StyleSheet, View, type TextInput } from 'react-native';
 
 import { BrandSymbol, Wordmark } from '@/components/Brand';
-import { SocialLoginButton } from '@/components/SocialLoginButton';
+import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppIcon, AppText } from '@/design/primitives';
-import { ThemeProvider, useTheme } from '@/design/theme';
+import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing } from '@/design/tokens';
-import type { LoginScenario } from '@/entities/auth/api/mockAuthRepository';
-import type { AuthProvider } from '@/entities/auth/types';
+import { AuthError } from '@/entities/auth/api/authRepository';
+import { EMAIL_SHAPE } from '@/entities/auth/types';
 
-import { ProviderCancelledError } from './providerSignIn';
-import { signIn } from './session';
+import { AuthFrame } from './AuthFrame';
+import { AuthField } from './components/AuthField';
+import { logIn } from './session';
 
-// SCR-A01 로그인 (AUTH-001): Apple / Google / 카카오 버튼, 약관 · 정책 진입.
-// 브랜드 첫 화면이라 splash와 같은 dark 바탕에 심볼 · 워드마크 · 짧은 문구만 둔다 (BRAND-AND-PROJECT Short copy).
-const PROVIDERS: AuthProvider[] = ['KAKAO', 'APPLE', 'GOOGLE'];
-
-export function LoginScreen({ scenario }: { scenario: LoginScenario }) {
+// SCR-A01 로그인. 사용자 결정으로 소셜 로그인 대신 이메일 · 비밀번호 (FOUNDATION-DECISION-LOG 30항).
+// 브랜드 첫 화면이라 splash와 같은 dark 바탕에 심볼 · 워드마크 · 짧은 문구를 둔다 (BRAND-AND-PROJECT Short copy).
+export function LoginScreen() {
   return (
-    <ThemeProvider scheme="dark">
-      <Login scenario={scenario} />
-    </ThemeProvider>
+    <AuthFrame>
+      <Login />
+    </AuthFrame>
   );
 }
 
-function Login({ scenario }: { scenario: LoginScenario }) {
+function Login() {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const [pending, setPending] = useState<AuthProvider | null>(null);
-  const [failed, setFailed] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const login = async (provider: AuthProvider) => {
-    setPending(provider);
-    setFailed(false);
+  const canSubmit = EMAIL_SHAPE.test(email.trim()) && password.length > 0 && !pending;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setPending(true);
+    setError(null);
     try {
-      // 성공하면 로그인 상태가 바뀌고 루트 레이아웃이 다음 화면(탐색 또는 프로필 설정)으로 보낸다
-      await signIn(provider, scenario);
+      // 성공하면 로그인 상태가 바뀌고 루트 레이아웃이 탐색으로 보낸다
+      await logIn(email, password);
     } catch (e) {
-      if (!(e instanceof ProviderCancelledError)) setFailed(true);
-      setPending(null);
+      setError(
+        e instanceof AuthError && e.kind === 'invalidCredentials'
+          ? '이메일 또는 비밀번호가 맞지 않아요.'
+          : '로그인하지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+      );
+      setPending(false);
     }
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg.canvas, paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.lg }]}>
-      <StatusBar style="light" />
+    <>
       <View style={styles.brand}>
-        <BrandSymbol size={88} />
-        <Wordmark height={36} />
-        <AppText role="body" tone="secondary" style={styles.copy}>
+        <BrandSymbol size={72} />
+        <Wordmark height={32} />
+        <AppText role="body" tone="secondary" style={styles.center}>
           오늘 달릴 코스를 찾고, 같이 달리고, 기록을 깨다.
         </AppText>
       </View>
 
-      <View style={styles.bottom}>
-        {failed ? (
+      <View style={styles.form}>
+        <AuthField
+          label="이메일"
+          value={email}
+          onChangeText={(v) => {
+            setEmail(v);
+            setError(null);
+          }}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoComplete="email"
+          textContentType="username"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+        />
+        <AuthField
+          ref={passwordRef}
+          label="비밀번호"
+          value={password}
+          onChangeText={(v) => {
+            setPassword(v);
+            setError(null);
+          }}
+          secret
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={submit}
+        />
+        {error ? (
           <View style={[styles.error, { backgroundColor: colors.bg.surface }]} accessibilityLiveRegion="polite">
             <AppIcon name="warning" size={18} color={colors.status.warning} />
-            <AppText role="label" style={styles.flexShrink}>
-              로그인하지 못했어요. 연결을 확인하고 다시 시도해 주세요.
+            <AppText role="label" style={styles.shrink}>
+              {error}
             </AppText>
           </View>
         ) : null}
-        {PROVIDERS.map((p) => (
-          <SocialLoginButton key={p} provider={p} loading={pending === p} disabled={pending != null && pending !== p} onPress={() => login(p)} />
-        ))}
-        <AppText role="caption" tone="secondary" style={styles.terms}>
-          계속하면{' '}
-          <AppText role="caption" style={styles.link} onPress={() => router.push({ pathname: '/legal/[kind]', params: { kind: 'terms' } })} accessibilityRole="link">
-            서비스 이용약관
+        <SecondaryButton label={pending ? '로그인하는 중' : '로그인'} emphasized disabled={!canSubmit} onPress={submit} style={styles.submit} />
+      </View>
+
+      <View style={styles.footer}>
+        <AppText role="body" tone="secondary" style={styles.center}>
+          처음이세요?{' '}
+          <AppText role="body" style={styles.link} accessibilityRole="link" onPress={() => router.push('/signup')}>
+            회원가입
           </AppText>
-          과{' '}
-          <AppText role="caption" style={styles.link} onPress={() => router.push({ pathname: '/legal/[kind]', params: { kind: 'privacy' } })} accessibilityRole="link">
-            개인정보 처리방침
-          </AppText>
-          에 동의하게 돼요.
         </AppText>
       </View>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    justifyContent: 'space-between',
-  },
   brand: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
+    gap: spacing.md,
+    marginTop: spacing.xl,
   },
-  copy: {
+  center: {
     textAlign: 'center',
   },
-  bottom: {
-    gap: spacing.md,
+  form: {
+    gap: spacing.lg,
   },
   error: {
     flexDirection: 'row',
@@ -109,15 +132,19 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.control,
   },
-  terms: {
-    textAlign: 'center',
-    marginTop: spacing.xs,
+  shrink: {
+    flexShrink: 1,
+  },
+  submit: {
+    alignSelf: 'stretch',
+    minHeight: 56,
+  },
+  footer: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   link: {
     fontFamily: fontFamily.bold,
     textDecorationLine: 'underline',
-  },
-  flexShrink: {
-    flexShrink: 1,
   },
 });

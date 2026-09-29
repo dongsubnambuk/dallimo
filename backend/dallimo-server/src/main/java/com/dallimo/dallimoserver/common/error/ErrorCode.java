@@ -10,6 +10,10 @@ public enum ErrorCode {
     AUTH_REQUIRED(HttpStatus.UNAUTHORIZED, "로그인이 필요해요."),
     TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "로그인이 만료됐어요."),
     RESOURCE_FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없어요."),
+    // 이메일 로그인(사용자 결정, 명세 41장 변경)에서 더한 코드
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 맞지 않아요."),
+    EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 가입한 이메일이에요."),
+    NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 쓰고 있는 닉네임이에요."),
     // 명세 표에는 없는 코드. 없는 주소처럼 도메인 코드가 없는 404에 쓴다 (backend/README 결정 사항)
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "찾을 수 없어요."),
     RUN_NOT_FOUND(HttpStatus.NOT_FOUND, "러닝 기록을 찾을 수 없어요."),

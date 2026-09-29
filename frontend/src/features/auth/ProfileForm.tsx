@@ -8,10 +8,11 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
-import { checkNicknameLocal, createMockUserRepository, NICKNAME_MAX } from '@/entities/user/api/mockUserRepository';
+import { getUserRepository } from '@/entities/user/api';
+import { checkNicknameLocal, NICKNAME_MAX } from '@/entities/user/api/mockUserRepository';
 import type { MyProfile, NicknameCheck } from '@/entities/user/types';
 
-// AUTH-002 프로필 설정: 프로필 이미지 선택, 닉네임 중복 확인. 처음 가입(SCR-A02)과 프로필 수정이 함께 쓴다.
+// AUTH-002 프로필 수정: 프로필 이미지 선택, 닉네임 중복 확인. 닉네임 확인 문구(nicknameStatus)는 가입 화면도 쓴다.
 export function ProfileForm({
   initial,
   submitLabel,
@@ -22,7 +23,7 @@ export function ProfileForm({
   onDone: (profile: MyProfile) => void;
 }) {
   const { colors } = useTheme();
-  const repo = useMemo(() => createMockUserRepository(), []);
+  const repo = useMemo(() => getUserRepository(), []);
   const [nickname, setNickname] = useState(initial.nickname);
   const [image, setImage] = useState<string | null>(initial.profileImageUrl);
   const [touched, setTouched] = useState(false);
@@ -57,7 +58,7 @@ export function ProfileForm({
     if (!r.canceled && r.assets[0]) setImage(r.assets[0].uri);
   };
 
-  const status = statusOf(failed === 'taken' ? 'taken' : result, touched);
+  const status = nicknameStatus(failed === 'taken' ? 'taken' : result, touched);
 
   return (
     <View style={styles.root}>
@@ -131,7 +132,7 @@ export function ProfileForm({
   );
 }
 
-function statusOf(result: NicknameCheck | 'checking' | 'unchanged' | null, touched: boolean): { copy: string; icon: IconName | null; tone: 'ok' | 'warning' | 'neutral' } | null {
+export function nicknameStatus(result: NicknameCheck | 'checking' | 'unchanged' | null, touched: boolean): { copy: string; icon: IconName | null; tone: 'ok' | 'warning' | 'neutral' } | null {
   switch (result) {
     case 'ok':
       return { copy: '쓸 수 있는 이름이에요', icon: 'check', tone: 'ok' };
