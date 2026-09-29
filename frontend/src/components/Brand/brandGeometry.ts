@@ -1,4 +1,4 @@
-// 자동 생성 파일. 직접 고치지 않는다 (FOUNDATION-DECISION-LOG 11항).
+// 생성 파일. 직접 고치지 않는다 (FOUNDATION-DECISION-LOG 11 · 29항).
 // 달리모 워드마크·심볼 geometry. 단위는 Pretendard Black의 글꼴 단위(UPM 2048), y는 아래로 증가.
 // "달", "리"는 Pretendard Black(SIL OFL 1.1) 글리프 윤곽이고, "모"는 ㅁ을 코스 루프 + 출발점으로 다시 그린 전용 글자다.
 export const WORDMARK = {
@@ -14,11 +14,16 @@ export const WORDMARK = {
 } as const;
 
 // "모" 한 글자 (심볼). 기준 x=0
+// ㅁ은 육상 트랙처럼 바깥 · 안쪽 모서리가 모두 둥근 루프다. 세로 획은 가로 획보다 조금 두껍다("달리"와 같은 대비).
+// 작은 크기(29~60px)에서 속이 막히지 않도록 루프 안쪽을 넓게 두었다 (FOUNDATION-DECISION-LOG 29항).
 export const MO = {
-  loop: { x: 353, y: 569, width: 1060, height: 640, radius: 95, stroke: 290 },
-  stem: { x: 726, y: 1354, width: 318, height: 372 },
+  // 루프 윤곽 (바깥 · 안쪽 둥근 사각형, fill-rule evenodd)
+  loop: "M478 392H1288A270 270 0 0 1 1558 662V1136A270 270 0 0 1 1288 1406H478A270 270 0 0 1 208 1136V662A270 270 0 0 1 478 392ZM588 652H1178A80 80 0 0 1 1258 732V1066A80 80 0 0 1 1178 1146H588A80 80 0 0 1 508 1066V732A80 80 0 0 1 588 652Z",
+  // 출발점이 도는 길 (루프 획 가운데를 지나는 둥근 사각형)
+  track: { x: 358, y: 522, width: 1050, height: 754, radius: 150 },
+  stem: { x: 724, y: 1386, width: 318, height: 330 },
   bar: { x: 42, y: 1686, width: 1690, height: 260 },
-  dot: { x: 1190, y: 569, r: 150, ring: 80 },
+  dot: { x: 1190, y: 522, r: 135, ring: 72 },
   // 심볼 외곽 (점 포함)
-  bounds: { x: 42, y: 379, width: 1690, height: 1567 },
+  bounds: { x: 42, y: 351, width: 1690, height: 1595 },
 } as const;

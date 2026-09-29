@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import Svg, { Circle, G, Rect } from "react-native-svg";
+import Svg, { Circle, G, Path, Rect } from "react-native-svg";
 
 import { darkTheme, useTheme } from "@/design/theme";
 
@@ -69,16 +69,7 @@ export function MoGlyph({
         height={bar.height}
         fill={glyph}
       />
-      <Rect
-        x={loop.x}
-        y={loop.y}
-        width={loop.width}
-        height={loop.height}
-        rx={loop.radius}
-        fill="none"
-        stroke={glyph}
-        strokeWidth={loop.stroke}
-      />
+      <Path d={loop} fill={glyph} fillRule="evenodd" />
       {hideDot ? null : (
         <Circle
           cx={dot.x}
