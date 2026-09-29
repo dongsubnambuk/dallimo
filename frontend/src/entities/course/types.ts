@@ -22,6 +22,11 @@ export type CourseSummary = {
   finisherCount: number;
   // 이번 주 이 코스를 달린 러너 수 (탐색 지도 위 표시)
   weeklyRunnerCount: number;
+  // 지역 이름. 예: "대구 수성구". 모르면 null
+  region: string | null;
+  // REV-001 완주자 평가 평균(1~5, 소수 한 자리)과 수. 평가가 없으면 null · 0 (CRS-004 평점 필터 · 정렬)
+  ratingAvg: number | null;
+  reviewCount: number;
 };
 
 export type NearbyCourseQuery = {
@@ -38,15 +43,50 @@ export type Level = 'LOW' | 'MEDIUM' | 'HIGH';
 // 6.3장 VerificationStatus 중 기록에 붙는 값
 export type RecordVerification = 'pending' | 'verified' | 'unverified' | 'rejected';
 
-// CRS-102 러닝 환경. 모르는 항목은 null.
+// CRS-102 러닝 환경. 완주자 평가를 모은 값이고, 모르는 항목은 null.
 export type CourseEnvironment = {
   signals: Level | null;
   nightLight: Level | null;
   crowd: Level | null;
   surface: string | null;
-  toilets: number | null;
-  waterFountains: number | null;
+  // 화장실 · 급수대가 있는지
+  toilets: boolean | null;
+  waterFountains: boolean | null;
 };
+
+// ---- 코스 평가 (REV-001, 43장 POST /courses/{id}/reviews) ----
+
+// 환경 점수는 1~3: 신호 적음 · 보통 · 많음, 야간 어두움 · 보통 · 밝음, 혼잡 한적함 · 보통 · 붐빔, 노면 울퉁불퉁 · 보통 · 고름
+export type ReviewScore = 1 | 2 | 3;
+
+export type CourseReview = {
+  id: string;
+  nickname: string;
+  isMine: boolean;
+  rating: number;
+  surfaceScore: ReviewScore | null;
+  signalScore: ReviewScore | null;
+  nightScore: ReviewScore | null;
+  crowdScore: ReviewScore | null;
+  hasToilet: boolean | null;
+  hasWater: boolean | null;
+  content: string | null;
+  // epoch ms
+  createdAt: number;
+};
+
+export type ReviewInput = Omit<CourseReview, 'id' | 'nickname' | 'isMine' | 'createdAt'>;
+
+export type CourseRating = {
+  avg: number | null;
+  count: number;
+  // 이 코스를 인증 완주해서 평가할 수 있는지
+  canReview: boolean;
+  mine: CourseReview | null;
+};
+
+// ---- 코스 신고 (CREG-005) ----
+export type ReportReason = 'DANGER' | 'PRIVATE_PROPERTY' | 'WRONG_INFO' | 'OTHER';
 
 export type CourseRankingEntry = {
   rank: number;
@@ -62,7 +102,7 @@ export type CourseDetail = {
   name: string;
   status: CourseStatus;
   description: string | null;
-  // 예: "대구 수성구". 서버 코스에는 아직 없다(null)
+  // 예: "대구 수성구". 등록할 때 휴대폰이 출발점으로 알아낸 값 (웹에서 등록한 코스는 null)
   region: string | null;
   creatorName: string;
   distanceM: number;
@@ -79,6 +119,8 @@ export type CourseDetail = {
   // 추천 시간대. 예: "새벽·저녁"
   recommendedTime: string | null;
   environment: CourseEnvironment;
+  // REV-001 평가 요약 · 내 평가
+  rating: CourseRating;
   // CRS-103 내 코스 기록. 달린 적 없으면 null.
   myRecord: {
     bestSec: number;
@@ -107,6 +149,8 @@ export type NewCourseInput = {
   description: string | null;
   tags: string[];
   recommendedTime: string | null;
+  // 출발점 지역 이름 (휴대폰 지오코딩, 모르면 null)
+  region: string | null;
 };
 
 // ---- 내 코스 (SCR-M04, MY-005: 등록/저장/완주) ----

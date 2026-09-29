@@ -81,7 +81,7 @@
 | GET /courses/{id}/rankings `scope, period, cursor, size` | `RankingRepository.getPage(query)` → `httpRankingRepository` | 서버 구현 | scope `ALL · FRIENDS`, period `ALL · WEEKLY · MONTHLY`(한국 시간 월요일 · 1일 0시). 응답 항목: `rank, userId, name, timeSec, paceSecPerKm, relation(self · friend · normal), isPB`. 친구 랭킹은 나 + 친구 안에서 순위(친구가 없으면 나 혼자) |
 | GET /courses/{id}/rankings/me `scope, period` | `getMyStanding(courseId, scope, period)` → `{ total, entry, around }` | 명세 없음 · 서버 구현 | RNK-005. 43장 표에 경로가 없어 정했다. 내 위아래 두 명 |
 | GET /users/me/courses?kind=CREATED·SAVED·FINISHED | `getMine(kind)` | 명세 없음 · 서버 구현 | MY-005. 명세 표에 경로가 없어 정했다. 완주는 공식 기록(tbl_course_record)이 있는 코스 |
-| POST /courses/{id}/reviews · reports | 없음 | 미구현 | REV-001, CREG-005 (P1) |
+| POST /courses/{id}/reviews · reports | `writeReview()` · `getReviews()` · `deleteReview()` · `report()` | 서버 구현 | REV-001, CREG-005. 목록 · 지우기 경로는 명세 표에 없어 더했다 |
 
 ## 5. 친구 · 도전 (44장)
 
@@ -178,7 +178,7 @@
 5. 프로필 이미지 업로드 방식
 6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부). 검증 결과 · PB · 주간 순위 · 친구 최고 기록은 `verification`으로 구현
 7. 코스 상세 응답 필드, 경로를 상세에 포함할지 (서버는 상세에 줄인 경로를 넣고 GET /route로 전체를 준다)
-8. 코스 등록 요청의 추천 시간
+8. ~~코스 등록 요청의 추천 시간~~ → `recommendedTime` · `region`을 받게 했다. 명세 43장 요청 필드에 넣어야 한다
 9. ~~내 주변 순위 API (RNK-005)~~ → GET /courses/{id}/rankings/me로 구현. 명세 표에 넣어야 한다
 10. ~~내 코스 목록 API (MY-005)~~ → GET /users/me/courses?kind=로 구현. 명세 표에 넣어야 한다
 11. Together 방 목록(예정 · 최근), 준비 취소, 재대결 — 예정 목록 · 준비 취소는 서버 구현(명세 표에 넣어야 함). 최근 결과 목록 API는 아직 없다(Together 홈 최근 결과가 서버 모드에서 비어 있다). 재대결은 앱이 같은 조건으로 새 방을 만든다
@@ -187,8 +187,9 @@
 14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 서버 · 앱 모두 200 + `status: FINISHING`으로 구현했다
 15. `RESOURCE_NOT_FOUND`(404): 서버가 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드가 없는 404에 쓴다. 명세 표에 넣을지 정한다
 16. 히스토리 목록 경로 미리보기: GET /runs 항목에 줄인 경로를 넣을지. 지금은 서버 기록 썸네일이 빈칸이다
-17. 코스 지역("대구 수성구") · 러닝 환경 · 추천 시간을 저장할 곳: ERD에 없다. 서버 코스 상세에는 비어 있다
+17. ~~코스 지역 · 러닝 환경 · 추천 시간을 저장할 곳~~ → V10 `region` · `recommended_time`, 러닝 환경은 완주자 평가(course_review)를 모은 값. 화장실 · 급수는 평가에 `has_toilet` · `has_water`를 더했다. ERD에 넣어야 한다
 18. 실시간 메시지 필드: 46장은 `elapsedMs · currentPace · memberSeq · runId`, 서버 · 앱은 `elapsedSeconds · currentPaceSecPerKm · seq`, runId는 POST /runs `liveRoomId`로 잇는다. ROOM_SNAPSHOT 대신 SYNC_STATE. 명세에 맞출지 정한다
 19. 친구 API 모양: 44장은 경로만 있다. 요청 응답(요청 뒤 관계), 요청 목록 `{ received, sent }`, 검색 항목의 `relation · requestId`, 프로필 경로 `GET /users/{userId}`를 서버 · 앱이 정했다. 명세에 넣어야 한다
 20. 도전 API 모양: 44장은 경로만 있다. 응답 필드(`role, targetSec, resultSec, targetBest`), 목록 `GET /challenges`, 러닝 상세의 `challenge`를 서버 · 앱이 정했다. 명세에 넣어야 한다
 21. 알림 API 추가분: 모두 읽음 · 안 읽은 수 · Push 토큰 · 알림 설정 경로와 모양, 알림 종류(14.2장에서 LIVE_START · CHALLENGE를 빼고 LIVE_CANCELED · CHALLENGE_DEFENDED를 더함). 명세에 넣어야 한다
+24. 코스 신고 테이블 · 사유(`DANGER · PRIVATE_PROPERTY · WRONG_INFO · OTHER`): ERD에 없다. 신고가 쌓였을 때 숨길지는 20.2장 코스 공개 정책과 함께 정한다

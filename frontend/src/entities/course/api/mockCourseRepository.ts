@@ -1,8 +1,9 @@
-import type { CourseDetail, CourseRankingEntry, CourseStatus, CourseSummary, MyCourse, NearbyCourseQuery, RecordVerification } from '@/entities/course/types';
+import type { CourseDetail, CourseRankingEntry, CourseReview, CourseStatus, CourseSummary, MyCourse, NearbyCourseQuery, RecordVerification, ReportReason } from '@/entities/course/types';
 import { distanceM, loopRoute, type GeoPoint } from '@/shared/geo';
 
 import { CourseRepositoryError, type CourseRepository } from './courseRepository';
 import { MOCK_COURSE_ROUTES } from './mockCourseRoutes';
+import { currentMockAccount } from '@/entities/auth/api/mockAccounts';
 
 // 실제 API 전까지 쓰는 예시 데이터. 대구 수성못 주변 (명세서 91장 예시 지역).
 // 경로는 OpenStreetMap의 실제 호안·강변·도로를 따른다 (mockCourseRoutes.ts). 거리는 경로 길이에서 계산한다.
@@ -26,6 +27,9 @@ const MOCK_COURSES: MockCourse[] = [
     estimatedSec: estimateOf('c-suseongmot'),
     finisherCount: 1284,
     weeklyRunnerCount: 128,
+    region: '대구 수성구',
+    ratingAvg: null,
+    reviewCount: 0,
   },
   {
     id: 'c-deuran',
@@ -38,6 +42,9 @@ const MOCK_COURSES: MockCourse[] = [
     estimatedSec: estimateOf('c-deuran'),
     finisherCount: 412,
     weeklyRunnerCount: 37,
+    region: '대구 수성구',
+    ratingAvg: null,
+    reviewCount: 0,
   },
   {
     id: 'c-beomeo',
@@ -50,6 +57,9 @@ const MOCK_COURSES: MockCourse[] = [
     estimatedSec: estimateOf('c-beomeo'),
     finisherCount: 236,
     weeklyRunnerCount: 21,
+    region: '대구 수성구',
+    ratingAvg: null,
+    reviewCount: 0,
   },
   {
     id: 'c-sincheon',
@@ -62,6 +72,9 @@ const MOCK_COURSES: MockCourse[] = [
     estimatedSec: estimateOf('c-sincheon'),
     finisherCount: 2051,
     weeklyRunnerCount: 215,
+    region: '대구 수성구 · 중구',
+    ratingAvg: null,
+    reviewCount: 0,
   },
   {
     id: 'c-dusan',
@@ -74,6 +87,9 @@ const MOCK_COURSES: MockCourse[] = [
     estimatedSec: estimateOf('c-dusan'),
     finisherCount: 96,
     weeklyRunnerCount: 12,
+    region: '대구 수성구',
+    ratingAvg: null,
+    reviewCount: 0,
   },
   {
     id: 'c-stadium',
@@ -86,6 +102,9 @@ const MOCK_COURSES: MockCourse[] = [
     estimatedSec: 1680,
     finisherCount: 688,
     weeklyRunnerCount: 54,
+    region: '대구 수성구',
+    ratingAvg: null,
+    reviewCount: 0,
   },
 ];
 
@@ -107,7 +126,7 @@ const MOCK_DETAIL: Record<string, MockDetailExtra | undefined> = {
     creatorName: '수성런',
     difficulty: 'EASY',
     recommendedTime: '새벽 · 저녁',
-    environment: { signals: 'LOW', nightLight: 'HIGH', crowd: 'MEDIUM', surface: '우레탄 산책로', toilets: 2, waterFountains: 1 },
+    environment: { signals: 'LOW', nightLight: 'HIGH', crowd: 'MEDIUM', surface: '우레탄 산책로', toilets: true, waterFountains: true },
     lastSec: 648,
     finishCount: 14,
     bestVerification: 'verified',
@@ -121,7 +140,7 @@ const MOCK_DETAIL: Record<string, MockDetailExtra | undefined> = {
     creatorName: '들안길러너',
     difficulty: 'EASY',
     recommendedTime: '아침',
-    environment: { signals: 'MEDIUM', nightLight: 'HIGH', crowd: 'MEDIUM', surface: '보도블록', toilets: 0, waterFountains: 0 },
+    environment: { signals: 'MEDIUM', nightLight: 'HIGH', crowd: 'MEDIUM', surface: '보도블록', toilets: false, waterFountains: false },
     lastSec: null,
     finishCount: 0,
     bestVerification: 'verified',
@@ -135,7 +154,7 @@ const MOCK_DETAIL: Record<string, MockDetailExtra | undefined> = {
     creatorName: '언덕조아',
     difficulty: 'HARD',
     recommendedTime: '오전',
-    environment: { signals: 'LOW', nightLight: 'LOW', crowd: 'LOW', surface: '흙길 · 데크', toilets: 1, waterFountains: 1 },
+    environment: { signals: 'LOW', nightLight: 'LOW', crowd: 'LOW', surface: '흙길 · 데크', toilets: true, waterFountains: true },
     lastSec: null,
     finishCount: 0,
     bestVerification: 'verified',
@@ -149,7 +168,7 @@ const MOCK_DETAIL: Record<string, MockDetailExtra | undefined> = {
     creatorName: '신천크루',
     difficulty: 'MODERATE',
     recommendedTime: '새벽 · 저녁',
-    environment: { signals: 'LOW', nightLight: 'MEDIUM', crowd: 'HIGH', surface: '우레탄 · 아스팔트', toilets: 3, waterFountains: 2 },
+    environment: { signals: 'LOW', nightLight: 'MEDIUM', crowd: 'HIGH', surface: '우레탄 · 아스팔트', toilets: true, waterFountains: true },
     lastSec: 1512,
     finishCount: 6,
     bestVerification: 'pending',
@@ -163,7 +182,7 @@ const MOCK_DETAIL: Record<string, MockDetailExtra | undefined> = {
     creatorName: '야간러너',
     difficulty: 'EASY',
     recommendedTime: '밤',
-    environment: { signals: 'HIGH', nightLight: 'HIGH', crowd: 'MEDIUM', surface: '보도블록', toilets: 1, waterFountains: 0 },
+    environment: { signals: 'HIGH', nightLight: 'HIGH', crowd: 'MEDIUM', surface: '보도블록', toilets: true, waterFountains: false },
     lastSec: null,
     finishCount: 0,
     bestVerification: 'verified',
@@ -214,12 +233,58 @@ function toDetail(c: MockCourse, scenario: MockCourseScenario): CourseDetail {
         : { leaderSec: c.leaderSec, myWeeklyRank: hasRecord ? x.myWeeklyRank : null, friendBest: x?.friendBest ?? null, weeklyTop: top, myEntry },
     bookmarked: bookmarks.has(c.id),
     status: statusOf(c),
+    rating: {
+      avg: ratingOf(c.id).ratingAvg,
+      count: ratingOf(c.id).reviewCount,
+      // 이 코스를 인증 완주했으면 평가할 수 있다
+      canReview: hasRecord && x.bestVerification === 'verified',
+      mine: (reviews.get(c.id) ?? []).find((r) => r.isMine) ?? null,
+    },
   };
+}
+
+// REV-001 완주자 평가 (mock). 앱을 켜 둔 동안 쓴 평가도 여기에 쌓인다
+const DAY = 86_400_000;
+const review = (id: string, nickname: string, rating: number, content: string | null, daysAgo: number, s: Partial<CourseReview> = {}): CourseReview => ({
+  id,
+  nickname,
+  isMine: false,
+  rating,
+  surfaceScore: null,
+  signalScore: null,
+  nightScore: null,
+  crowdScore: null,
+  hasToilet: null,
+  hasWater: null,
+  content,
+  createdAt: Date.now() - daysAgo * DAY,
+  ...s,
+});
+const reviews = new Map<string, CourseReview[]>([
+  [
+    'c-suseongmot',
+    [
+      review('rv-1', '새벽달림', 5, '호수 한 바퀴라 페이스 맞추기 좋아요. 밤에도 밝아요', 2, { nightScore: 3, signalScore: 1, surfaceScore: 3, hasToilet: true }),
+      review('rv-2', '민수', 4, '주말 저녁엔 산책하는 분이 많아요', 5, { crowdScore: 3, nightScore: 3 }),
+      review('rv-3', '지수', 4, null, 9),
+    ],
+  ],
+  ['c-sincheon', [review('rv-4', '강변러너', 5, '신호 없이 길게 달릴 수 있어요', 1, { signalScore: 1, surfaceScore: 3, hasWater: true })]],
+  ['c-beomeo', [review('rv-5', '언덕왕', 3, '오르막이 꽤 길어요. 흙길이라 비 온 뒤엔 미끄러워요', 3, { surfaceScore: 1 })]],
+]);
+let nextReviewId = 100;
+
+function ratingOf(id: string) {
+  const list = reviews.get(id) ?? [];
+  const avg = list.length ? Math.round((list.reduce((sum, r) => sum + r.rating, 0) / list.length) * 10) / 10 : null;
+  return { ratingAvg: avg, reviewCount: list.length };
 }
 
 // CRS-105 저장한 코스, 앱을 켜 둔 동안 등록한 코스 (mock)
 const bookmarks = new Set<string>(['c-sincheon']);
 const created = new Map<string, number>();
+// CREG-005 신고한 코스 (mock)
+const reports = new Map<string, ReportReason>();
 
 function statusOf(c: MockCourse): CourseStatus {
   if (created.has(c.id)) return 'NEW';
@@ -227,11 +292,10 @@ function statusOf(c: MockCourse): CourseStatus {
 }
 
 /** mock 코스 등록: 새 코스를 목록에 더한다. 실제로는 서버가 POST /courses에서 만든다. */
-export function addMockCourse(summary: MockCourse, extra: Pick<CourseDetail, 'description' | 'creatorName' | 'recommendedTime'>) {
+export function addMockCourse(summary: MockCourse, extra: Pick<CourseDetail, 'description' | 'creatorName' | 'recommendedTime' | 'region'>) {
   MOCK_COURSES.push(summary);
   MOCK_DETAIL[summary.id] = {
     ...extra,
-    region: '대구 수성구',
     difficulty: null,
     environment: { signals: null, nightLight: null, crowd: null, surface: null, toilets: null, waterFountains: null },
     lastSec: null,
@@ -257,7 +321,7 @@ export function createMockCourseRepository(scenario: MockCourseScenario): Course
       await wait(DELAY_MS);
       if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
       if (scenario === 'empty') return [];
-      return MOCK_COURSES.map((c) => ({ ...c, startDistanceM: Math.round(distanceM(center, c.displayRoute[0])) }))
+      return MOCK_COURSES.map((c) => ({ ...c, ...ratingOf(c.id), startDistanceM: Math.round(distanceM(center, c.displayRoute[0])) }))
         .filter((c) => c.startDistanceM <= radiusM)
         .sort((a, b) => a.startDistanceM - b.startDistanceM);
     },
@@ -276,6 +340,49 @@ export function createMockCourseRepository(scenario: MockCourseScenario): Course
       if (saved) bookmarks.add(id);
       else bookmarks.delete(id);
     },
+    async search(query) {
+      if (scenario === 'loading') return new Promise(() => {});
+      await wait(DELAY_MS / 2);
+      if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
+      const q = query.trim().toLowerCase();
+      return MOCK_COURSES.filter((c) => [c.name, c.region ?? '', ...c.tags].some((t) => t.toLowerCase().includes(q))).map((c) => ({
+        ...c,
+        ...ratingOf(c.id),
+        startDistanceM: null,
+      }));
+    },
+    async getReviews(courseId, cursor) {
+      await wait(300);
+      if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
+      const list = [...(reviews.get(courseId) ?? [])].sort((a, b) => b.createdAt - a.createdAt);
+      const from = cursor ? Number(cursor) : 0;
+      const items = list.slice(from, from + 20);
+      return { items, nextCursor: from + 20 < list.length ? String(from + 20) : null };
+    },
+    async writeReview(courseId, input) {
+      await wait(400);
+      if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
+      const list = reviews.get(courseId) ?? [];
+      const prev = list.find((r) => r.isMine);
+      const mine: CourseReview = {
+        ...input,
+        id: prev?.id ?? `rv-${nextReviewId++}`,
+        nickname: currentMockAccount()?.nickname ?? '수성러너',
+        isMine: true,
+        createdAt: prev?.createdAt ?? Date.now(),
+      };
+      reviews.set(courseId, [mine, ...list.filter((r) => !r.isMine)]);
+      return mine;
+    },
+    async deleteReview(courseId) {
+      await wait(300);
+      reviews.set(courseId, (reviews.get(courseId) ?? []).filter((r) => !r.isMine));
+    },
+    async report(courseId, reason: ReportReason) {
+      await wait(400);
+      if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
+      reports.set(courseId, reason);
+    },
     async getMine(kind): Promise<MyCourse[]> {
       if (scenario === 'loading') return new Promise(() => {});
       await wait(DELAY_MS);
@@ -287,6 +394,7 @@ export function createMockCourseRepository(scenario: MockCourseScenario): Course
       return pick
         .map((c) => ({
           ...c,
+          ...ratingOf(c.id),
           startDistanceM: null,
           createdAt: created.get(c.id) ?? null,
           finishCount: MOCK_DETAIL[c.id]?.finishCount ?? null,

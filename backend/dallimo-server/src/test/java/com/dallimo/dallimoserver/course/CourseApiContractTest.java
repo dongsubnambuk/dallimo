@@ -154,6 +154,106 @@ abstract class CourseApiContractTest {
         assertThat(search(" ", "")).hasStatus(400);
     }
 
+    @Test
+    void searchByRegionAndTagAndCreateKeepsRegionAndTime() {
+        User me = signup();
+        String tag = UUID.randomUUID().toString().substring(0, 6);
+        long runId = finishedRun(me.token, somewhere(), 300, false);
+        MvcTestResult r = post(me.token, "/api/v1/courses", """
+                {"sourceRunId":%d,"name":"강변 코스","tags":["태그%s"],"region":" 지역%s 수성구 ","recommendedTime":"새벽 · 저녁"}""".formatted(runId, tag, tag));
+        assertThat(r).hasStatus(201);
+        long id = id(body(r), "$.data.id");
+        assertThat((String) JsonPath.read(body(r), "$.data.region")).isEqualTo("지역" + tag + " 수성구");
+        assertThat((String) JsonPath.read(body(r), "$.data.recommendedTime")).isEqualTo("새벽 · 저녁");
+        // 지역 · 태그로도 찾는다 (CRS-003)
+        assertThat(ids(body(search("지역" + tag, "")))).containsExactly(id);
+        assertThat(ids(body(search("태그" + tag, "")))).containsExactly(id);
+        assertThat((String) JsonPath.read(body(search("지역" + tag, "")), "$.data.items[0].region")).isEqualTo("지역" + tag + " 수성구");
+        // 길이 제한
+        long other = finishedRun(me.token, somewhere(), 300, false);
+        assertThat(post(me.token, "/api/v1/courses", """
+                {"sourceRunId":%d,"name":"x","region":"%s"}""".formatted(other, "가".repeat(51)))).hasStatus(400);
+    }
+
+    // ── 평가 (REV-001) · 신고 (CREG-005) ──
+
+    @Test
+    void onlyVerifiedFinishersReviewAndEnvironmentIsAggregated() {
+        User owner = signup(), a = signup(), b = signup(), stranger = signup();
+        double[] at = somewhere();
+        long courseId = course(owner.token, at, "평가 코스");
+        long runA = finishedRun(a.token, at, 300, false), runB = finishedRun(b.token, at, 300, false);
+        record(courseId, runA, a.userId, 300, Instant.now());
+        record(courseId, runB, b.userId, 280, Instant.now());
+
+        // 완주하지 않은 사람 · 로그인 안 한 사람 · 남의 기록
+        String ok = """
+                {"rating":5,"signalScore":1,"nightScore":3,"crowdScore":2,"surfaceScore":3,"hasToilet":true,"hasWater":false,"content":"  좋아요 "}""";
+        assertThat(post(stranger.token, "/api/v1/courses/" + courseId + "/reviews", ok)).hasStatus(403);
+        assertThat(post(null, "/api/v1/courses/" + courseId + "/reviews", ok)).hasStatus(401);
+        assertThat(post(a.token, "/api/v1/courses/" + courseId + "/reviews", "{\"runId\":%d,\"rating\":4}".formatted(runB))).hasStatus(403);
+        assertThat(post(a.token, "/api/v1/courses/" + courseId + "/reviews", "{\"rating\":6}")).hasStatus(400);
+        assertThat(post(a.token, "/api/v1/courses/" + courseId + "/reviews", "{\"rating\":4,\"signalScore\":4}")).hasStatus(400);
+
+        // 완주한 사람: 쓰고 다시 쓰면 바뀐다
+        MvcTestResult first = post(a.token, "/api/v1/courses/" + courseId + "/reviews", "{\"rating\":2}");
+        assertThat(first).hasStatusOk();
+        MvcTestResult again = post(a.token, "/api/v1/courses/" + courseId + "/reviews", ok);
+        assertThat(again).hasStatusOk();
+        assertThat(id(body(again), "$.data.id")).isEqualTo(id(body(first), "$.data.id"));
+        assertThat((String) JsonPath.read(body(again), "$.data.content")).isEqualTo("좋아요");
+        assertThat(post(b.token, "/api/v1/courses/" + courseId + "/reviews", """
+                {"runId":%d,"rating":4,"signalScore":1,"nightScore":2,"crowdScore":2,"surfaceScore":2,"hasToilet":true}""".formatted(runB))).hasStatusOk();
+
+        // 상세: 평균 4.5, 두 명, 환경 (신호 적음 · 밝음 · 보통 · 고름 · 화장실 있음 · 급수대 없음)
+        String d = body(get(a.token, "/api/v1/courses/" + courseId));
+        assertThat((Double) JsonPath.read(d, "$.data.rating.avg")).isEqualTo(4.5);
+        assertThat((Integer) JsonPath.read(d, "$.data.rating.count")).isEqualTo(2);
+        assertThat((Boolean) JsonPath.read(d, "$.data.rating.canReview")).isTrue();
+        assertThat((Integer) JsonPath.read(d, "$.data.rating.mine.rating")).isEqualTo(5);
+        assertThat((String) JsonPath.read(d, "$.data.environment.signals")).isEqualTo("LOW");
+        assertThat((String) JsonPath.read(d, "$.data.environment.nightLight")).isEqualTo("HIGH");
+        assertThat((String) JsonPath.read(d, "$.data.environment.crowd")).isEqualTo("MEDIUM");
+        assertThat((String) JsonPath.read(d, "$.data.environment.surface")).isEqualTo("SMOOTH");
+        assertThat((Boolean) JsonPath.read(d, "$.data.environment.toilet")).isTrue();
+        assertThat((Boolean) JsonPath.read(d, "$.data.environment.water")).isFalse();
+        String s = body(get(stranger.token, "/api/v1/courses/" + courseId));
+        assertThat((Boolean) JsonPath.read(s, "$.data.rating.canReview")).isFalse();
+        assertThat((Object) JsonPath.read(s, "$.data.rating.mine")).isNull();
+        // 평가가 없는 코스는 비어 있다
+        long empty = course(owner.token, somewhere(), "빈 코스");
+        String e = body(get(null, "/api/v1/courses/" + empty));
+        assertThat((Object) JsonPath.read(e, "$.data.rating.avg")).isNull();
+        assertThat((Object) JsonPath.read(e, "$.data.environment.signals")).isNull();
+
+        // 목록: 최근 먼저, cursor, 내 것 표시 (로그인 없이도 본다)
+        String p1 = body(get(b.token, "/api/v1/courses/" + courseId + "/reviews?size=1"));
+        assertThat(JsonPath.<List<Boolean>>read(p1, "$.data.items[*].isMine")).containsExactly(true);
+        String p2 = body(get(null, "/api/v1/courses/" + courseId + "/reviews?size=1&cursor=" + JsonPath.read(p1, "$.data.nextCursor")));
+        assertThat((String) JsonPath.read(p2, "$.data.items[0].nickname")).isEqualTo(a.nickname);
+        assertThat((Boolean) JsonPath.read(p2, "$.data.hasNext")).isFalse();
+        // 요약 (주변 목록)의 평점
+        String near = body(get(null, "/api/v1/courses/nearby?lat=%f&lng=%f&radius=500".formatted(at[0], at[1])));
+        assertThat(JsonPath.<List<Double>>read(near, "$.data.items[?(@.id == %d)].ratingAvg".formatted(courseId))).containsExactly(4.5);
+
+        // 내 평가 지우기
+        assertThat(delete(a.token, "/api/v1/courses/" + courseId + "/reviews/me")).hasStatus(204);
+        assertThat((Integer) JsonPath.read(body(get(null, "/api/v1/courses/" + courseId)), "$.data.rating.count")).isEqualTo(1);
+    }
+
+    @Test
+    void reportIsOnePerUserAndReasonIsChecked() {
+        User owner = signup(), me = signup();
+        long courseId = course(owner.token, somewhere(), "신고 코스");
+        assertThat(post(me.token, "/api/v1/courses/" + courseId + "/reports", "{\"reason\":\"DANGER\",\"content\":\"공사 중\"}")).hasStatus(204);
+        assertThat(post(me.token, "/api/v1/courses/" + courseId + "/reports", "{\"reason\":\"WRONG_INFO\"}")).hasStatus(204);
+        assertThat(jdbc.queryForList("SELECT reason FROM tbl_course_report WHERE course_id = ?", String.class, courseId)).containsExactly("WRONG_INFO");
+        assertThat(post(me.token, "/api/v1/courses/" + courseId + "/reports", "{\"reason\":\"WHAT\"}")).hasStatus(400);
+        assertThat(post(me.token, "/api/v1/courses/" + courseId + "/reports", "{}")).hasStatus(400);
+        assertThat(post(null, "/api/v1/courses/" + courseId + "/reports", "{\"reason\":\"OTHER\"}")).hasStatus(401);
+        assertThat(post(me.token, "/api/v1/courses/99999999/reports", "{\"reason\":\"OTHER\"}")).hasStatus(404);
+    }
+
     // ── 저장 (CRS-105) · 내 코스 (MY-005) ──
 
     @Test

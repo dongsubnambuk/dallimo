@@ -48,8 +48,16 @@ export function createMockCourseRegistration(scenario: RegisterScenario = 'norma
           estimatedSec: Math.round((distanceM / 1000) * 360),
           finisherCount: 0,
           weeklyRunnerCount: 0,
+          region: input.region,
+          ratingAvg: null,
+          reviewCount: 0,
         },
-        { description: input.description?.trim() || null, creatorName: currentMockAccount()?.nickname ?? '수성러너', recommendedTime: input.recommendedTime },
+        {
+          description: input.description?.trim() || null,
+          creatorName: currentMockAccount()?.nickname ?? '수성러너',
+          recommendedTime: input.recommendedTime,
+          region: input.region,
+        },
       );
       return courses.getDetail(id);
     },

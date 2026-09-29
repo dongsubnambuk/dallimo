@@ -52,6 +52,10 @@ const icons = {
   elevation: { ios: 'mountain.2', android: 'terrain' },
   time: { ios: 'clock', android: 'schedule' },
   trophy: { ios: 'trophy', android: 'emoji_events' },
+  // REV-001 평점 (빈 별은 같은 모양을 흐린 색으로)
+  star: { ios: 'star.fill', android: 'star' },
+  // CREG-005 코스 신고
+  report: { ios: 'flag', android: 'flag' },
   modeCourse: { ios: 'flag.checkered', android: 'sports_score' },
   modePB: { ios: 'stopwatch', android: 'timer' },
   modeRival: { ios: 'bolt.fill', android: 'bolt' },

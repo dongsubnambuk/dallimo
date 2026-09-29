@@ -155,6 +155,34 @@ public class CourseJdbcRepository {
         return out;
     }
 
+    // ── 평가 (REV-001) ──
+
+    public Map<Long, ReviewSummary> reviewSummaries(List<Long> courseIds) {
+        Map<Long, ReviewSummary> out = new HashMap<>();
+        if (courseIds.isEmpty()) return out;
+        named.query("""
+                SELECT course_id, AVG(rating) AS rating, COUNT(*) AS cnt, AVG(surface_score) AS surface, AVG(signal_score) AS sig,
+                       AVG(night_score) AS night, AVG(crowd_score) AS crowd,
+                       SUM(CASE WHEN has_toilet = 1 THEN 1 ELSE 0 END) AS toilet_yes, COUNT(has_toilet) AS toilet_n,
+                       SUM(CASE WHEN has_water = 1 THEN 1 ELSE 0 END) AS water_yes, COUNT(has_water) AS water_n
+                FROM tbl_course_review WHERE course_id IN (:ids) GROUP BY course_id""", ids(courseIds), rs -> {
+            int toiletN = rs.getInt("toilet_n"), waterN = rs.getInt("water_n");
+            out.put(rs.getLong("course_id"), new ReviewSummary(avg(rs, "rating"), rs.getInt("cnt"), avg(rs, "surface"), avg(rs, "sig"), avg(rs, "night"),
+                    avg(rs, "crowd"), toiletN == 0 ? null : rs.getInt("toilet_yes") * 2 >= toiletN, waterN == 0 ? null : rs.getInt("water_yes") * 2 >= waterN));
+        });
+        return out;
+    }
+
+    /** 이름 · 지역 말고 태그로도 찾는다 (CRS-003). 태그가 맞는 코스 id */
+    public List<Long> idsWithTagLike(String pattern) {
+        return jdbc.queryForList("SELECT DISTINCT course_id FROM tbl_course_tag WHERE LOWER(tag) LIKE ? ESCAPE '!'", Long.class, pattern);
+    }
+
+    private static Double avg(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
+        java.math.BigDecimal v = rs.getBigDecimal(column);
+        return v == null ? null : v.doubleValue();
+    }
+
     private static MapSqlParameterSource ids(List<Long> ids) {
         return new MapSqlParameterSource("ids", ids);
     }

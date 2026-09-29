@@ -1,4 +1,4 @@
-import type { CourseDetail, CourseSummary, MyCourse, MyCourseKind, NearbyCourseQuery } from '@/entities/course/types';
+import type { CourseDetail, CourseReview, CourseSummary, MyCourse, MyCourseKind, NearbyCourseQuery, ReportReason, ReviewInput } from '@/entities/course/types';
 
 // 119장: API가 없는 단계에서도 화면이 서버 응답 구조에 직접 묶이지 않도록 repository 경계를 둔다.
 // 실제 API가 생기면 이 인터페이스의 구현만 바꾼다.
@@ -10,6 +10,14 @@ export interface CourseRepository {
   setBookmark(id: string, saved: boolean): Promise<void>;
   // MY-005 내 코스. 41~43장 표에 경로가 아직 없어 OpenAPI 확정 시 맞춘다.
   getMine(kind: MyCourseKind): Promise<MyCourse[]>;
+  // CRS-003 이름 · 지역 · 태그 검색 (GET /courses/search, 최근 등록순)
+  search(query: string): Promise<CourseSummary[]>;
+  // REV-001 평가 목록 (최근 먼저) · 쓰기(다시 쓰면 바뀐다) · 지우기
+  getReviews(courseId: string, cursor: string | null): Promise<{ items: CourseReview[]; nextCursor: string | null }>;
+  writeReview(courseId: string, input: ReviewInput): Promise<CourseReview>;
+  deleteReview(courseId: string): Promise<void>;
+  // CREG-005 신고 (한 사람 한 번, 다시 하면 사유가 바뀐다)
+  report(courseId: string, reason: ReportReason, content: string | null): Promise<void>;
 }
 
 export class CourseRepositoryError extends Error {

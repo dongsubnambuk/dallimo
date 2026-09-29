@@ -5,6 +5,10 @@ import com.dallimo.dallimoserver.common.web.CursorPage;
 import com.dallimo.dallimoserver.course.api.CourseDtos.CourseDetailResponse;
 import com.dallimo.dallimoserver.course.api.CourseDtos.CourseSummaryResponse;
 import com.dallimo.dallimoserver.course.api.CourseDtos.CreateCourseRequest;
+import com.dallimo.dallimoserver.course.api.CourseDtos.ReportRequest;
+import com.dallimo.dallimoserver.course.api.CourseDtos.ReviewRequest;
+import com.dallimo.dallimoserver.course.api.CourseDtos.ReviewResponse;
+import com.dallimo.dallimoserver.course.application.CourseReviewService;
 import com.dallimo.dallimoserver.course.api.CourseDtos.RoutePointResponse;
 import com.dallimo.dallimoserver.course.application.CourseService;
 import com.dallimo.dallimoserver.course.application.CourseService.CourseView;
@@ -39,10 +43,12 @@ public class CourseController {
 
     private final CourseService courses;
     private final RankingService ranking;
+    private final CourseReviewService reviews;
 
-    public CourseController(CourseService courses, RankingService ranking) {
+    public CourseController(CourseService courses, RankingService ranking, CourseReviewService reviews) {
         this.courses = courses;
         this.ranking = ranking;
+        this.reviews = reviews;
     }
 
     /** CRS-001 주변 코스. radius는 출발점까지 거리(m) */
@@ -56,7 +62,7 @@ public class CourseController {
         return ApiResponse.ok(summaries(courses.nearby(viewer(jwt), lat, lng, radius, cursor, size)));
     }
 
-    /** CRS-003 이름 검색 */
+    /** CRS-003 이름 · 지역 · 태그 검색 */
     @GetMapping("/search")
     public ApiResponse<CursorPage<CourseSummaryResponse>> search(@AuthenticationPrincipal Jwt jwt,
                                                                  @RequestParam @Size(min = 1, max = 50) String query,
@@ -68,7 +74,7 @@ public class CourseController {
     @GetMapping("/{courseId}")
     public ApiResponse<CourseDetailResponse> detail(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId) {
         CourseView v = courses.detail(viewer(jwt), courseId);
-        return ApiResponse.ok(CourseDetailResponse.from(v, ranking.weekly(viewer(jwt), v.course())));
+        return ApiResponse.ok(CourseDetailResponse.from(v, ranking.weekly(viewer(jwt), v.course()), reviews.mine(viewer(jwt), courseId), viewer(jwt)));
     }
 
     @GetMapping("/{courseId}/route")
@@ -85,8 +91,9 @@ public class CourseController {
     /** CREG-004: 201 + 상세 */
     @PostMapping
     public ResponseEntity<ApiResponse<CourseDetailResponse>> create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateCourseRequest req) {
-        CourseView v = courses.create(userId(jwt), req.sourceRunId(), req.name(), req.description(), req.tags());
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(CourseDetailResponse.from(v, ranking.weekly(userId(jwt), v.course()))));
+        CourseView v = courses.create(userId(jwt), req.sourceRunId(), req.name(), req.description(), req.region(), req.recommendedTime(), req.tags());
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(CourseDetailResponse.from(v, ranking.weekly(userId(jwt), v.course()),
+                reviews.mine(userId(jwt), v.course().getId()), userId(jwt))));
     }
 
     @PostMapping("/{courseId}/bookmarks")
@@ -98,6 +105,34 @@ public class CourseController {
     @DeleteMapping("/{courseId}/bookmarks")
     public ResponseEntity<Void> unbookmark(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId) {
         courses.bookmark(userId(jwt), courseId, false);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** REV-001 코스 평가 쓰기 (인증 완주한 사람만, 다시 쓰면 바꾼다) */
+    @PostMapping("/{courseId}/reviews")
+    public ApiResponse<ReviewResponse> review(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId, @Valid @RequestBody ReviewRequest req) {
+        return ApiResponse.ok(ReviewResponse.from(reviews.write(userId(jwt), courseId, req.runId(), req.scores()), userId(jwt)));
+    }
+
+    /** 코스 평가 목록 (최근 먼저). 43장 표에는 쓰기만 있다 */
+    @GetMapping("/{courseId}/reviews")
+    public ApiResponse<CursorPage<ReviewResponse>> reviews(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId,
+                                                           @RequestParam(required = false) String cursor,
+                                                           @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
+        var page = reviews.list(viewer(jwt), courseId, cursor, size);
+        return ApiResponse.ok(new CursorPage<>(page.items().stream().map(r -> ReviewResponse.from(r, viewer(jwt))).toList(), page.nextCursor(), page.hasNext()));
+    }
+
+    @DeleteMapping("/{courseId}/reviews/me")
+    public ResponseEntity<Void> deleteReview(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId) {
+        reviews.delete(userId(jwt), courseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** CREG-005 코스 신고 (한 사람 한 번, 다시 하면 사유를 바꾼다) */
+    @PostMapping("/{courseId}/reports")
+    public ResponseEntity<Void> report(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId, @Valid @RequestBody ReportRequest req) {
+        reviews.report(userId(jwt), courseId, req.reason(), req.content());
         return ResponseEntity.noContent().build();
     }
 
