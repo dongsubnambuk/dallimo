@@ -4,6 +4,7 @@ import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.course.application.CourseService;
 import com.dallimo.dallimoserver.course.domain.Course;
+import com.dallimo.dallimoserver.friend.application.FriendService;
 import com.dallimo.dallimoserver.live.domain.LiveMemberStatus;
 import com.dallimo.dallimoserver.live.domain.LiveMode;
 import com.dallimo.dallimoserver.live.domain.LiveRoom;
@@ -25,9 +26,10 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * 45장 함께 달리기 방 (TGT-001~012) 중 대기실까지: 만들기 · 초대 링크로 참가 · 준비 · 나가기 · 취소 · 목록.
- * 방에 들어오려면 참가자이거나 방 초대 링크의 share_code가 있어야 한다 (방 id만으로는 들어올 수 없다).
- * 달리는 중 실시간 상태(46장 WebSocket)와 최종 결과는 Live 단계(WBS 11)에서 붙인다.
+ * 45장 함께 달리기 방 (TGT-001~012) 중 대기실: 만들기 · 친구 초대 · 초대 링크로 참가 · 준비 · 나가기 · 취소 · 목록.
+ * 방에 들어오려면 참가자(초대받은 친구 포함)이거나 방 초대 링크의 share_code가 있어야 한다 (방 id만으로는 들어올 수 없다).
+ * 초대받은 친구는 INVITED 줄로 들어가 목록에 방이 보이고, 참가하면 JOINED. 출발할 때까지 참가하지 않으면 방에서 빠진다.
+ * 달리는 중 실시간 상태와 결과는 LiveRaceService.
  */
 @Service
 public class LiveRoomService {
@@ -41,15 +43,17 @@ public class LiveRoomService {
     private final LiveMemberJdbcRepository members;
     private final ShareJdbcRepository shares;
     private final CourseService courses;
+    private final FriendService friends;
     private final Clock clock;
     private final ApplicationEventPublisher events;
 
-    public LiveRoomService(LiveRoomJpaRepository rooms, LiveMemberJdbcRepository members, ShareJdbcRepository shares, CourseService courses, Clock clock,
-                           ApplicationEventPublisher events) {
+    public LiveRoomService(LiveRoomJpaRepository rooms, LiveMemberJdbcRepository members, ShareJdbcRepository shares, CourseService courses,
+                           FriendService friends, Clock clock, ApplicationEventPublisher events) {
         this.rooms = rooms;
         this.members = members;
         this.shares = shares;
         this.courses = courses;
+        this.friends = friends;
         this.clock = clock;
         this.events = events;
     }
@@ -75,16 +79,40 @@ public class LiveRoomService {
         return advanceAndSnapshot(room, userId);
     }
 
-    /** 초대 링크로 참가. 이미 참가했으면 그대로. 시작한 방 · 가득 찬 방은 들어올 수 없다 (45.1장 RUNNING 이후 참가 불허) */
+    /**
+     * 참가: 초대받은 친구는 코드 없이, 아니면 초대 링크 코드로. 이미 참가했으면 그대로.
+     * 시작한 방 · 가득 찬 방은 들어올 수 없다 (45.1장 RUNNING 이후 참가 불허). 초대받은 자리는 이미 인원에 들어 있다
+     */
     @Transactional
     public Snapshot join(long userId, long roomId, String inviteCode) {
         LiveRoom room = lock(roomId);
-        if (memberOf(room, userId) == null) {
+        Member me = memberOf(room, userId);
+        if (me == null) {
             requireInvite(room, inviteCode);
             if (!room.getStatus().beforeStart()) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "이미 시작했거나 끝난 방이에요.");
             if (members.list(roomId).size() >= MAX_MEMBERS) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "방이 가득 찼어요.");
             members.add(roomId, userId, LiveMemberStatus.JOINED, clock.instant());
+        } else if (me.status() == LiveMemberStatus.INVITED) {
+            if (!room.getStatus().beforeStart()) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "이미 시작했거나 끝난 방이에요.");
+            members.setStatus(roomId, userId, LiveMemberStatus.JOINED);
         }
+        return advanceAndSnapshot(room, userId);
+    }
+
+    /** TGT-002 친구 초대: 참가자가 자기 친구를 부른다. 이미 방에 있는 사람은 건너뛴다. 시작 전 · 인원 안에서만 */
+    @Transactional
+    public Snapshot invite(long userId, long roomId, List<Long> userIds) {
+        LiveRoom room = lock(roomId);
+        Member me = requireMember(room, userId);
+        if (me.status() == LiveMemberStatus.INVITED) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "먼저 방에 참가해 주세요.");
+        if (!room.getStatus().beforeStart()) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "이미 시작했거나 끝난 방이에요.");
+        List<Long> in = members.list(roomId).stream().map(Member::userId).toList();
+        List<Long> fresh = userIds.stream().distinct().filter(id -> id != userId && !in.contains(id)).toList();
+        List<Long> mine = friends.friendIds(userId);
+        if (!mine.containsAll(fresh)) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN, "친구만 초대할 수 있어요.");
+        if (in.size() + fresh.size() > MAX_MEMBERS) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "방이 가득 찼어요.");
+        Instant now = clock.instant();
+        for (Long id : fresh) members.add(roomId, id, LiveMemberStatus.INVITED, now);
         return advanceAndSnapshot(room, userId);
     }
 
@@ -99,7 +127,7 @@ public class LiveRoomService {
         return advanceAndSnapshot(room, userId);
     }
 
-    /** 참가자 나가기: 시작 전이면 방에서 빠지고, 달리는 중이면 DNF. 방장은 취소를 쓴다 */
+    /** 참가자 나가기: 시작 전이면 방에서 빠지고(초대 거절 포함), 달리는 중이면 DNF. 방장은 취소를 쓴다 */
     @Transactional
     public void leave(long userId, long roomId) {
         LiveRoom room = lock(roomId);
@@ -123,7 +151,7 @@ public class LiveRoomService {
         room.cancel(clock.instant());
     }
 
-    /** 내가 참가한 예정 · 진행 중 방 (예약 시각 순, 예약 없으면 앞) */
+    /** 내가 참가했거나 초대받은 예정 · 진행 중 방 (예약 시각 순, 예약 없으면 앞) */
     @Transactional
     public List<Snapshot> upcoming(long userId) {
         Instant now = clock.instant();
@@ -160,6 +188,8 @@ public class LiveRoomService {
         List<LiveMemberStatus> statuses = members.list(room.getId()).stream().map(Member::status).toList();
         if (room.advance(statuses, clock.instant())) {
             members.startAll(room.getId());
+            // 출발할 때까지 참가하지 않은 초대는 끝난다 (결과에 들어가지 않게)
+            members.removeInvited(room.getId());
             // 커밋 뒤 실시간 채널이 참가자 상태를 만들고 알린다
             events.publishEvent(new LiveRoomEvents.Started(room.getId()));
         }

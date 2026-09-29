@@ -4,7 +4,7 @@ import com.dallimo.dallimoserver.ranking.application.RankingService;
 
 import java.util.List;
 
-/** 43장 RankingEntry. relation: self · normal (friend는 친구 기능 뒤). isPB: 내 줄에서 이 기간 기록이 내 PB인가 */
+/** 43장 RankingEntry. relation: self · friend · normal. isPB: 내 줄에서 이 기간 기록이 내 PB인가 */
 public final class RankingDtos {
 
     private RankingDtos() {

@@ -124,9 +124,26 @@ abstract class RankingApiContractTest {
         // 비회원 · 기록 없는 사람
         assertThat((Object) JsonPath.read(body(get(null, base + "/me")), "$.data.entry")).isNull();
         assertThat((Integer) JsonPath.read(body(get(signup().token, base + "/me")), "$.data.total")).isEqualTo(7);
-        // 친구 랭킹은 친구 기능 전이라 비어 있다
-        assertThat(JsonPath.<List<?>>read(body(get(me.token, base + "?scope=FRIENDS")), "$.data.items")).isEmpty();
-        assertThat((Object) JsonPath.read(body(get(me.token, base + "/me?scope=FRIENDS")), "$.data.entry")).isNull();
+        // 친구 랭킹 (RNK-004): 친구가 없으면 나 혼자
+        assertThat(userIds(get(me.token, base + "?scope=FRIENDS"))).containsExactly(me.id);
+        assertThat(JsonPath.<List<?>>read(body(get(null, base + "?scope=FRIENDS")), "$.data.items")).isEmpty();
+        // 1위 · 6위와 친구가 되면 셋 안에서 순위를 센다
+        befriend(me, users.get(0));
+        befriend(users.get(5), me);
+        MvcTestResult friends = get(me.token, base + "?scope=FRIENDS");
+        assertThat(userIds(friends)).containsExactly(users.get(0).id, me.id, users.get(5).id);
+        assertThat(ranks(friends)).containsExactly(1, 2, 3);
+        assertThat(JsonPath.<List<String>>read(body(friends), "$.data.items[*].relation")).containsExactly("friend", "self", "friend");
+        String fs = body(get(me.token, base + "/me?scope=FRIENDS"));
+        assertThat((Integer) JsonPath.read(fs, "$.data.total")).isEqualTo(3);
+        assertThat((Integer) JsonPath.read(fs, "$.data.entry.rank")).isEqualTo(2);
+        // 코스 상세: 친구 최고 기록 (CRS-104)
+        String detail = body(get(me.token, "/api/v1/courses/" + course));
+        assertThat((String) JsonPath.read(detail, "$.data.competition.friendBest.name")).isEqualTo(users.get(0).name);
+        assertThat((Integer) JsonPath.read(detail, "$.data.competition.friendBest.timeSec")).isEqualTo(300);
+        assertThat((Object) JsonPath.read(body(get(users.get(1).token, "/api/v1/courses/" + course)), "$.data.competition.friendBest")).isNull();
+        // 전체 랭킹에서도 친구 줄이 보인다
+        assertThat(JsonPath.<List<String>>read(body(get(me.token, base + "?size=3")), "$.data.items[*].relation")).containsExactly("friend", "normal", "normal");
         // 잘못된 값 · 볼 수 없는 코스
         assertThat(get(me.token, base + "?cursor=@@")).hasStatus(400);
         assertThat(get(me.token, base + "?period=DAILY")).hasStatus(400);
@@ -169,9 +186,23 @@ abstract class RankingApiContractTest {
         String b = body(get(me.token, "/api/v1/runs/" + faster));
         assertThat((Integer) JsonPath.read(b, "$.data.verification.weeklyRankBefore")).isEqualTo(2);
         assertThat((Integer) JsonPath.read(b, "$.data.verification.weeklyRankAfter")).isEqualTo(1);
+        // RST-004 친구 비교: 친구가 없으면 null, slow와 친구가 되면 slow의 기록
+        assertThat((Object) JsonPath.read(b, "$.data.verification.friendBest")).isNull();
+        befriend(me, slow);
+        String c = body(get(me.token, "/api/v1/runs/" + faster));
+        assertThat((String) JsonPath.read(c, "$.data.verification.friendBest.name")).isEqualTo(slow.name);
+        assertThat((Integer) JsonPath.read(c, "$.data.verification.friendBest.timeSec")).isEqualTo(400);
     }
 
     // ── helpers ──
+
+    /** a가 요청하고 b가 승인한다 */
+    private void befriend(User a, User b) {
+        MvcTestResult r = post(a.token, "/api/v1/friends/requests", "{\"userId\":%d}".formatted(b.id));
+        assertThat(r).hasStatusOk();
+        long requestId = ((Number) JsonPath.read(body(r), "$.data.requestId")).longValue();
+        assertThat(post(b.token, "/api/v1/friends/requests/" + requestId + "/accept", "")).hasStatusOk();
+    }
 
     private List<Long> userIds(MvcTestResult r) {
         return JsonPath.<List<Number>>read(body(r), "$.data.items[*].userId").stream().map(Number::longValue).toList();

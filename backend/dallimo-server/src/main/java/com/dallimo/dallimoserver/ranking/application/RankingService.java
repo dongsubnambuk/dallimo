@@ -5,6 +5,7 @@ import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.CursorPage;
 import com.dallimo.dallimoserver.course.application.CourseService;
 import com.dallimo.dallimoserver.course.domain.Course;
+import com.dallimo.dallimoserver.friend.application.FriendService;
 import com.dallimo.dallimoserver.ranking.domain.RankingPeriod;
 import com.dallimo.dallimoserver.ranking.domain.RankingScope;
 import com.dallimo.dallimoserver.ranking.infrastructure.RankingJdbcRepository;
@@ -16,11 +17,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 43장 코스 랭킹 (RNK-001~005). 공식 랭킹은 사용자별 최고 VERIFIED 기록만 쓴다 (20.1장, 23.1장).
- * 친구 랭킹은 친구 기능(WBS 8) 전이라 비어 있다.
+ * 친구 랭킹(RNK-004)은 나와 친구의 기록만으로 같은 방식으로 센다. 어느 랭킹이든 친구 줄은 relation friend.
  */
 @Service
 public class RankingService {
@@ -32,23 +35,29 @@ public class RankingService {
 
     private final RankingJdbcRepository store;
     private final CourseService courses;
+    private final FriendService friends;
     private final Clock clock;
 
-    public RankingService(RankingJdbcRepository store, CourseService courses, Clock clock) {
+    public RankingService(RankingJdbcRepository store, CourseService courses, FriendService friends, Clock clock) {
         this.store = store;
         this.courses = courses;
+        this.friends = friends;
         this.clock = clock;
     }
 
-    /** relation: self(나) · normal. friend는 친구 기능 뒤. personalBest: 이 기간 최고가 내 전체 최고 기록인가 */
+    /** relation: self(나) · friend · normal. personalBest: 이 기간 최고가 내 전체 최고 기록인가 */
     public record Entry(int rank, long userId, String name, int timeSec, int paceSecPerKm, String relation, boolean personalBest) {
     }
 
     public record Standing(int total, Entry entry, List<Entry> around) {
     }
 
-    /** 코스 상세 CRS-104: 이번 주 1~3위와 내 이번 주 순위 */
-    public record WeeklyPreview(List<Entry> top, Entry me) {
+    /** 코스 상세 CRS-104: 이번 주 1~3위와 내 이번 주 순위, 친구 최고 기록(전체 기간) */
+    public record WeeklyPreview(List<Entry> top, Entry me, FriendBest friendBest) {
+    }
+
+    /** 이 코스 친구 최고 기록 (나를 뺀 친구 중, 전체 기간). RST-004 · CRS-104 */
+    public record FriendBest(long userId, String name, int timeSec) {
     }
 
     /** RST-003: 이 기록 전후의 주간 순위. 전에 이번 주 기록이 없었으면 before는 null */
@@ -58,10 +67,11 @@ public class RankingService {
     @Transactional(readOnly = true)
     public CursorPage<Entry> page(Long viewerId, long courseId, RankingScope scope, RankingPeriod period, String cursor, int size) {
         Course course = courses.requireViewable(viewerId, courseId);
-        if (scope == RankingScope.FRIENDS) return new CursorPage<>(List.of(), null, false);
+        Circle c = circle(viewerId, scope);
+        if (c.only() != null && c.only().isEmpty()) return new CursorPage<>(List.of(), null, false);
         RankingPeriod.Window w = period.window(clock.instant());
         int offset = decodeOffset(cursor);
-        List<Entry> rows = entries(course, viewerId, w, offset, size + 1);
+        List<Entry> rows = entries(course, viewerId, c, w, offset, size + 1);
         boolean hasNext = rows.size() > size;
         List<Entry> items = hasNext ? rows.subList(0, size) : rows;
         return new CursorPage<>(List.copyOf(items), hasNext ? encode(offset + size) : null, hasNext);
@@ -71,14 +81,27 @@ public class RankingService {
     @Transactional(readOnly = true)
     public Standing standing(Long viewerId, long courseId, RankingScope scope, RankingPeriod period) {
         Course course = courses.requireViewable(viewerId, courseId);
-        if (scope == RankingScope.FRIENDS) return new Standing(0, null, List.of());
-        return standingIn(course, viewerId, period.window(clock.instant()));
+        Circle c = circle(viewerId, scope);
+        if (c.only() != null && c.only().isEmpty()) return new Standing(0, null, List.of());
+        return standingIn(course, viewerId, c, period.window(clock.instant()));
     }
 
     @Transactional(readOnly = true)
     public WeeklyPreview weekly(Long viewerId, Course course) {
         RankingPeriod.Window w = RankingPeriod.WEEKLY.window(clock.instant());
-        return new WeeklyPreview(entries(course, viewerId, w, 0, PREVIEW), standingIn(course, viewerId, w).entry());
+        Circle c = circle(viewerId, RankingScope.ALL);
+        return new WeeklyPreview(entries(course, viewerId, c, w, 0, PREVIEW), standingIn(course, viewerId, c, w).entry(), friendBestIn(course.getId(), c));
+    }
+
+    @Transactional(readOnly = true)
+    public FriendBest friendBest(long courseId, long viewerId) {
+        return friendBestIn(courseId, circle(viewerId, RankingScope.ALL));
+    }
+
+    private FriendBest friendBestIn(long courseId, Circle c) {
+        if (c.friends().isEmpty()) return null;
+        return store.page(courseId, RankingPeriod.ALL.window(clock.instant()), List.copyOf(c.friends()), 0, 1).stream()
+                .findFirst().map(r -> new FriendBest(r.userId(), r.nickname(), r.bestSec())).orElse(null);
     }
 
     /** 기록이 만들어진 주의 순위: 이 기록을 빼고 계산한 순위 → 넣고 계산한 순위 */
@@ -88,29 +111,42 @@ public class RankingService {
         Integer before = store.best(courseId, userId, w, recordId);
         Integer after = store.best(courseId, userId, w, null);
         if (after == null) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
-        return new RankChange(before == null ? null : store.rank(courseId, userId, before, w), store.rank(courseId, userId, after, w));
+        return new RankChange(before == null ? null : store.rank(courseId, userId, before, w, null), store.rank(courseId, userId, after, w, null));
     }
 
-    private Standing standingIn(Course course, Long viewerId, RankingPeriod.Window w) {
-        int total = store.total(course.getId(), w);
+    /** 누구 안에서 셀지(only, null이면 모두)와 내 친구 (relation friend 표시용) */
+    private record Circle(List<Long> only, Set<Long> friends) {
+    }
+
+    private Circle circle(Long viewerId, RankingScope scope) {
+        if (viewerId == null) return new Circle(scope == RankingScope.FRIENDS ? List.of() : null, Set.of());
+        Set<Long> mine = new HashSet<>(friends.friendIds(viewerId));
+        if (scope != RankingScope.FRIENDS) return new Circle(null, mine);
+        List<Long> only = new ArrayList<>(mine);
+        only.add(viewerId);
+        return new Circle(only, mine);
+    }
+
+    private Standing standingIn(Course course, Long viewerId, Circle c, RankingPeriod.Window w) {
+        int total = store.total(course.getId(), w, c.only());
         Integer best = viewerId == null ? null : store.best(course.getId(), viewerId, w, null);
         if (best == null) return new Standing(total, null, List.of());
-        int rank = store.rank(course.getId(), viewerId, best, w);
+        int rank = store.rank(course.getId(), viewerId, best, w, c.only());
         int from = Math.max(0, rank - 1 - AROUND);
-        List<Entry> around = entries(course, viewerId, w, from, rank - from + AROUND);
+        List<Entry> around = entries(course, viewerId, c, w, from, rank - from + AROUND);
         Entry me = around.stream().filter(e -> e.userId() == viewerId).findFirst().orElse(null);
         return new Standing(total, me, around);
     }
 
-    private List<Entry> entries(Course course, Long viewerId, RankingPeriod.Window w, int offset, int limit) {
+    private List<Entry> entries(Course course, Long viewerId, Circle c, RankingPeriod.Window w, int offset, int limit) {
         double km = Math.max(1, course.getDistanceM()) / 1000.0;
         List<Entry> out = new ArrayList<>();
-        List<RankingJdbcRepository.Row> rows = store.page(course.getId(), w, offset, limit);
+        List<RankingJdbcRepository.Row> rows = store.page(course.getId(), w, c.only(), offset, limit);
         for (int i = 0; i < rows.size(); i++) {
             RankingJdbcRepository.Row r = rows.get(i);
             boolean self = viewerId != null && r.userId() == viewerId;
             out.add(new Entry(offset + i + 1, r.userId(), r.nickname(), r.bestSec(), (int) Math.round(r.bestSec() / km),
-                    self ? "self" : "normal", self && r.bestSec() == r.allBestSec()));
+                    self ? "self" : c.friends().contains(r.userId()) ? "friend" : "normal", self && r.bestSec() == r.allBestSec()));
         }
         return out;
     }

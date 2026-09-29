@@ -6,8 +6,9 @@ import com.dallimo.dallimoserver.live.domain.LiveMode;
 import com.dallimo.dallimoserver.live.domain.LiveRoomStatus;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
@@ -29,7 +30,12 @@ public final class LiveRoomDtos {
                                     OffsetDateTime scheduledAt) {
     }
 
-    public record JoinRequest(@NotBlank @Size(max = 32) String inviteCode) {
+    /** 초대받은 친구는 코드 없이 참가한다 */
+    public record JoinRequest(@Size(max = 32) String inviteCode) {
+    }
+
+    /** TGT-002 친구 초대. 한 방 최대 인원(10) 안에서 */
+    public record InviteRequest(@NotEmpty @Size(max = 9) List<@NotNull @Positive Long> userIds) {
     }
 
     public record ReadyRequest(Boolean ready) {

@@ -51,7 +51,9 @@ public final class CourseDtos {
     }
 
     /** CRS-104 경쟁 정보: 코스 1위(전체 기간), 이번 주 1~3위, 내 이번 주 순위. 친구 기록은 친구 기능(WBS 8) 뒤 */
-    public record Competition(Integer leaderSec, Integer myWeeklyRank, List<RankingEntryResponse> weeklyTop, RankingEntryResponse myEntry) {
+    /** friendBest: 친구 최고 기록(전체 기간, 친구가 없거나 기록이 없으면 null) */
+    public record Competition(Integer leaderSec, Integer myWeeklyRank, List<RankingEntryResponse> weeklyTop, RankingEntryResponse myEntry,
+                              RankingService.FriendBest friendBest) {
     }
 
     /** 상세 (CourseDetail). route는 1000점 이하, elevationProfile은 [거리(m), 고도(m)] (고도가 없으면 null) */
@@ -67,7 +69,7 @@ public final class CourseDtos {
                     v.creatorName(), v.course().getDistanceM(), v.estimatedSec(), v.course().getDifficulty(), gain, v.tags(),
                     CourseRoute.decimate(v.route(), CourseRoute.DETAIL_MAX_POINTS), CourseRoute.profile(v.route()),
                     s.finisherCount(), s.weeklyRunnerCount(), my, new Competition(s.leaderSec(), weekly.me() == null ? null : weekly.me().rank(), RankingEntryResponse.from(weekly.top()),
-                    RankingEntryResponse.from(weekly.me())), v.bookmarked(), v.course().getCreatedAt());
+                    RankingEntryResponse.from(weekly.me()), weekly.friendBest()), v.bookmarked(), v.course().getCreatedAt());
         }
     }
 

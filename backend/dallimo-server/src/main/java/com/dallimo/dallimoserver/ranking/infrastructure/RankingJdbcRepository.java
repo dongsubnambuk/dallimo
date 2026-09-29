@@ -5,11 +5,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * 23.1장 랭킹 쿼리: 코스 공식 기록(tbl_course_record, VERIFIED만 있다)을 사용자별 최고 기록으로 모아 빠른 순.
  * 같은 기록이면 user_id 순. 기간은 기록이 만들어진 시각(created_at)으로 거른다 (idx_course_record_period).
+ * only가 있으면 그 사용자들 안에서만 센다 (친구 랭킹 RNK-004: 나 + 친구). null이면 모두.
  */
 @Repository
 public class RankingJdbcRepository {
@@ -24,23 +27,29 @@ public class RankingJdbcRepository {
     public record Row(long userId, String nickname, int bestSec, int allBestSec) {
     }
 
-    public List<Row> page(long courseId, Window w, int offset, int limit) {
+    public List<Row> page(long courseId, Window w, List<Long> only, int offset, int limit) {
+        List<Object> args = new ArrayList<>(List.of(courseId, courseId, ts(w.from()), ts(w.to())));
+        String in = only(only, args);
+        args.add(limit);
+        args.add(offset);
         return jdbc.query("""
                 SELECT b.user_id, u.nickname, b.best,
                        (SELECT MIN(a.duration_seconds) FROM tbl_course_record a WHERE a.course_id = ? AND a.user_id = b.user_id) AS all_best
                 FROM (SELECT user_id, MIN(duration_seconds) AS best FROM tbl_course_record
-                      WHERE course_id = ? AND created_at >= ? AND created_at < ?
+                      WHERE course_id = ? AND created_at >= ? AND created_at < ?%s
                       GROUP BY user_id) b
                 JOIN tbl_user u ON u.id = b.user_id
                 ORDER BY b.best ASC, b.user_id ASC
-                LIMIT ? OFFSET ?""",
+                LIMIT ? OFFSET ?""".formatted(in),
                 (rs, i) -> new Row(rs.getLong("user_id"), rs.getString("nickname"), rs.getInt("best"), rs.getInt("all_best")),
-                courseId, courseId, ts(w.from()), ts(w.to()), limit, offset);
+                args.toArray());
     }
 
-    public int total(long courseId, Window w) {
-        Integer n = jdbc.queryForObject("SELECT COUNT(DISTINCT user_id) FROM tbl_course_record WHERE course_id = ? AND created_at >= ? AND created_at < ?",
-                Integer.class, courseId, ts(w.from()), ts(w.to()));
+    public int total(long courseId, Window w, List<Long> only) {
+        List<Object> args = new ArrayList<>(List.of(courseId, ts(w.from()), ts(w.to())));
+        String in = only(only, args);
+        Integer n = jdbc.queryForObject("SELECT COUNT(DISTINCT user_id) FROM tbl_course_record WHERE course_id = ? AND created_at >= ? AND created_at < ?" + in,
+                Integer.class, args.toArray());
         return n == null ? 0 : n;
     }
 
@@ -53,14 +62,25 @@ public class RankingJdbcRepository {
     }
 
     /** bestSec 기록을 가진 userId의 순위 = 나보다 앞선 다른 사용자 수 + 1 */
-    public int rank(long courseId, long userId, int bestSec, Window w) {
+    public int rank(long courseId, long userId, int bestSec, Window w, List<Long> only) {
+        List<Object> args = new ArrayList<>(List.of(courseId, ts(w.from()), ts(w.to()), userId));
+        String in = only(only, args);
+        args.addAll(List.of(bestSec, bestSec, userId));
         Integer ahead = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM (SELECT user_id, MIN(duration_seconds) AS best FROM tbl_course_record
-                                      WHERE course_id = ? AND created_at >= ? AND created_at < ? AND user_id <> ?
+                                      WHERE course_id = ? AND created_at >= ? AND created_at < ? AND user_id <> ?%s
                                       GROUP BY user_id) b
-                WHERE b.best < ? OR (b.best = ? AND b.user_id < ?)""",
-                Integer.class, courseId, ts(w.from()), ts(w.to()), userId, bestSec, bestSec, userId);
+                WHERE b.best < ? OR (b.best = ? AND b.user_id < ?)""".formatted(in),
+                Integer.class, args.toArray());
         return (ahead == null ? 0 : ahead) + 1;
+    }
+
+    /** " AND user_id IN (?, …)" 조각. 인자는 args에 더한다. 빈 목록이면 아무도 없다 */
+    private static String only(List<Long> only, List<Object> args) {
+        if (only == null) return "";
+        if (only.isEmpty()) return " AND 1 = 0";
+        args.addAll(only);
+        return " AND user_id IN (" + String.join(", ", Collections.nCopies(only.size(), "?")) + ")";
     }
 
     private static Timestamp ts(java.time.Instant i) {

@@ -46,6 +46,10 @@ public class LiveMemberJdbcRepository {
         jdbc.update("UPDATE tbl_live_run_member SET status = 'RUNNING' WHERE room_id = ? AND status = 'READY'", roomId);
     }
 
+    public void removeInvited(long roomId) {
+        jdbc.update("DELETE FROM tbl_live_run_member WHERE room_id = ? AND status = 'INVITED'", roomId);
+    }
+
     public void remove(long roomId, long userId) {
         jdbc.update("DELETE FROM tbl_live_run_member WHERE room_id = ? AND user_id = ?", roomId, userId);
     }
