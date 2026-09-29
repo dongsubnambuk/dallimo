@@ -12,6 +12,7 @@ import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/to
 import { runResultRepository } from '@/entities/run/api';
 import { endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSession';
 import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
+import { useGapLine, useGapVoice } from '@/features/run/voice/useCompetitionVoice';
 import type { RunFinishResult, RunningEngine } from '@/features/run/engine/runningEngine';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import type { GeoPoint } from '@/shared/geo';
@@ -44,7 +45,9 @@ export function ActiveRunScreen({ engine, summary, course, target }: Props) {
   const completed = useRunSnapshot(engine, (s) => s.course?.completedActiveMs != null);
   useCourseAlerts(engine, target);
   useAutoPauseAlerts(engine);
-  useSplitAnnouncer(engine);
+  // AUD-002 경쟁 안내: 목표보다 앞섬 · 뒤처짐, 구간 안내 끝에 목표 차이
+  useGapVoice(engine, target);
+  useSplitAnnouncer(engine, useGapLine(engine, target));
 
   // 러닝 중 Android 뒤로 가기로 화면을 벗어나지 않게 한다 (종료는 일시정지 → 종료 확인으로만)
   useEffect(() => {

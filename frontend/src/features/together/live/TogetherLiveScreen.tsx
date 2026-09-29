@@ -22,11 +22,12 @@ import { getRunPolicySync } from '@/entities/run/policy';
 import { useElapsedSec } from '@/features/active-run/useElapsedSec';
 import { beginActiveRun, endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSession';
 import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
+import { createFinishVoice, createRankVoice, createRemainingVoice } from '@/features/run/voice/competitionRules';
 import { activeMs } from '@/features/run/engine/runningEngine';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import { haptics } from '@/shared/haptics';
 import { showNow } from '@/shared/notifications/notifier';
-import { getPreferences } from '@/shared/preferences';
+import { getPreferences, usePreferences } from '@/shared/preferences';
 import { speak } from '@/shared/voice';
 
 import { goalLabel, participantStatus } from '../labels';
@@ -213,6 +214,9 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
     prevRank.current = rank;
   }, [rank, mine]);
 
+  // AUD-002 경쟁 안내: 순위 변화 · 남은 시간 · 다른 참가자 완주
+  useLiveVoice(room, ordered, rank, room.targetSeconds != null ? room.targetSeconds - elapsed : null, mine === 'RUNNING');
+
   const running = ordered.filter((m) => m.status === 'RUNNING' || m.status === 'DISCONNECTED').length;
   const leader = ordered[0];
   const paused = status === 'PAUSED';
@@ -375,6 +379,33 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
       {confirmQuit ? <QuitSheet mode={room.mode} onStay={() => setConfirmQuit(false)} onQuit={() => (setConfirmQuit(false), end('DNF'))} /> : null}
     </>
   );
+}
+
+// AUD-002 함께 달리기 경쟁 안내. 1초마다 지금 값으로 규칙을 돌린다 (순위는 5초 유지돼야 읽는다).
+// 레이스 · 타임 어택: 순위 변화, 타임 어택 남은 5분 · 1분, 레이스 첫 완주. 함께: 친구 완주. 내가 끝나면 순위 · 남은 시간은 읽지 않는다
+function useLiveVoice(room: LiveRoom, ordered: LiveMemberState[], rank: number | null, remainingSec: number | null, running: boolean) {
+  const on = usePreferences().voiceCompetition;
+  const latest = useRef({ ordered, rank, remainingSec, running });
+  useEffect(() => {
+    latest.current = { ordered, rank, remainingSec, running };
+  });
+  const mode = room.mode;
+  useEffect(() => {
+    if (!on) return;
+    const rankVoice = createRankVoice();
+    const remainingVoice = createRemainingVoice();
+    const finishVoice = createFinishVoice(mode === 'LIVE_RACE');
+    const t = setInterval(() => {
+      const v = latest.current;
+      const lines = [
+        finishVoice(v.ordered.map((m) => ({ userId: m.userId, name: m.name, isMe: m.isMe, finished: m.status === 'FINISHED' }))),
+        v.running && mode !== 'TOGETHER' ? rankVoice(Date.now(), v.rank) : null,
+        v.running && mode === 'TIME_ATTACK' ? remainingVoice(v.remainingSec) : null,
+      ].filter(Boolean);
+      if (lines.length) speak(lines.join('. '));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [on, mode]);
 }
 
 // 로컬 알림 (사용자 결정): 화면을 끈 채 달리다 연결이 끊기면 알린다. 2분에 한 번까지
