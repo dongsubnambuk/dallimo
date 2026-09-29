@@ -265,6 +265,17 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
     - 토큰 옮김 · 없어진 기기 · 로그아웃 · 탈퇴
   - 밤 시간 규칙은 `QuietHoursTest`에서 따로 본다.
 
+## 친구 활동 (명세 ACT-001~002, SCR-M06)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/activities?cursor=&size=` | 친구와 나의 활동, 최근 먼저. `{ id, type, userId, nickname, isMine, createdAt, courseId, courseName, courseDistanceM, timeSec, previousSec, rank, targetNickname, targetSec, targetIsMe }` |
+
+- **활동 종류** (SCR-M06 "PB, 코스등록, Challenge, 랭킹 이벤트"): `PB`(코스 첫 공식 기록 · PB 갱신, `previousSec` 이전 최고), `COURSE_CREATED`, `CHALLENGE_WON`(도전 성공), `WEEKLY_TOP`(이번 주 코스 3위 안으로 올라섬, `rank`).
+- **만드는 곳** (12장 ActivityService "행동 이벤트 생성"): 코스 검증이 공식 기록을 만들 때(PB · 랭킹), 코스 등록, 도전 판정. 같은 트랜잭션 안에서 `tbl_activity`에 쓴다(`Propagation.MANDATORY`).
+- **보이는 것**: 친구와 나의 활동만. 숨김 · 차단 · 삭제 · 남의 비공개 코스에 딸린 활동은 뺀다(한 쪽을 채우도록 몇 번 더 읽는다). 좋아요 · 댓글은 없다(피드를 중심 IA로 만들지 않는다, 65장).
+- **테스트**: `ActivityApiContractTest`를 MySQL · MariaDB에서(코스 등록 · 첫 기록 · 느린 기록은 없음 · PB 갱신 · 주간 1위 · 도전 성공 · 친구 아닌 사람 · cursor · 숨긴 코스 · 로그인 · 5위에서 3위로 올라섬).
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -329,6 +340,9 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 환경 단계 | 1~3 평균을 1.67 · 2.34로 나눠 세 단계 | 명세에 값 없음 |
 | 신고 테이블 | `tbl_course_report(reason, content)`, `uk(course_id, user_id)`. 쌓기만 | CREG-005인데 ERD에 없다. 숨김 기준은 코스 공개 정책(20.2장)과 함께 |
 | 코스 지역 · 추천 시간 | `tbl_course.region`(50자) · `recommended_time`(30자), 등록 요청에 받는다 | ERD에 없다. 지역은 앱이 휴대폰 지오코더로(외부 지도 API 없이) |
+| 활동 테이블 | ERD `activity` + `value_int`(PB 이전 기록 · 주간 순위, 만든 때의 값) | 나중 기록으로 문구가 바뀌지 않게. ERD에는 대상만 있다 |
+| 랭킹 활동 기준 | 이번 주 코스 3위 안으로 들어오거나 3위 안에서 순위를 올렸을 때 | 명세에 값 없음. 순위가 그대로면 남기지 않는다(같은 소식 반복 방지) |
+| 활동 공개 범위 | 친구와 나. visibility는 FRIENDS만 쓴다 | 16장 "공개 범위는 정책화". 전체 공개 피드는 만들지 않는다 |
 | 공유 테이블 | `tbl_share_link`를 ERD 그대로 V6에 추가 + `uk_share_target(creator_id, type, reference_id)` | 22.4장 최종 DDL에 빠져 있음. 같은 대상 같은 링크 |
 | 공유 type | `LIVE_ROOM` 추가 (함께 달리기 초대) | 14.3장은 코스 · 기록 · Challenge만 |
 | 공유 URL | 서버 공유 페이지 `/s/{code}`(http(s)) → 앱 `dallimo://share/{code}` | 사용자 요청: 링크를 누르면 열려야 한다 |
