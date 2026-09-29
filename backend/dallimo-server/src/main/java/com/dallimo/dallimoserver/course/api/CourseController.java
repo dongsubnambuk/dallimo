@@ -9,6 +9,7 @@ import com.dallimo.dallimoserver.course.api.CourseDtos.RoutePointResponse;
 import com.dallimo.dallimoserver.course.application.CourseService;
 import com.dallimo.dallimoserver.course.application.CourseService.CourseView;
 import com.dallimo.dallimoserver.course.domain.CourseRoute;
+import com.dallimo.dallimoserver.ranking.application.RankingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -37,9 +38,11 @@ import java.util.List;
 public class CourseController {
 
     private final CourseService courses;
+    private final RankingService ranking;
 
-    public CourseController(CourseService courses) {
+    public CourseController(CourseService courses, RankingService ranking) {
         this.courses = courses;
+        this.ranking = ranking;
     }
 
     /** CRS-001 주변 코스. radius는 출발점까지 거리(m) */
@@ -64,7 +67,8 @@ public class CourseController {
 
     @GetMapping("/{courseId}")
     public ApiResponse<CourseDetailResponse> detail(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId) {
-        return ApiResponse.ok(CourseDetailResponse.from(courses.detail(viewer(jwt), courseId)));
+        CourseView v = courses.detail(viewer(jwt), courseId);
+        return ApiResponse.ok(CourseDetailResponse.from(v, ranking.weekly(viewer(jwt), v.course())));
     }
 
     @GetMapping("/{courseId}/route")
@@ -82,7 +86,7 @@ public class CourseController {
     @PostMapping
     public ResponseEntity<ApiResponse<CourseDetailResponse>> create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateCourseRequest req) {
         CourseView v = courses.create(userId(jwt), req.sourceRunId(), req.name(), req.description(), req.tags());
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(CourseDetailResponse.from(v)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(CourseDetailResponse.from(v, ranking.weekly(userId(jwt), v.course()))));
     }
 
     @PostMapping("/{courseId}/bookmarks")

@@ -52,12 +52,13 @@ public class VerificationJdbcRepository {
     }
 
     /** 결과 화면용: 가장 최근 검증 근거 + 공식 기록 + 이 기록 전의 내 최고 기록 */
-    public record Summary(String failureReason, Double matchRate, String policyVersion, Integer recordSeconds, Integer previousBestSec) {
+    public record Summary(String failureReason, Double matchRate, String policyVersion, Integer recordSeconds, Integer previousBestSec,
+                          Long recordId, Long courseId, Instant recordedAt) {
     }
 
     public Optional<Summary> summary(long runId) {
         List<Summary> rows = jdbc.query("""
-                SELECT v.failure_reason, v.match_rate, v.policy_version, cr.duration_seconds,
+                SELECT v.failure_reason, v.match_rate, v.policy_version, cr.duration_seconds, cr.id AS record_id, cr.course_id, cr.created_at AS recorded_at,
                        (SELECT MIN(p.duration_seconds) FROM tbl_course_record p
                         WHERE cr.id IS NOT NULL AND p.course_id = cr.course_id AND p.user_id = cr.user_id AND p.id < cr.id) AS previous_best
                 FROM tbl_run_verification v
@@ -69,7 +70,11 @@ public class VerificationJdbcRepository {
             Integer recordSeconds = rs.wasNull() ? null : record;
             int prev = rs.getInt("previous_best");
             Integer previous = rs.wasNull() ? null : prev;
-            return new Summary(rs.getString("failure_reason"), rate == null ? null : rate.doubleValue(), rs.getString("policy_version"), recordSeconds, previous);
+            long recordId = rs.getLong("record_id");
+            boolean hasRecord = !rs.wasNull();
+            Timestamp at = rs.getTimestamp("recorded_at");
+            return new Summary(rs.getString("failure_reason"), rate == null ? null : rate.doubleValue(), rs.getString("policy_version"), recordSeconds, previous,
+                    hasRecord ? recordId : null, hasRecord ? rs.getLong("course_id") : null, at == null ? null : at.toInstant());
         }, runId);
         return rows.stream().findFirst();
     }

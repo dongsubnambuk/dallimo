@@ -33,6 +33,9 @@ type ServerVerification = {
   recordSeconds: number | null;
   previousBestSec: number | null;
   personalBest: boolean | null;
+  // 기록한 주의 주간 순위: 이 기록 전(그 주 기록이 없었으면 null) → 후 (RST-003)
+  weeklyRankBefore: number | null;
+  weeklyRankAfter: number | null;
 };
 type ServerDetail = { summary: ServerSummary; splits: RunSplit[]; path: [number, number][]; verification: ServerVerification | null };
 
@@ -53,6 +56,7 @@ function verdict(v: ServerVerification | null, status: string) {
     verificationReason: verification === 'unverified' || verification === 'rejected' ? verificationReasonText(v?.failureReason ?? null) : null,
     recordSec: verification === 'verified' ? (v?.recordSeconds ?? null) : null,
     pb: verification === 'verified' && v?.personalBest != null ? { previousSec: v.previousBestSec, improved: v.personalBest } : null,
+    weeklyRank: verification === 'verified' && v?.weeklyRankAfter != null ? { before: v.weeklyRankBefore, after: v.weeklyRankAfter } : null,
   };
 }
 
@@ -74,7 +78,6 @@ function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number]
     target: null,
     sync: 'synced',
     ...judged,
-    weeklyRank: null,
     friendBest: null,
   };
 }

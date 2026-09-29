@@ -1,14 +1,15 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { createMockRankingRepository, type RankingScenario } from '@/entities/ranking/api/mockRankingRepository';
+import { getRankingRepository } from '@/entities/ranking/api';
+import type { RankingScenario } from '@/entities/ranking/api/mockRankingRepository';
 import type { RankingPeriod, RankingScope } from '@/entities/ranking/types';
 
 // 한 번에 받는 순위 수. 긴 목록은 cursor로 이어 받는다 (43장 cursor,size)
 const PAGE_SIZE = 20;
 
 export function useCourseRanking(courseId: string, scope: RankingScope, period: RankingPeriod, scenario: RankingScenario) {
-  const repo = useMemo(() => createMockRankingRepository(scenario), [scenario]);
+  const repo = useMemo(() => getRankingRepository(scenario), [scenario]);
   const list = useInfiniteQuery({
     queryKey: ['ranking', courseId, scope, period, scenario],
     queryFn: ({ pageParam }) => repo.getPage({ courseId, scope, period, cursor: pageParam, size: PAGE_SIZE }),

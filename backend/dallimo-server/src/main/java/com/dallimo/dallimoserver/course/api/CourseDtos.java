@@ -3,6 +3,8 @@ package com.dallimo.dallimoserver.course.api;
 import com.dallimo.dallimoserver.course.application.CourseService.CourseView;
 import com.dallimo.dallimoserver.course.domain.CourseRoute;
 import com.dallimo.dallimoserver.course.domain.CourseStatus;
+import com.dallimo.dallimoserver.ranking.api.RankingDtos.RankingEntryResponse;
+import com.dallimo.dallimoserver.ranking.application.RankingService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -48,8 +50,8 @@ public final class CourseDtos {
     public record MyRecord(int bestSec, int lastSec, int finishCount) {
     }
 
-    /** CRS-104 경쟁 정보. 주간 순위 · 친구 기록은 랭킹(WBS 6)에서 채운다 */
-    public record Competition(Integer leaderSec) {
+    /** CRS-104 경쟁 정보: 코스 1위(전체 기간), 이번 주 1~3위, 내 이번 주 순위. 친구 기록은 친구 기능(WBS 8) 뒤 */
+    public record Competition(Integer leaderSec, Integer myWeeklyRank, List<RankingEntryResponse> weeklyTop, RankingEntryResponse myEntry) {
     }
 
     /** 상세 (CourseDetail). route는 1000점 이하, elevationProfile은 [거리(m), 고도(m)] (고도가 없으면 null) */
@@ -57,14 +59,15 @@ public final class CourseDtos {
                                        int distanceM, int estimatedSec, String difficulty, Double elevationGainM, List<String> tags,
                                        List<double[]> route, List<double[]> elevationProfile, int finisherCount, int weeklyRunnerCount,
                                        MyRecord myRecord, Competition competition, boolean bookmarked, Instant createdAt) {
-        static CourseDetailResponse from(CourseView v) {
+        static CourseDetailResponse from(CourseView v, RankingService.WeeklyPreview weekly) {
             var s = v.stats();
             MyRecord my = s.myBestSec() == null ? null : new MyRecord(s.myBestSec(), s.myLastSec(), s.myFinishCount());
             Double gain = v.course().getElevationGainM() == null ? null : (double) Math.round(v.course().getElevationGainM());
             return new CourseDetailResponse(v.course().getId(), v.course().getName(), v.course().getStatus(), v.course().getDescription(),
                     v.creatorName(), v.course().getDistanceM(), v.estimatedSec(), v.course().getDifficulty(), gain, v.tags(),
                     CourseRoute.decimate(v.route(), CourseRoute.DETAIL_MAX_POINTS), CourseRoute.profile(v.route()),
-                    s.finisherCount(), s.weeklyRunnerCount(), my, new Competition(s.leaderSec()), v.bookmarked(), v.course().getCreatedAt());
+                    s.finisherCount(), s.weeklyRunnerCount(), my, new Competition(s.leaderSec(), weekly.me() == null ? null : weekly.me().rank(), RankingEntryResponse.from(weekly.top()),
+                    RankingEntryResponse.from(weekly.me())), v.bookmarked(), v.course().getCreatedAt());
         }
     }
 
