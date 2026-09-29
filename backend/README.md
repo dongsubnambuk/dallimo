@@ -7,16 +7,17 @@
 | 항목 | 값 | 근거 |
 | --- | --- | --- |
 | 언어 · 빌드 | Java 21, Gradle(Groovy) wrapper 9.7.1 | 사용자 결정 |
-| 프레임워크 | Spring Boot 4.1.1 (Web MVC, Validation, Data JPA, JDBC, Flyway, Actuator) | 명세 40.3장 |
+| 프레임워크 | Spring Boot 4.1.1 (Web MVC, Validation, Data JPA, JDBC, Flyway, Actuator, WebSocket, Data Redis) | 명세 40.3장 |
+| 실시간 상태 | Redis 7.4 | 명세 8장, ADR-005 |
 | DB | MySQL 8.4(로컬 · 개발) / MariaDB(운영) | 명세 15.2장, ADR-004 |
 | 마이그레이션 | Flyway `src/main/resources/db/migration` (V1~V3 = 명세 22.4장 DDL 그대로, V4부터 추가분) | 명세 22.4장 |
-| 테스트 | JUnit 5 + Testcontainers (MySQL 8.4 · MariaDB 11.4) | 명세 13.1장, 40.3장 |
+| 테스트 | JUnit 5 + Testcontainers (MySQL 8.4 · MariaDB 11.4 · Redis 7.4) | 명세 13.1장, 40.3장 |
 
 ## 로컬 실행
 
 ```bash
 cd backend/dallimo-server
-docker compose up -d          # MySQL 8.4 (utf8mb4, UTC)
+docker compose up -d          # MySQL 8.4 (utf8mb4, UTC) + Redis 7.4
 ./gradlew bootRun             # 기본 프로필 local → Flyway가 스키마를 만든다
 curl localhost:8080/actuator/health
 ```
@@ -26,7 +27,7 @@ Docker만 있으면 DB 없이도 `TestDallimoServerApplication`(테스트 소스
 ## 테스트
 
 ```bash
-./gradlew test    # Docker 필요. MySQL · MariaDB 컨테이너를 띄워 migration · 스키마 계약 · 오류 응답을 확인
+./gradlew test    # Docker 필요. MySQL · MariaDB · Redis 컨테이너를 띄워 migration · 스키마 계약 · 오류 응답 · 실시간 경쟁을 확인
 ```
 
 CI: `.github/workflows/backend.yml` (backend 변경 PR · main push에서 `./gradlew build`).
@@ -35,10 +36,10 @@ CI: `.github/workflows/backend.yml` (backend 변경 PR · main push에서 `./gra
 
 | 프로필 | DB | 접속 정보 |
 | --- | --- | --- |
-| local (기본) | docker compose MySQL | `application-local.yaml` (로컬 전용 값, `DB_USERNAME` · `DB_PASSWORD`로 덮어쓰기 가능) |
-| dev | MySQL | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD` |
+| local (기본) | docker compose MySQL · Redis | `application-local.yaml` (로컬 전용 값, `DB_USERNAME` · `DB_PASSWORD`로 덮어쓰기 가능) |
+| dev | MySQL | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD` |
 | test | Testcontainers | 테스트가 넣는다 |
-| prod | MariaDB | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD` |
+| prod | MariaDB | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD` |
 
 비밀 값(DB · OAuth · Push · S3)은 저장소에 넣지 않습니다.
 
@@ -148,14 +149,35 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `GET /api/v1/live-runs/{id}?inviteCode=` | 참가자이거나 초대 코드가 있어야 본다. 아직 참가 전이면 내 줄이 INVITED |
 | `POST /api/v1/live-runs/{id}/join` | `{ inviteCode }`. 시작 · 취소 · 가득 찬 방은 409 |
 | `POST /api/v1/live-runs/{id}/ready` · `leave` · `cancel` | 준비(취소 포함) · 나가기(달리는 중이면 DNF) · 방장 취소 |
+| `GET /api/v1/live-runs/{id}/result` | 끝난 방 결과(참가자만). 아래 함께 달리기 실시간 경쟁 |
 
 - **공유 코드** (16장): 헷갈리는 글자를 뺀 31글자 × 10자리 무작위(SecureRandom, 약 2^50). 내부 id를 URL에 쓰지 않는다. 만료는 없다(`expires_at` null).
 - **링크 주소**: `url`은 `dallimo.share.public-base-url`, 없으면 요청이 들어온 서버 주소 + `/s/{code}`. 메신저가 `dallimo://`를 링크로 보여주지 않는 경우가 많아 http(s) 공유 페이지를 거친다(사용자 요청: 링크를 누르면 열려야 한다). 앱 설치 안내 · 스토어 링크 · 도메인 · Universal Link는 배포 단계.
 - **받은 사람이 보는 것** (사용자 결정): 공유한 사람 이름, 기록 숫자(거리 · 시간 · 페이스 · 인증된 코스 기록), 코스 이름, 방 목표 · 예약 시각 · 인원. 자유 달리기 경로는 내보내지 않는다.
 - **방 초대** (사용자 요청: 초대가 실제로 되어야 한다): 방 id만으로는 방을 볼 수 없고, 방 초대 링크(type LIVE_ROOM)의 코드가 있어야 보고 참가한다. 참가자 · 방장만 초대 링크를 만든다.
 - **방 상태 전이** (45.1장 서버가 정한다): 참가자(방장 포함) 2명 이상이 모두 준비되고 예약 시각이 지나면 5초 뒤 출발 시각(`startsAt`)을 잡고 READY, 그 시각이 지나면 RUNNING(준비한 참가자도 RUNNING). 출발 전 누가 준비를 풀면 다시 WAITING. 읽거나 바꿀 때마다 방 행을 잠그고 다시 정한다.
-- **아직 없는 것**: 친구 초대(POST /invite, WBS 8), 달리는 중 실시간 상태 · 결과 확정(46장 WebSocket, WBS 11). 달리기 · 결과 화면은 지금까지의 흐름(mock 채널)을 그대로 쓴다.
+- **아직 없는 것**: 친구 초대(POST /invite, WBS 8).
 - **테스트**: `ShareAndRoomApiContractTest`를 MySQL · MariaDB에서(같은 링크 재사용, 경로 없는 미리보기, 공유 페이지 escape, 권한, 초대 코드 없이 404, 초대 링크로 참가 → 준비 → 5초 뒤 RUNNING, 시작 뒤 참가 불가, 준비 취소, 나가기 · 취소, 45.1장 invariant, 예약 시각 전 출발 안 함).
+
+## 함께 달리기 실시간 경쟁 (명세 8장 · 30장 · 46장 · 47장, WBS 11)
+
+| 경로 | 설명 |
+| --- | --- |
+| `/ws` | STOMP over WebSocket (SockJS 없음). CONNECT 헤더 `Authorization: Bearer <Access Token>`. heartbeat 5초 |
+| `SUBSCRIBE /topic/live-runs/{roomId}` | 참가자만. 구독하면 내 queue로 `SYNC_STATE`(방 상태 · 참가자 최신 상태, 끝난 방이면 결과) |
+| `SUBSCRIBE /user/queue/live-runs` | 내게만 오는 `SYNC_STATE` · `ERROR { code, message, recoverable }` |
+| `SEND /app/live-runs/{roomId}/state` | `{ seq, distanceM, elapsedSeconds, currentPaceSecPerKm, status: RUNNING\|FINISHED\|DNF, sentAt }` |
+| `SEND /app/live-runs/{roomId}/heartbeat` | 연결 유지 (본문 없음) |
+| 방 topic으로 오는 것 | `ROOM_STARTED`, `MEMBER_STATE { members[] }`, `MEMBER_CONNECTION { userId, connected }`, `MEMBER_FINISHED { userId, finishSec }`, `MEMBER_DNF { userId }`, `ROOM_FINISHED { result }` |
+| `GET /api/v1/live-runs/{id}/result` | `{ roomId, mode, targetDistanceM, targetSeconds, finishedAt, entries[{ userId, name, isMe, rank, status, timeSec, distanceM }], myRunId }` |
+
+- **상태 저장** (47장): 달리는 중 최신 상태는 Redis `live:room:{id}:meta` · `live:room:{id}:member:{userId}` · `live:room:{id}:members`. 결과가 확정되면 DB(`tbl_live_run_member`)에 쓰고 Redis 키는 1시간 뒤 사라진다. 참가자 상태 갱신은 Lua 스크립트 하나로 seq를 비교해 늦게 온 값과 끝난 사람의 값을 버린다(30.3장).
+- **서버가 확인하는 것**: 참가자 · 달리는 중인 방만 받는다. 경과 시간은 출발 뒤 흐른 시간 + 60초를 넘지 않게 자른다. 평균 초속 12m를 넘으면 받지 않는다. 완주(FINISHED)는 목표에 닿았을 때만(거리 20m · 시간 5초 여유), 거리 목표 완주는 목표 거리로 맞춘다.
+- **연결** (32장): 15초 동안 상태 · heartbeat가 없으면 `DISCONNECTED`로 알리고, 다시 오면 `connected: true`. 끊긴 동안에도 개인 Run 기록은 앱이 계속한다.
+- **방이 끝나는 때** (사용자 결정): 모두 완주 · 포기하면 바로. 레이스 · 거리 함께 달리기는 첫 완주 + 30분(남은 사람 DNF), 타임 어택 · 시간 함께 달리기는 목표 시간 + 5분(마지막으로 받은 거리로 순위). 어떤 방이든 출발 + 6시간이면 끝낸다(안전장치).
+- **순위**: 레이스 = 완주 시간, 타임 어택 = 거리, 함께 = 순위 없음. DNF는 순위 없음. 같으면 user_id 순.
+- **개인 Run 연결** (45.1장): `POST /runs`의 `liveRoomId`가 내가 참가한 방이면 `tbl_live_run_member.run_id`에 잇는다. 결과의 `myRunId`.
+- **테스트**: `LiveRaceContractTest`를 MySQL · MariaDB(+ Redis)에서(레이스 상태 · 늦은 seq · 완주 · 마감 DNF, 끊김 → 다시 연결 + 함께 달리기 모두 끝나면 바로 종료, 타임 어택 순위 + Run 연결, 참가자만 연결 · 구독).
 
 ## 공통 규칙
 
@@ -180,7 +202,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 무차별 대입 제한 | 아직 없음. 로그인 시도 제한(RATE_LIMITED)은 운영 전에 붙인다 | |
 | Run `activeSeconds` | finish 요청에 앱이 잰 달린 시간을 더했다. 서버는 시작~종료 시간을 넘지 않는지만 본다 | 사용자 결정. pause · resume 요청에 시각이 없어 오프라인 일시정지를 서버가 알 수 없음 |
 | Run 끊김 기준 | point 사이가 15초 넘게 비면 일시정지로 보고 거리를 잇지 않는다 | 앱 엔진과 같은 값. 명세에 값 없음 |
-| Run `courseId` | 있으면 `tbl_course`에 있어야 한다(없으면 404 `COURSE_NOT_FOUND`). `challengeId` · `liveRoomId`는 받기만 한다 | 도전 · Together 서버 전 |
+| Run `courseId` | 있으면 `tbl_course`에 있어야 한다(없으면 404 `COURSE_NOT_FOUND`). `challengeId`는 받기만 한다. `liveRoomId`는 내가 참가한 방이면 방 결과에 잇는다 | 도전 서버 전 |
 | Batch 크기 | 한 번에 point 500개까지(넘으면 400) | 명세에 값 없음. 앱은 60개씩 |
 | 끝난 뒤 Batch | 이미 받은 Batch를 다시 보내면 성공, 새 Batch는 409 `RUN_INVALID_STATE` | 응답을 못 받은 재전송이 끝난 뒤 와도 앱이 실패로 보지 않게 |
 | 히스토리 cursor | `"startedAt 밀리초:id"`의 base64url | 6.4장 정렬 기준(started_at), 같은 시각은 id로 |
@@ -208,4 +230,10 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 방 테이블 | `tbl_live_run_room` · `tbl_live_run_member`를 ERD대로 V6에 추가 + room `course_id` · `starts_at` · `updated_at` | 방 만들기 화면의 코스 선택, 서버가 정한 출발 시각(대기실 카운트다운) |
 | 방 참가 | 초대 링크 코드가 있어야 방을 보고 참가(없으면 404). 최대 10명 | 방 id 추측으로 남의 방에 들어오지 않게. 인원은 명세에 값 없음 |
 | 출발 규칙 | 2명 이상 모두 준비 + 예약 시각 → 5초 뒤 출발 | 명세에 값 없음(앱 mock과 같은 값) |
-| 방 목록 API | `GET /live-runs` (내 예정 · 진행 중 방, 시작 뒤 3시간까지) | 45장 표에 경로 없음. 결과 확정 전이라 진행 중 방이 끝나지 않는다 |
+| 방 목록 API | `GET /live-runs` (내 예정 · 진행 중 방, 시작 뒤 3시간까지) | 45장 표에 경로 없음 |
+| 실시간 경로 · 메시지 | STOMP `/ws`, `/topic/live-runs/{id}`, `/app/live-runs/{id}/state` · `heartbeat`, `/user/queue/live-runs`. 메시지 필드는 위 표 | 8.1장 경로 이름을 따르고 46장 필드를 서버 단위(초)로 맞췄다 |
+| 방 종료 규칙 | 모두 끝나면 바로, 거리 목표 첫 완주 + 30분, 시간 목표 + 5분, 출발 + 6시간 | 사용자 결정(6시간은 안전장치로 더함) |
+| 연결 끊김 기준 | 15초 동안 상태 · heartbeat 없음 | 명세에 값 없음. Run 끊김 기준과 같은 값 |
+| 앱 상태 검증 | 경과 ≤ 출발 뒤 시간 + 60초, 평균 초속 ≤ 12m, 완주는 목표 도달(거리 20m · 시간 5초 여유) | 명세에 값 없음. 거짓 완주 · 순간 이동 값을 막는다 |
+| STOMP heartbeat | 서버 · 앱 5초 | 휴대폰 망에서 소리 없이 끊긴 연결을 10초 안에 알아채고 다시 붙는다 |
+| 실시간 broker | Spring 메모리 broker(서버 한 대) | 30.5장. 여러 대가 되면 외부 broker |

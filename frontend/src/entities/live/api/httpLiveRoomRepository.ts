@@ -1,11 +1,12 @@
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 
 import type { LiveMemberStatus, LiveMode, LiveRoom, LiveRoomStatus } from '../types';
+import { toLiveResult, type ResultDto } from './liveDto';
 import { LiveRoomError, type LiveRoomRepository } from './liveRoomRepository';
 
-// 45장 Together REST 중 대기실까지 (backend LiveRoomController).
+// 45장 Together REST (backend LiveRoomController).
 // 방은 초대 링크(share_code)로만 들어온다: 링크 → 방 보기(INVITED) → 참가 → 준비 → 서버가 출발 시각을 정한다.
-// 달리는 중 실시간 상태(46장 WebSocket)와 결과는 Live 단계(WBS 11) 전이라 기존 흐름(mock 채널)을 그대로 쓴다.
+// 달리는 중 실시간 상태는 46장 WebSocket(httpLiveChannel), 결과는 서버가 확정한 값(GET /result)을 쓴다.
 
 type RoomDto = {
   id: number;
@@ -52,7 +53,7 @@ const path = (roomId: string) => `/api/v1/live-runs/${encodeURIComponent(roomId)
 export function createHttpLiveRoomRepository(): LiveRoomRepository {
   const repo: LiveRoomRepository = {
     listUpcoming: () => call(async () => (await apiRequest<RoomDto[]>('/api/v1/live-runs')).map(toRoom)),
-    // 결과 확정(WBS 11) 전이라 끝난 방이 없다
+    // 끝난 방 목록 API는 아직 없다 (결과는 방 id로 연다)
     listRecent: async () => [],
     // 친구 기능(WBS 8) 전: 방을 만든 뒤 초대 링크로 부른다
     listFriends: async () => [],
@@ -77,9 +78,7 @@ export function createHttpLiveRoomRepository(): LiveRoomRepository {
     setReady: (roomId, ready) => call(async () => toRoom(await apiRequest<RoomDto>(`${path(roomId)}/ready`, { method: 'POST', body: { ready } }))),
     leave: (roomId) => call(() => apiRequest<void>(`${path(roomId)}/leave`, { method: 'POST' })),
     cancel: (roomId) => call(() => apiRequest<void>(`${path(roomId)}/cancel`, { method: 'POST' })),
-    getResult: async () => {
-      throw new LiveRoomError('notFound', '결과가 아직 없어요');
-    },
+    getResult: (roomId) => call(async () => toLiveResult(await apiRequest<ResultDto>(`${path(roomId)}/result`))),
     // 같은 조건으로 새 방. 사람은 새 초대 링크로 다시 부른다
     rematch: async (roomId) => {
       const prev = await repo.get(roomId);

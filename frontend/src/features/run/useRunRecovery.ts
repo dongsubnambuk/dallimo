@@ -22,16 +22,25 @@ export function useRunRecovery() {
       .then((store) => store.findOpenRun())
       .then((run) => {
         if (!run || getActiveRun()) return;
-        router.push({ pathname: '/run/active', params: { ...parsePlan(run.plan), mode: run.mode, resume: '1' } });
+        const plan = parsePlan(run.plan);
+        // 함께 달리기 중이었으면 그 방으로 돌아간다. 방이 이미 끝났으면 결과가 온다
+        if (typeof plan.liveRoomId === 'string') {
+          router.push({ pathname: '/together/[roomId]/live', params: { roomId: plan.liveRoomId, resume: '1' } });
+          return;
+        }
+        router.push({ pathname: '/run/active', params: { ...plan, mode: run.mode, resume: '1' } });
       })
       .catch((e) => console.warn('[run] recovery check', e));
   }, []);
 }
 
-function parsePlan(plan: string | null): RunPlanParams {
+// 함께 달리기(TogetherLiveScreen)는 방 id만 둔다
+type StoredPlan = RunPlanParams & { liveRoomId?: string };
+
+export function parsePlan(plan: string | null): StoredPlan {
   try {
     const p: unknown = plan ? JSON.parse(plan) : null;
-    return p && typeof p === 'object' ? (p as RunPlanParams) : {};
+    return p && typeof p === 'object' ? (p as StoredPlan) : {};
   } catch {
     return {};
   }

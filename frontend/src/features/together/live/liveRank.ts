@@ -15,12 +15,6 @@ export function orderMembers(mode: LiveMode, members: LiveMemberState[]): LiveMe
   });
 }
 
-export function myRank(mode: LiveMode, members: LiveMemberState[]): number | null {
-  if (mode === 'TOGETHER') return null;
-  const i = orderMembers(mode, members).findIndex((m) => m.isMe);
-  return i < 0 ? null : i + 1;
-}
-
 /** 나와 거리 차이. 예: "+72m"(나보다 앞), "−110m"(나보다 뒤) */
 export function distanceGap(other: LiveMemberState, me: LiveMemberState): string {
   const d = Math.round(other.distanceM - me.distanceM);

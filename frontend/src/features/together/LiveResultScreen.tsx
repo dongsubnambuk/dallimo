@@ -12,7 +12,7 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
-import { createMockLiveRoomRepository } from '@/entities/live/api/mockLiveRoomRepository';
+import { liveRoomRepositoryFor } from '@/entities/live/api';
 import type { LiveResult, LiveResultEntry } from '@/entities/live/types';
 import { formatDistanceKm, formatDuration, formatDurationSpoken } from '@/shared/format';
 
@@ -24,7 +24,7 @@ import { liveHeadline } from './liveOutcome';
 export function LiveResultScreen({ roomId }: { roomId: string }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const repo = useMemo(() => createMockLiveRoomRepository('normal'), []);
+  const repo = useMemo(() => liveRoomRepositoryFor(roomId), [roomId]);
   const result = useQuery({ queryKey: ['live', 'result', roomId], queryFn: () => repo.getResult(roomId), retry: 3, retryDelay: 1000 });
   const rematch = useMutation({
     mutationFn: () => repo.rematch(roomId),
