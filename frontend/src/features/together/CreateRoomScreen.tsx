@@ -131,7 +131,7 @@ export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
         <Field title="누구와 달릴까요">
           {linkOnly ? (
             <AppText role="body" tone="secondary">
-              방을 만든 뒤 대기실에서 초대 링크를 보내요. 링크를 받은 사람이 누르면 이 방으로 들어와요.
+              아직 친구가 없어요. 방을 만든 뒤 대기실에서 초대 링크를 보내요. 마이 › 친구에서 친구를 추가하면 여기서 바로 고를 수 있어요.
             </AppText>
           ) : null}
           {friends.data?.map((f) => {
@@ -159,6 +159,11 @@ export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
               </AppPressable>
             );
           })}
+          {!linkOnly && friends.data ? (
+            <AppText role="caption" tone="secondary">
+              고르지 않아도 돼요. 방을 만든 뒤 대기실에서 초대 링크로도 부를 수 있어요.
+            </AppText>
+          ) : null}
         </Field>
 
         <View style={[styles.note, { backgroundColor: colors.bg.surface }]}>
@@ -171,9 +176,9 @@ export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md, borderTopColor: colors.border.subtle }]}>
         <SecondaryButton
-          label={linkOnly ? `${goalLabel(goal)} · 방 만들기` : invitees.length ? `${goalLabel(goal)} · ${invitees.length}명 초대하기` : '함께 달릴 친구를 골라 주세요'}
+          label={invitees.length ? `${goalLabel(goal)} · ${invitees.length}명 초대하기` : `${goalLabel(goal)} · 방 만들기`}
           emphasized
-          disabled={(!linkOnly && invitees.length === 0) || create.isPending || (courseId != null && !course.data)}
+          disabled={create.isPending || (courseId != null && !course.data)}
           onPress={() => create.mutate()}
         />
         {create.isError ? (

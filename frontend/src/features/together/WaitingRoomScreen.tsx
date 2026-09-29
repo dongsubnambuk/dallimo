@@ -24,6 +24,7 @@ import type { GpsQuality } from '@/shared/location/locationSource';
 import { createMockLocationSource } from '@/shared/location/mockLocationSource';
 import { useNow } from '@/shared/useNow';
 
+import { InviteFriendsSheet } from './InviteFriendsSheet';
 import { goalLabel, goalValue, MODE_INFO, participantStatus, startLabel } from './labels';
 
 // 대기실은 WebSocket ROOM_SNAPSHOT이 붙기 전까지 방 snapshot을 1초마다 다시 읽는다
@@ -64,6 +65,7 @@ function WaitingRoom({ roomId, scenario, invite }: { roomId: string; scenario: L
     onSuccess: () => router.dismissTo('/together'),
   });
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const gps = useMyGps();
 
   const goHome = () => router.dismissTo('/together');
@@ -104,6 +106,7 @@ function WaitingRoom({ roomId, scenario, invite }: { roomId: string; scenario: L
         busy={ready.isPending || join.isPending}
         onReady={(v) => ready.mutate(v)}
         onJoin={() => join.mutate()}
+        onInvite={() => setInviting(true)}
         bottomInset={insets.bottom}
       />
     );
@@ -129,8 +132,12 @@ function WaitingRoom({ roomId, scenario, invite }: { roomId: string; scenario: L
         )}
       </View>
       {body}
+      {inviting && room.data ? (
+        <InviteFriendsSheet room={room.data} repo={repo} onInvited={setRoom} onClose={() => setInviting(false)} bottomInset={insets.bottom} />
+      ) : null}
       {confirmLeave ? (
         <LeaveSheet
+          invited={me?.status === 'INVITED'}
           host={!!me?.isHost}
           busy={leave.isPending}
           onStay={() => setConfirmLeave(false)}
@@ -149,6 +156,7 @@ function RoomBody({
   busy,
   onReady,
   onJoin,
+  onInvite,
   bottomInset,
 }: {
   room: LiveRoom;
@@ -157,6 +165,7 @@ function RoomBody({
   busy: boolean;
   onReady: (v: boolean) => void;
   onJoin: () => void;
+  onInvite: () => void;
   bottomInset: number;
 }) {
   const { colors } = useTheme();
@@ -227,6 +236,8 @@ function RoomBody({
               {joined.length}/{room.members.length}명 참가 · {readyCount}명 준비
             </AppText>
           </View>
+          {/* TGT-002 참가한 사람은 출발 전까지 친구를 더 부를 수 있다 */}
+          {me.status !== 'INVITED' && !counting ? <SecondaryButton label="친구 초대" size="sm" onPress={onInvite} style={styles.selfStart} /> : null}
           {members.map((m) => (
             <View key={m.userId} style={[styles.member, m.isMe && { backgroundColor: colors.action.tint }]}>
               <View style={[styles.avatar, { backgroundColor: colors.bg.elevated }]}>
@@ -331,21 +342,35 @@ function Tag({ text }: { text: string }) {
   );
 }
 
-function LeaveSheet({ host, busy, onStay, onLeave, bottomInset }: { host: boolean; busy: boolean; onStay: () => void; onLeave: () => void; bottomInset: number }) {
+function LeaveSheet({
+  invited,
+  host,
+  busy,
+  onStay,
+  onLeave,
+  bottomInset,
+}: {
+  invited: boolean;
+  host: boolean;
+  busy: boolean;
+  onStay: () => void;
+  onLeave: () => void;
+  bottomInset: number;
+}) {
   const { colors } = useTheme();
   return (
     <View style={styles.scrim}>
       <AppPressable onPress={onStay} feedback="none" accessibilityLabel="닫기" style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg.canvas + 'B3' }]} />
       <View accessibilityViewIsModal style={[styles.sheet, { backgroundColor: colors.bg.elevated, paddingBottom: bottomInset + spacing.lg, boxShadow: elevation.sheet }]}>
         <AppText role="screenTitle" accessibilityRole="header">
-          {host ? '방을 취소할까요?' : '방에서 나갈까요?'}
+          {invited ? '초대를 거절할까요?' : host ? '방을 취소할까요?' : '방에서 나갈까요?'}
         </AppText>
         <AppText role="body" tone="secondary">
-          {host ? '초대한 친구들에게도 방이 취소돼요.' : '다시 들어오려면 초대 링크가 필요해요.'}
+          {invited ? '함께 달리기 목록에서 이 방이 빠져요.' : host ? '초대한 친구들에게도 방이 취소돼요.' : '다시 들어오려면 초대를 다시 받아야 해요.'}
         </AppText>
         <View style={styles.sheetActions}>
           <SecondaryButton label="계속 기다리기" onPress={onStay} style={styles.flex} />
-          <SecondaryButton label={host ? '방 취소' : '나가기'} emphasized disabled={busy} onPress={onLeave} style={styles.flex} />
+          <SecondaryButton label={invited ? '거절' : host ? '방 취소' : '나가기'} emphasized disabled={busy} onPress={onLeave} style={styles.flex} />
         </View>
       </View>
     </View>
@@ -380,6 +405,9 @@ async function shareInvite(room: LiveRoom) {
 }
 
 const styles = StyleSheet.create({
+  selfStart: {
+    alignSelf: 'flex-start',
+  },
   root: {
     flex: 1,
   },

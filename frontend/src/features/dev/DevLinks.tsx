@@ -112,6 +112,13 @@ export function DevLinks() {
           러닝 상세 · 없는 기록
         </AppText>
       </Link>
+      {(['normal', 'empty', 'error'] as const).map((s) => (
+        <Link key={`friends-${s}`} href={{ pathname: '/my/friends', params: { scenario: s } }}>
+          <AppText role="label" tone="accent">
+            친구 · {s}
+          </AppText>
+        </Link>
+      ))}
     </View>
   );
 }

@@ -5,10 +5,13 @@ import type { CreateRoomInput, Friend, LiveResult, LiveRoom, LiveRoomSummary } f
 export interface LiveRoomRepository {
   listUpcoming(): Promise<LiveRoom[]>;
   listRecent(): Promise<LiveRoomSummary[]>;
-  // 방 만들 때 고를 친구. 친구 기능(WBS 8) 전 서버 모드는 빈 목록 → 방을 만든 뒤 초대 링크로 부른다
+  // 방 만들 때 · 대기실에서 초대할 친구 (내 친구 목록). 친구가 없으면 초대 링크로 부른다
   listFriends(): Promise<Friend[]>;
+  // 방을 만들고 고른 친구를 초대한다
   create(input: CreateRoomInput): Promise<LiveRoom>;
-  // inviteCode: 초대 링크의 share_code. 아직 참가하지 않은 사람은 이 코드로 방을 보고 참가한다
+  // TGT-002 대기실에서 친구 더 부르기
+  invite(roomId: string, userIds: string[]): Promise<LiveRoom>;
+  // inviteCode: 초대 링크의 share_code. 링크로 온 사람은 이 코드로 방을 보고 참가한다 (초대받은 친구는 없어도 된다)
   get(roomId: string, inviteCode?: string | null): Promise<LiveRoom>;
   join(roomId: string, inviteCode?: string | null): Promise<LiveRoom>;
   setReady(roomId: string, ready: boolean): Promise<LiveRoom>;

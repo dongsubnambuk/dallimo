@@ -13,6 +13,7 @@ import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import type { HistoryScenario } from '@/entities/run/api/mockRunResultRepository';
 import type { Me } from '@/entities/user/types';
 import { DevLinks } from '@/features/dev/DevLinks';
+import { useFriendList, useFriendRequests } from '@/features/friends/useFriends';
 import { GpsPocLink } from '@/features/gps-poc/GpsPocLink';
 import { formatCount, formatDistanceKm } from '@/shared/format';
 
@@ -80,6 +81,7 @@ export function MyScreen({ scenario }: { scenario: HistoryScenario }) {
             </View>
             <AppIcon name="collapse" size={18} color={colors.text.secondary} />
           </AppPressable>
+          <FriendsEntry />
 
           <View style={styles.section}>
             <View style={styles.sectionHead}>
@@ -124,6 +126,48 @@ export function MyScreen({ scenario }: { scenario: HistoryScenario }) {
       <GpsPocLink />
       <DevLinks />
     </ScrollView>
+  );
+}
+
+// SCR-M05 친구. 받은 요청이 있으면 수를 먼저 보여준다 (처리할 일)
+function FriendsEntry() {
+  const { colors } = useTheme();
+  const requests = useFriendRequests('normal');
+  const friends = useFriendList('normal');
+  const { refetch: refetchRequests } = requests;
+  useFocusEffect(
+    useCallback(() => {
+      refetchRequests();
+    }, [refetchRequests]),
+  );
+  const received = requests.data?.received.length ?? 0;
+  const count = friends.data?.length;
+  const sub = received > 0 ? `받은 친구 요청 ${received}개` : count ? `친구 ${count}명` : '닉네임 · 친구 코드로 찾기';
+  return (
+    <AppPressable
+      onPress={() => router.push('/my/friends')}
+      accessibilityRole="button"
+      accessibilityLabel={`친구, ${sub}`}
+      style={[styles.entry, { backgroundColor: colors.bg.surface }]}
+    >
+      <AppIcon name="tabTogether" size={22} color={colors.text.primary} />
+      <View style={styles.flex}>
+        <AppText role="body" style={styles.bold}>
+          친구
+        </AppText>
+        <AppText role="caption" tone={received > 0 ? 'primary' : 'secondary'} style={received > 0 ? styles.bold : undefined}>
+          {sub}
+        </AppText>
+      </View>
+      {received > 0 ? (
+        <View style={[styles.badge, { backgroundColor: colors.action.primary }]}>
+          <AppText role="caption" tabular style={[styles.bold, { color: colors.action.onPrimary }]}>
+            {received}
+          </AppText>
+        </View>
+      ) : null}
+      <AppIcon name="collapse" size={18} color={colors.text.secondary} />
+    </AppPressable>
   );
 }
 
@@ -196,6 +240,14 @@ function StatsBody({ me }: { me: Me }) {
 }
 
 const styles = StyleSheet.create({
+  badge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xs + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scroll: {
     paddingHorizontal: spacing.lg,
     gap: spacing.xl,
