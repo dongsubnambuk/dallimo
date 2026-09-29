@@ -121,6 +121,21 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **API**: `GET /runs/{id}`의 `verification { status, failureReason, matchRate, recordSeconds, previousBestSec, personalBest, policyVersion }`(코스 러닝이 아니면 null). 목록 · 상세 요약에 `courseName`.
 - **테스트**: `CourseVerifierTest`(직선 · 루프 두 바퀴 · 일시정지 · 대각선 지름길 · 우회 · 차량 속도 · 짧은 전력 질주 · 출발 · 도착 · 정확도 나쁜 point · 재현성), `VerificationApiContractTest`를 MySQL · MariaDB에서(CRS-IT-001~003, PB, 한 번만 판정, 주기 재검사).
 
+## 코스 랭킹 (명세 43장, WBS 6)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/courses/{id}/rankings?scope=ALL\|FRIENDS&period=ALL\|WEEKLY\|MONTHLY&cursor=&size=` | 로그인 없이도. 사용자별 최고 공식 기록 순위(RNK-001~004) |
+| `GET /api/v1/courses/{id}/rankings/me?scope=&period=` | 내 순위 · 전체 인원 · 내 위아래 두 명(RNK-005). 기록이 없거나 비회원이면 `entry` null |
+
+- **순위** (23.1장): `tbl_course_record`(검증을 통과한 기록만 있다)를 사용자별 최고 기록으로 모아 빠른 순, 같은 기록이면 user_id 순. 한 사람은 한 줄(RNK-IT-001).
+- **기간** (사용자 결정): 한국 시간 기준 주간은 월요일 0시, 월간은 1일 0시부터. 기록이 만들어진 시각(`created_at`)으로 거른다(`idx_course_record_period`).
+- **항목**: `rank, userId, name, timeSec, paceSecPerKm(코스 거리 기준), relation(self · normal), isPB(내 줄에서 이 기간 기록이 내 전체 최고인가)`.
+- **친구 랭킹** (사용자 결정): 친구 기능(WBS 8) 전이라 빈 목록.
+- **다른 곳에 붙는 값**: 코스 상세 `competition { leaderSec(전체 기간 1위), myWeeklyRank, weeklyTop(이번 주 1~3위), myEntry }`, 러닝 상세 `verification { weeklyRankBefore, weeklyRankAfter }`(기록한 주에서 이 기록을 뺀 순위 → 넣은 순위, RST-003).
+- **cursor**: 순위 위치의 base64url (23.1장 LIMIT · OFFSET). 기록이 많아져 느려지면 사용자별 최고 기록 projection이나 Redis를 검토한다(23.1장, 측정 뒤).
+- **테스트**: `RankingApiContractTest`를 MySQL · MariaDB에서(RNK-IT-001, 한국 시간 주 · 월 경계, cursor, 내 주변, 친구 빈 목록, 숨김 코스, 코스 상세 미리보기, 실제 검증을 거친 주간 순위 변화).
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -162,3 +177,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 검증 거리 · 도착 판정 | 출발~도착 거리 ≥ 코스의 90%, 코스의 50% 이상 달린 뒤부터 도착 판정 | 명세에 값 없음 |
 | 비정상 속도 | 움직인 시간 30초 이상 평균 초속 7m 초과면 거부 | 명세에 값 없음. 1km 세계 기록 평균(약 7.6m/s)에 가깝고 짧은 전력 질주는 걸리지 않게 |
 | 검증 시점 | finish 커밋 뒤 비동기 + 1분마다 남은 PENDING 재검사 | 12.4장 비동기 후보. 응답을 늦추지 않고 서버 재시작에도 빠지지 않게 |
+| 랭킹 기간 경계 | 한국 시간 월요일 0시(주간), 1일 0시(월간) | 사용자 결정. 저장은 UTC |
+| 친구 랭킹 | 빈 목록 | 사용자 결정. 친구 기능(WBS 8) 뒤에 채운다 |
+| 내 주변 순위 API | `GET /courses/{id}/rankings/me` | RNK-005인데 43장 표에 경로 없음 |
+| 랭킹 동점 | 같은 기록이면 user_id 순 | 23.1장 쿼리 그대로 |
