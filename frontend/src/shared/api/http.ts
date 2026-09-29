@@ -42,7 +42,7 @@ export async function currentAccessToken(): Promise<string | null> {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   auth?: boolean;
   query?: Record<string, string>;

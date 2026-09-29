@@ -15,6 +15,7 @@ import { getLiveRoomRepository } from '@/entities/live/api';
 import type { LiveMode } from '@/entities/live/types';
 import { formatDistanceKm } from '@/shared/format';
 import { useNow } from '@/shared/useNow';
+import { askNotifications } from '@/features/notifications/push';
 
 import { goalLabel, MODE_INFO, startLabel } from './labels';
 
@@ -57,7 +58,11 @@ export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
 
   const create = useMutation({
     mutationFn: () => repo.create({ ...goal, courseId, scheduledAt: scheduleFromNow(startMin), inviteeIds: invitees }),
-    onSuccess: (room) => router.replace({ pathname: '/together/[roomId]', params: { roomId: room.id } }),
+    onSuccess: (room) => {
+      // 방을 만들 때 알림 권한을 묻는다 (참가 · 시작 10분 전)
+      void askNotifications();
+      router.replace({ pathname: '/together/[roomId]', params: { roomId: room.id } });
+    },
   });
 
   const toggle = (id: string) => setInvitees((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));

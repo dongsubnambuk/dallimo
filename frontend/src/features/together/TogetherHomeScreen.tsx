@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ import type { LiveScenario } from '@/entities/live/api/mockLiveRoomRepository';
 import type { LiveRoom, LiveRoomSummary } from '@/entities/live/types';
 
 import { agoLabel, goalLabel, MODE_INFO, startLabel } from './labels';
+import { syncLiveReminders } from './liveReminders';
 
 // SCR-T01 Together 홈 (TGT-001): 예정된 방, 최근 결과, 새 방 만들기.
 // 89장 Together Lobby: 방 목표와 참가자 준비 상태가 핵심, 채팅창 없음. 레퍼런스: Zwift 이벤트 목록, Runky — CLAUDE.md 4항 Together.
@@ -23,6 +24,10 @@ export function TogetherHomeScreen({ scenario }: { scenario: LiveScenario }) {
   const insets = useSafeAreaInsets();
   const repo = useMemo(() => getLiveRoomRepository(scenario), [scenario]);
   const upcoming = useQuery({ queryKey: ['live', 'upcoming', scenario], queryFn: () => repo.listUpcoming(), retry: false });
+  // 참가한 예약 방은 시작 10분 전 휴대폰 알림 (mock 방 제외)
+  useEffect(() => {
+    if (upcoming.data && scenario === 'normal') syncLiveReminders(upcoming.data.filter((r) => /^\d+$/.test(r.id)));
+  }, [upcoming.data, scenario]);
   const recent = useQuery({ queryKey: ['live', 'recent', scenario], queryFn: () => repo.listRecent(), retry: false });
   const create = () => router.push('/together/new');
 

@@ -2,6 +2,7 @@ import { AppState } from 'react-native';
 
 import { runApi, runResultRepository } from '@/entities/run/api';
 import { getNetworkState, onNetworkChange } from '@/shared/network/network';
+import { cancel, scheduleAt, scheduledIds } from '@/shared/notifications/notifier';
 import { createUuid } from '@/shared/uuid';
 
 import { getRunStore } from '../engine/runStore';
@@ -56,7 +57,10 @@ export function requestSync(): void {
   pendingAll = true;
   enqueue(async () => {
     pendingAll = false;
-    if (getNetworkState() !== 'online') return;
+    if (getNetworkState() !== 'online') {
+      await remindUnsynced();
+      return;
+    }
     const d = await deps();
     let nextRetry: number | null = null;
     for (const run of await d.store.listUnsyncedRuns()) {
@@ -65,7 +69,27 @@ export function requestSync(): void {
       if (out.retryAt != null) nextRetry = nextRetry == null ? out.retryAt : Math.min(nextRetry, out.retryAt);
     }
     scheduleRetry(nextRetry);
+    await remindUnsynced();
   });
+}
+
+const UNSYNCED_ID = 'runs-unsynced';
+const DAY_MS = 24 * 3_600_000;
+
+/**
+ * 로컬 알림 (사용자 결정): 끝난 러닝을 서버에 못 올린 채 하루가 지나면 한 번 알린다. 다 올라가면 지운다.
+ * 이미 예약돼 있으면 미루지 않는다 (처음 못 올린 때부터 하루)
+ */
+async function remindUnsynced() {
+  try {
+    const store = await getRunStore();
+    const waiting = (await store.listUnsyncedRuns()).filter((r) => r.status !== 'RUNNING' && r.status !== 'PAUSED');
+    if (!waiting.length) return void (await cancel(UNSYNCED_ID));
+    if ((await scheduledIds()).includes(UNSYNCED_ID)) return;
+    await scheduleAt(UNSYNCED_ID, Date.now() + DAY_MS, '휴대폰에만 있는 기록이 있어요', '인터넷에 연결되면 올라가고 인증 결과가 나와요', { link: '/my/runs' });
+  } catch (e) {
+    console.warn('[sync] unsynced reminder', e);
+  }
 }
 
 /** 러닝 종료 때 남은 point를 바로 올리고 finish까지. 진행 중 남은 수를 알려준다. */

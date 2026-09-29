@@ -71,7 +71,13 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "color": "#0B0B0C"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

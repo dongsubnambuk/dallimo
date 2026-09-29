@@ -37,9 +37,9 @@ CI: `.github/workflows/backend.yml` (backend 변경 PR · main push에서 `./gra
 | 프로필 | DB | 접속 정보 |
 | --- | --- | --- |
 | local (기본) | docker compose MySQL · Redis | `application-local.yaml` (로컬 전용 값, `DB_USERNAME` · `DB_PASSWORD`로 덮어쓰기 가능) |
-| dev | MySQL | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD` |
+| dev | MySQL | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD`, Push `EXPO_ACCESS_TOKEN`(선택) |
 | test | Testcontainers | 테스트가 넣는다 |
-| prod | MariaDB | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD` |
+| prod | MariaDB | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD`, Push `EXPO_ACCESS_TOKEN`(선택) |
 
 비밀 값(DB · OAuth · Push · S3)은 저장소에 넣지 않습니다.
 
@@ -216,6 +216,49 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **상대 알림**: Push는 WBS 10. 그 전에는 받은 사람이 도전 목록(`role: RECEIVED`)으로 결과를 본다.
 - **테스트**: `ChallengeApiContractTest`를 MySQL · MariaDB에서(친구 기록만 · 내 기록 · 없는 기록 · 숨긴 코스, 받은 사람 · 남 보기, 실제 코스 검증으로 성공 · 느려서 실패 · 이탈 실패, 취소 규칙, 다른 코스 · 취소된 도전에는 Run이 이어지지 않음, 친구가 기록을 줄이면 재도전 목표, 친구를 끊으면 새 도전 불가).
 
+## 알림 · Push (명세 14.2장, NTF, WBS 10)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/notifications?cursor=&size=` | 알림함 (최근 먼저) `{ id, type, title, body, link, read, createdAt }`. `link`는 앱 안 경로 |
+| `POST /api/v1/notifications/{id}/read` | 읽음 (내 알림만, 아니면 404) |
+| `POST /api/v1/notifications/read-all` · `GET /api/v1/notifications/unread-count` | 모두 읽음 · 안 읽은 수 |
+| `PUT /api/v1/users/me/push-token` | `{ token, platform: ios\|android }`. 이 기기(로그인 세션의 deviceId) Expo Push 토큰 |
+| `DELETE /api/v1/users/me/push-token` | 알림 권한을 껐을 때 |
+| `GET · PUT /api/v1/users/me/notification-settings` | `{ friend, live, record }` 종류별 Push. 꺼도 알림함에는 남는다 |
+
+- **알림 종류** (사용자 결정): 꼭 필요한 것만.
+  - Push로 보내는 것:
+    - `FRIEND_REQUEST`: 친구 요청. 새 요청일 때만.
+    - `LIVE_INVITE`: 함께 달리기 초대.
+    - `LIVE_CANCELED`: 예약한 방을 방장이 취소. 참가 · 초대된 사람에게 보낸다.
+    - `RECORD_BEATEN`: 친구의 새 공식 기록이 내 이 코스 최고 기록을 처음 넘었을 때.
+  - 알림함에만 남기는 것: `CHALLENGE_DEFENDED`(친구의 도전을 막아냄).
+  - 명세의 `LIVE_START`는 뺐다. 모두 대기실에서 준비해야 출발하므로 이미 화면을 보고 있다.
+  - 명세의 `CHALLENGE`(도전을 받음)도 뺐다. 도전은 상대가 출발할 때 만들어져 받는 순간 할 일이 없고, 넘었으면 `RECORD_BEATEN`으로 알린다.
+  - `LIVE_REMINDER`(10분 전)는 앱이 휴대폰에 예약하는 로컬 알림이다.
+- **보내지 않는 때**: 그 종류를 설정에서 껐을 때, 밤 10시~아침 8시(한국 시간), 등록한 기기가 없을 때. 알림함에는 그대로 남는다.
+- **발송**: 알림을 저장한 트랜잭션이 커밋된 뒤 비동기로 보낸다. 요청 응답을 늦추지 않고, 롤백된 알림은 보내지 않는다.
+  - Expo Push API(`https://exp.host/--/api/v2/push/send`)로 100개씩 묶어 보낸다(`PushSender` 경계).
+  - ticket이 `DeviceNotRegistered`면 토큰을 지운다(886행 invalid token).
+  - 로컬 · 테스트는 `dallimo.push.provider: log`로 보내지 않고 로그만 남긴다.
+- **토큰**: 기기마다 하나, 한 토큰은 한 사용자에게만 있다. 같은 휴대폰에서 다른 계정으로 로그인하면 토큰이 옮겨 간다. 로그아웃하면 그 기기 토큰, 탈퇴하면 모든 토큰을 지운다.
+- **실제 Push를 받으려면 (코드로 할 수 없는 준비)**
+  1. Expo 계정으로 `cd frontend && npx eas init`을 실행한다. `app.json`에 `extra.eas.projectId`가 생기고, 앱이 이 값으로 Push 토큰을 받는다. 없으면 토큰을 받지 않는다.
+  2. Android: Firebase 프로젝트를 만들고 FCM V1 서비스 계정 키를 `npx eas credentials`로 EAS에 올린다.
+  3. iOS: Apple Developer 유료 계정이 필요하다. `npx eas build`가 APNs 키를 만들어 준다.
+  4. 개발 빌드(`npx eas build --profile development`)로 실기기에 설치한다. Expo Go에서는 원격 Push를 받을 수 없다.
+  5. 서버: 로컬에서 실제로 보내 보려면 `application-local.yaml`의 `dallimo.push.provider`를 `expo`로 바꾼다. Expo "Enhanced push security"를 켰으면 `EXPO_ACCESS_TOKEN` 환경변수를 넣는다.
+- **테스트**:
+  - `NotificationApiContractTest`를 MySQL · MariaDB에서 돌린다. 가짜 발송기로 누구에게 무엇이 가는지 본다.
+    - 친구 요청 · 알림함 · Push · 읽음 권한
+    - 설정을 꺼도 알림함에는 남음
+    - cursor · 모두 읽음
+    - 초대 · 예약 방 취소 · 예약 없는 방 취소
+    - 기록을 처음 넘을 때 한 번 · 막아낸 도전은 알림함에만
+    - 토큰 옮김 · 없어진 기기 · 로그아웃 · 탈퇴
+  - 밤 시간 규칙은 `QuietHoursTest`에서 따로 본다.
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -287,3 +330,9 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 앱 상태 검증 | 경과 ≤ 출발 뒤 시간 + 60초, 평균 초속 ≤ 12m, 완주는 목표 도달(거리 20m · 시간 5초 여유) | 명세에 값 없음. 거짓 완주 · 순간 이동 값을 막는다 |
 | STOMP heartbeat | 서버 · 앱 5초 | 휴대폰 망에서 소리 없이 끊긴 연결을 10초 안에 알아채고 다시 붙는다 |
 | 실시간 broker | Spring 메모리 broker(서버 한 대) | 30.5장. 여러 대가 되면 외부 broker |
+| 알림 테이블 | ERD `notification` 그대로 V9 + `tbl_push_token`(기기별 Expo 토큰) · `tbl_notification_setting`(종류별 Push) | ERD에 토큰 · 설정을 둘 곳이 없다 |
+| Push 종류 | 친구 요청 · 함께 달리기 초대 · 예약 방 취소 · 친구가 내 기록을 넘음. 막아낸 도전은 알림함만 | 사용자 결정: 꼭 필요한 것만 (명세 LIVE_START · CHALLENGE는 우리 흐름에서 할 일이 없어 뺐다, LIVE_REMINDER는 앱 로컬 알림) |
+| 밤 시간 | 한국 시간 22시~8시는 Push 없이 알림함만 | 사용자 결정 |
+| 알림 API 추가분 | 모두 읽음 · 안 읽은 수 · Push 토큰 · 알림 설정 | 7장 표에는 목록 · 읽음만 있다 |
+| Push 발송 경계 | `PushSender`(Expo · 로그 · 테스트용), 커밋 뒤 비동기 | 40장: Push 같은 외부 경계만 Port로 |
+| receipt | ticket 단계의 DeviceNotRegistered만 처리. 나중에 오는 receipt 확인은 발송량이 늘면 붙인다 | 초기 규모 |

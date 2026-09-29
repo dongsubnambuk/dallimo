@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLoader } from '@/components/Brand';
@@ -25,6 +25,8 @@ import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { activeMs } from '@/features/run/engine/runningEngine';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import { haptics } from '@/shared/haptics';
+import { showNow } from '@/shared/notifications/notifier';
+import { getPreferences } from '@/shared/preferences';
 
 import { goalLabel, participantStatus } from '../labels';
 import { distanceGap, orderMembers } from './liveRank';
@@ -130,7 +132,10 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
       .catch((e) => console.warn('[live] run start', e));
     channel.connect((e) => {
       if (e.type === 'MEMBER_STATE') setMembers(e.members);
-      else if (e.type === 'CONNECTION') setConnected(e.connected);
+      else if (e.type === 'CONNECTION') {
+        setConnected(e.connected);
+        if (!e.connected && server) alertDisconnected();
+      }
       else if (e.type === 'ROOM_FINISHED') {
         // 서버 마감(첫 완주 + 30분 · 목표 시간 + 5분)으로 끝나면 달리던 기록도 여기서 끝낸다.
         // 내 기록 저장이 끝난 뒤 결과로 간다 (결과의 내 기록 연결)
@@ -326,6 +331,15 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
       {confirmQuit ? <QuitSheet mode={room.mode} onStay={() => setConfirmQuit(false)} onQuit={() => (setConfirmQuit(false), end('DNF'))} /> : null}
     </>
   );
+}
+
+// 로컬 알림 (사용자 결정): 화면을 끈 채 달리다 연결이 끊기면 알린다. 2분에 한 번까지
+let lastDisconnectAlert = -Infinity;
+function alertDisconnected() {
+  const now = Date.now();
+  if (AppState.currentState === 'active' || !getPreferences().runAlerts || now - lastDisconnectAlert < 120_000) return;
+  lastDisconnectAlert = now;
+  void showNow('live-connection', '함께 달리기 연결이 끊겼어요', '내 기록은 계속돼요. 다시 연결되면 순위를 맞춰요');
 }
 
 // TGT-011 나가기/DNF 확인

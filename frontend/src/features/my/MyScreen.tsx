@@ -14,6 +14,7 @@ import type { HistoryScenario } from '@/entities/run/api/mockRunResultRepository
 import type { Me } from '@/entities/user/types';
 import { DevLinks } from '@/features/dev/DevLinks';
 import { useFriendList, useFriendRequests } from '@/features/friends/useFriends';
+import { useUnreadCount } from '@/features/notifications/useNotifications';
 import { GpsPocLink } from '@/features/gps-poc/GpsPocLink';
 import { formatCount, formatDistanceKm } from '@/shared/format';
 
@@ -129,6 +130,36 @@ export function MyScreen({ scenario }: { scenario: HistoryScenario }) {
   );
 }
 
+// 알림함. 안 읽은 알림 수를 배지로
+function NotificationBell() {
+  const { colors } = useTheme();
+  const unread = useUnreadCount();
+  const { refetch } = unread;
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
+  const n = unread.data ?? 0;
+  return (
+    <AppPressable
+      onPress={() => router.push('/my/notifications')}
+      accessibilityRole="button"
+      accessibilityLabel={n ? `알림, 안 읽은 알림 ${n}개` : '알림'}
+      style={[styles.round, { backgroundColor: colors.bg.surface }]}
+    >
+      <AppIcon name="invited" size={22} color={colors.text.primary} />
+      {n ? (
+        <View style={[styles.bellBadge, { backgroundColor: colors.action.primary }]}>
+          <AppText role="caption" tabular style={[styles.bold, { color: colors.action.onPrimary }]}>
+            {n > 99 ? '99+' : n}
+          </AppText>
+        </View>
+      ) : null}
+    </AppPressable>
+  );
+}
+
 // SCR-M05 친구. 받은 요청이 있으면 수를 먼저 보여준다 (처리할 일)
 function FriendsEntry() {
   const { colors } = useTheme();
@@ -179,6 +210,7 @@ function Profile({ me }: { me: Me }) {
       <AppText role="screenTitle" accessibilityRole="header" numberOfLines={1} style={styles.flex}>
         {me.profile.nickname}
       </AppText>
+      <NotificationBell />
       {/* SCR-M07 설정 */}
       <AppPressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="설정" style={[styles.round, { backgroundColor: colors.bg.surface }]}>
         <AppIcon name="settings" size={22} color={colors.text.primary} />
@@ -240,6 +272,17 @@ function StatsBody({ me }: { me: Me }) {
 }
 
 const styles = StyleSheet.create({
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: radius.pill,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   badge: {
     minWidth: 24,
     height: 24,

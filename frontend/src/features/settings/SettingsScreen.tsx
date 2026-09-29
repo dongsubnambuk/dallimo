@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,10 +10,12 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { radius, spacing, touchTarget } from '@/design/tokens';
+import { getNotificationRepository } from '@/entities/notification/api';
 import { runResultRepository } from '@/entities/run/api';
 import { hasRunInProgress, signOut, withdraw } from '@/features/auth/session';
 import { useMe } from '@/features/my/useMy';
-import { setPreference, usePreferences } from '@/shared/preferences';
+import { API_BASE_URL } from '@/shared/api/config';
+import { getPreferences, setPreference, usePreferences, type Preferences } from '@/shared/preferences';
 
 import { ConfirmSheet } from './components/ConfirmSheet';
 import { SettingChoice, SettingRow, SettingSection } from './components/SettingRow';
@@ -23,10 +25,35 @@ type Sheet = 'logout' | 'withdraw' | 'running' | null;
 
 // SCR-M07 설정 (MY-006): 자동 일시정지, 음성, Push, 개인정보, 로그아웃/탈퇴.
 // 러닝 → 알림 → 개인정보 → 계정 순서. 자주 바꾸는 러닝 설정을 위에 둔다.
+type PushKey = 'pushFriend' | 'pushLive' | 'pushRecord';
+
+// 알림 종류 켜고 끄기는 서버에도 저장한다 (서버가 Push를 보내기 전에 본다). 화면을 열 때 서버 값을 기기에 맞춘다
+function usePushSettings() {
+  useEffect(() => {
+    if (!API_BASE_URL) return;
+    getNotificationRepository()
+      .settings()
+      .then((s) => {
+        setPreference('pushFriend', s.friend);
+        setPreference('pushLive', s.live);
+        setPreference('pushRecord', s.record);
+      })
+      .catch(() => undefined);
+  }, []);
+  return (key: PushKey, value: boolean) => {
+    setPreference(key, value);
+    const p: Preferences = getPreferences();
+    void getNotificationRepository()
+      .saveSettings({ friend: p.pushFriend, live: p.pushLive, record: p.pushRecord })
+      .catch(() => undefined);
+  };
+}
+
 export function SettingsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const prefs = usePreferences();
+  const push = usePushSettings();
   const me = useMe('normal');
   const [sheet, setSheet] = useState<Sheet>(null);
   const [busy, setBusy] = useState(false);
@@ -109,9 +136,16 @@ export function SettingsScreen() {
         </SettingSection>
 
         <SettingSection title="알림" footer="휴대폰 설정에서 달리모 알림을 끄면 여기 설정과 관계없이 알림이 오지 않아요.">
-          <SettingRow kind="toggle" label="함께 달리기" caption="초대, 시작 10분 전, 시작" value={prefs.pushLive} onChange={(v) => setPreference('pushLive', v)} />
-          <SettingRow kind="toggle" label="친구 요청" value={prefs.pushFriend} onChange={(v) => setPreference('pushFriend', v)} />
-          <SettingRow kind="toggle" label="기록 도전 · 갱신" caption="친구가 도전을 보내거나 내 코스 기록을 넘었을 때" value={prefs.pushRecord} onChange={(v) => setPreference('pushRecord', v)} />
+          <SettingRow kind="toggle" label="함께 달리기" caption="초대, 예약한 방 취소, 시작 10분 전" value={prefs.pushLive} onChange={(v) => push('pushLive', v)} />
+          <SettingRow kind="toggle" label="친구 요청" value={prefs.pushFriend} onChange={(v) => push('pushFriend', v)} />
+          <SettingRow kind="toggle" label="내 코스 기록" caption="친구가 내 코스 기록을 넘었을 때" value={prefs.pushRecord} onChange={(v) => push('pushRecord', v)} />
+          <SettingRow
+            kind="toggle"
+            label="달리는 중 알림"
+            caption="화면을 끈 채 달릴 때 GPS 약함, 코스 이탈, 완주, 오래 멈춤을 알려요"
+            value={prefs.runAlerts}
+            onChange={(v) => setPreference('runAlerts', v)}
+          />
         </SettingSection>
 
         <SettingSection title="개인정보">
