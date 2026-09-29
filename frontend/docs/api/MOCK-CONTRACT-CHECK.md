@@ -59,12 +59,12 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| POST /runs `clientRunUuid, mode, courseId, challengeId, liveRoomId, startedAt` | 기록 동기화 `syncRun` | 일치 | 서버 id가 없으면 먼저 만든다(`clientRunUuid` 멱등). 백엔드 전까지 `mockRunApi` |
-| POST /runs/{id}/points `batchUuid, fromSeq, toSeq, points[]` | 기록 동기화 `syncRun` | 일치 | SQLite에 Batch UUID를 먼저 기록한 뒤 보낸다(50.2장). 연속 seq 60개씩, 실패하면 같은 batchUuid로 backoff 재전송. 422 · 409 IDEMPOTENCY_CONFLICT · 400 · 403은 FAILED. `toPointDto`로 이름 · 단위 변환, `qualityFlag`는 보내지 않는다 |
-| POST /runs/{id}/pause · resume | 엔진 · SQLite 구간에만 | 부르지 않음 | 요청에 시각이 없어 오프라인에서 한 일시정지를 나중에 올릴 수 없다. 12항 13번 |
-| POST /runs/{id}/finish `endedAt, lastSeq` | 엔진 `finish()` → `syncRunNow` | 일치 | 남은 Batch를 보낸 뒤 요청. 응답 `status`가 FINISHING이면 빠진 Batch를 보내고 다시 요청. 오프라인이거나 20초 안에 못 끝내면 휴대폰에 저장한 결과로 보여주고 연결되면 이어서 올린다 |
-| GET /runs/{id} → run detail | `RunResultRepository.get(id)` | 명세 없음 | 응답 필드가 정해지지 않았다. 앱이 쓰는 필드: `startedAt, finishedAt, distanceM, activeSec, avgPaceSec, splits, path(표시용으로 줄인 것), course{ id, name, timeSec }, target, verification, verificationReason, pb{ previousSec, improved }, weeklyRank{ before, after }, friendBest{ name, timeSec }` |
-| GET /runs?cursor&size | `list(cursor, size)` | 일치 | 항목에 `startedAt` 추가(이번에 고침, 6.4장 정렬 기준). 목록의 `pb`, 경로 미리보기(`preview`)는 명세 없음 |
+| POST /runs `clientRunUuid, mode, courseId, challengeId, liveRoomId, startedAt` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | 서버 id가 없으면 먼저 만든다(`clientRunUuid` 멱등, 새로 만들면 201 · 다시 보내면 200). 서버 id는 숫자라 `httpRunApi`가 문자열로 바꾼다. 숫자가 아닌 mock 코스 id(`c-suseongmot` 등)는 `courseId: null`로 올린다(서버는 없는 코스면 404 COURSE_NOT_FOUND). 서버 주소가 없으면 `mockRunApi` |
+| POST /runs/{id}/points `batchUuid, fromSeq, toSeq, points[]` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | `Idempotency-Key` 헤더에 batchUuid를 함께 보낸다(7.3장). SQLite에 Batch UUID를 먼저 기록한 뒤 보낸다(50.2장). 연속 seq 60개씩, 실패하면 같은 batchUuid로 backoff 재전송. 422 · 409 IDEMPOTENCY_CONFLICT · 400 · 403은 FAILED. `toPointDto`로 이름 · 단위 변환, `qualityFlag`는 보내지 않는다 |
+| POST /runs/{id}/pause · resume | 엔진 · SQLite 구간에만 | 서버 구현 · 앱은 부르지 않음 | 요청에 시각이 없어 오프라인에서 한 일시정지를 나중에 올릴 수 없다. 대신 finish에 `activeSeconds`를 보낸다(12항 13번) |
+| POST /runs/{id}/finish `endedAt, lastSeq, activeSeconds` | 엔진 `finish()` → `syncRunNow` | 서버 구현 · 필드 추가 | `activeSeconds`(앱이 잰 달린 시간, 일시정지 제외)는 명세에 없는 필드다(사용자 결정). 서버는 거리만 point로 다시 계산하고 달린 시간은 이 값을 받되 시작~종료 시간을 넘지 않게 자른다. 남은 Batch를 보낸 뒤 요청. 응답 `status`가 FINISHING이면 빠진 Batch를 보내고 다시 요청. 오프라인이거나 20초 안에 못 끝내면 휴대폰에 저장한 결과로 보여주고 연결되면 이어서 올린다 |
+| GET /runs/{id} → run detail | `RunResultRepository.get(id)` | 명세 없음 · 서버 구현 | 서버 응답: `{ summary, splits[{ km, sec }], path[[위도, 경도]] (400개 이하) }`. 앱 id는 `srv-{runId}`. 코스 이름 · PB · 주간 순위 · 친구 최고 기록은 아직 없다(코스 · 랭킹 API 뒤). 앱이 쓰는 필드: `startedAt, finishedAt, distanceM, activeSec, avgPaceSec, splits, path(표시용으로 줄인 것), course{ id, name, timeSec }, target, verification, verificationReason, pb{ previousSec, improved }, weeklyRank{ before, after }, friendBest{ name, timeSec }` |
+| GET /runs?cursor&size | `list(cursor, size)` | 서버 구현 | FINISHED만, `startedAt` 최신순(6.4장), size 1~50(기본 20), cursor는 `"startedAt 밀리초:id"`의 base64url. 항목: `runId, clientRunUuid, mode, status, courseId, startedAt, endedAt, distanceM, elapsedSeconds, avgPaceSecPerKm, verificationStatus`. 이번 실행에서 끝낸 기록(기기에만 있음 포함)은 첫 페이지에 기기 값으로 더하고 서버 쪽 같은 기록은 뺀다. 목록의 `pb`, 경로 미리보기(`preview`)는 명세 없음 → 서버 기록은 썸네일이 빈칸 |
 | (기기 저장) | `saveFinished(input, synced)` | — | 서버 API가 아니라 기기 저장(11장 SQLite local_run). `clientRunUuid`와 `startedAt`을 함께 저장하도록 고침 |
 
 ## 4. 코스 · 랭킹 (43장)
@@ -167,6 +167,7 @@
 10. 내 코스 목록 API (MY-005)
 11. Together 방 목록(예정 · 최근), 준비 취소, 재대결
 12. 공유 링크 요청 · 응답 필드
-13. 일시정지 · 재개 시각: POST /runs/{id}/pause · resume에 시각이 없다. 오프라인에서 한 일시정지를 나중에 알리려면 `pausedAt` · `resumedAt`을 요청에 넣거나, finish에 달린 구간(또는 active 시간)을 넣어야 서버 `elapsedSeconds`가 맞다
-14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 앱은 200 + `status: FINISHING`으로 가정했다
+13. ~~일시정지 · 재개 시각~~ → finish에 `activeSeconds`를 더했다(사용자 결정). 명세 42.4장 요청 필드에 넣어야 한다
+14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 서버 · 앱 모두 200 + `status: FINISHING`으로 구현했다
 15. `RESOURCE_NOT_FOUND`(404): 서버가 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드가 없는 404에 쓴다. 명세 표에 넣을지 정한다
+16. 히스토리 목록 경로 미리보기: GET /runs 항목에 줄인 경로를 넣을지. 지금은 서버 기록 썸네일이 빈칸이다

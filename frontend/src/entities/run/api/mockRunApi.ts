@@ -2,7 +2,7 @@ import { getNetworkState } from '@/shared/network/network';
 
 import { RunApiError, type FinishRunResponse, type RunApi } from './runApi';
 
-// 42장 Run API mock 서버. 백엔드 전까지 기록 동기화가 이 서버로 올린다.
+// 42장 Run API mock 서버. 서버 주소(EXPO_PUBLIC_API_URL)가 없을 때 기록 동기화가 이 서버로 올린다.
 // 25.2장처럼 clientRunUuid · batchUuid 멱등을 흉내 낸다. 앱을 다시 켜면 비어 있다(서버가 Run을 모르면 앱이 처음부터 다시 올린다).
 type ServerRun = {
   runId: string;
@@ -113,14 +113,15 @@ export function createMockRunApi(): RunApi {
         const base = { runId, distanceM: Math.round(run.distanceM), elapsedSeconds: 0, avgPaceSecPerKm: 0 };
         // 42.4장: 서버에 저장된 마지막 seq가 모자라면 확정하지 않는다
         if (run.lastSeq < req.lastSeq) return { ...base, status: 'FINISHING', verificationStatus: 'NONE' };
-        // 일시정지 시간을 서버가 모르므로(42장에 시각 없음) mock은 시작~종료 전체 시간을 쓴다
-        const elapsedSeconds = Math.max(0, Math.round((Date.parse(req.endedAt) - Date.parse(run.startedAt)) / 1000));
+        // 실제 서버와 같게: 앱이 잰 달린 시간을 받되 시작~종료 시간을 넘지 않게 한다
+        const wallSeconds = Math.max(0, Math.round((Date.parse(req.endedAt) - Date.parse(run.startedAt)) / 1000));
+        const elapsedSeconds = Math.min(req.activeSeconds, wallSeconds);
         run.status = 'FINISHED';
         run.finished = {
           ...base,
           status: 'FINISHED',
           elapsedSeconds,
-          avgPaceSecPerKm: run.distanceM > 0 ? Math.round(elapsedSeconds / (run.distanceM / 1000)) : 0,
+          avgPaceSecPerKm: run.distanceM >= 50 ? Math.round(elapsedSeconds / (run.distanceM / 1000)) : null,
           verificationStatus: 'PENDING',
         };
         return run.finished;

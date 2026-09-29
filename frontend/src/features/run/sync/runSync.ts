@@ -107,7 +107,12 @@ export async function syncRun(runUuid: string, deps: SyncDeps): Promise<SyncOutc
       await store.setRunSyncState(runUuid, 'SYNCED');
       return outcome('synced');
     }
-    const finish = await api.finish(runId, { endedAt: new Date(run.endedAt ?? deps.now()).toISOString(), lastSeq: run.lastSeq });
+    const finish = await api.finish(runId, {
+      endedAt: new Date(run.endedAt ?? deps.now()).toISOString(),
+      lastSeq: run.lastSeq,
+      // 일시정지 시간은 기기만 안다 (오프라인에서 멈춘 시각은 서버에 가지 않음)
+      activeSeconds: Math.round(run.elapsedMs / 1000),
+    });
     // 42.4장: 서버에 빠진 seq가 있으면 FINISHING. 빠진 Batch를 보낸 뒤 다시 요청한다
     if (finish.status === 'FINISHING') return outcome('pending', deps.now() + SYNC_POLICY.backoffBaseMs);
     await store.setRunSyncState(runUuid, 'SYNCED');

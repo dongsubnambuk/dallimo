@@ -36,9 +36,16 @@ export function registerAuthHooks(h: AuthHooks) {
   hooks = h;
 }
 
-type RequestOptions = { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; auth?: boolean; query?: Record<string, string> };
+type RequestOptions = {
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  body?: unknown;
+  auth?: boolean;
+  query?: Record<string, string>;
+  // 요청별 헤더 (예: 7.3장 Idempotency-Key)
+  headers?: Record<string, string>;
+};
 
-export async function apiRequest<T>(path: string, { method = 'GET', body, auth = true, query }: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(path: string, { method = 'GET', body, auth = true, query, headers }: RequestOptions = {}): Promise<T> {
   if (!API_BASE_URL) throw new ApiRequestError(0, 'NETWORK', '서버 주소가 설정되지 않았어요');
   const url = `${API_BASE_URL}${path}${query ? `?${new URLSearchParams(query).toString()}` : ''}`;
 
@@ -52,6 +59,7 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, auth =
           Accept: 'application/json',
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...headers,
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: controller.signal,

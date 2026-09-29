@@ -15,6 +15,8 @@ export function useRunResult(id: string): RunResultState {
     queryKey: ['run', 'result', id],
     queryFn: () => runResultRepository.get(id),
     retry: false,
+    // 방금 끝낸 기록은 기기에 있다. 오프라인이어도 바로 읽는다 (RUN-006 Local First, 기본값 online은 오프라인이면 멈춘다)
+    networkMode: 'offlineFirst',
     refetchInterval: (q) => {
       const r = q.state.data;
       if (r?.sync === 'localOnly') return LOCAL_ONLY_POLL_MS;
