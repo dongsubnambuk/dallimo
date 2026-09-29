@@ -71,15 +71,15 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| GET /courses/nearby `lat, lng, radius/viewport, cursor, size` | `getNearby({ center, radiusM })` | 변환 | 앱은 cursor 없이 한 번에 받는다. 반경 안 코스가 많아지면 cursor를 붙인다 |
-| GET /courses/search | 없음 | 미구현 | 지역 검색(SCR-E02). 지금은 받은 목록을 이름 · 태그로 거른다 |
-| GET /courses/{id} → CourseDetail | `getDetail(id)` | 명세 없음 | 응답 필드가 정해지지 않았다. 앱이 쓰는 필드는 `entities/course/types.ts`의 `CourseDetail`(상태, 지역, 만든 사람, 거리, 예상 시간, 난이도, 오르막, 태그, 경로, 고도 프로필, 완주자 수, 이번 주 러너 수, 추천 시간, 환경, 내 기록, 경쟁 정보, 저장 여부) |
-| GET /courses/{id}/route | 상세 안의 `route` | 변환 | 명세는 경로를 따로 받는다. 앱은 상세 하나로 받는다 |
-| POST /courses `sourceRunId, name, description, tags` | `CourseRegistrationRepository.create(input)` | 일치 | `recommendedTime`은 명세 요청 필드에 없다(SCR-E05 화면 요소에는 있다) |
-| POST · DELETE /courses/{id}/bookmarks | `setBookmark(id, saved)` | 일치 | |
-| GET /courses/{id}/rankings `scope, period, cursor, size` | `RankingRepository.getPage(query)` | 일치 | 응답 항목 필드: `rank, userId, name, timeSec, paceSecPerKm, relation, isPB` |
+| GET /courses/nearby `lat, lng, radius, cursor, size` | `getNearby({ center, radiusM })` → `httpCourseRepository` | 서버 구현 | 출발점까지 거리순. radius 100~20000m(기본 5000), size 1~50. 응답은 `{ items, nextCursor, hasNext }`. 앱은 첫 페이지(50개)만 받는다. 반경 안 코스가 많아지면 cursor를 붙인다. viewport는 아직 없다 |
+| GET /courses/search `query, cursor, size` | 없음 | 서버 구현 · 앱 미사용 | 이름에 query가 들어간 코스, 최근 등록순. 지역 검색(SCR-E02) 화면은 아직 받은 목록을 이름 · 태그로 거른다 |
+| GET /courses/{id} → CourseDetail | `getDetail(id)` | 명세 없음 · 서버 구현 | 서버 응답: `id, name, status, description, creatorName, distanceM, estimatedSec, difficulty, elevationGainM, tags, route[[위도, 경도]](1000점 이하), elevationProfile[[거리, 고도]], finisherCount, weeklyRunnerCount, myRecord{ bestSec, lastSec, finishCount }, competition{ leaderSec }, bookmarked, createdAt`. 지역 · 추천 시간 · 러닝 환경 · 주간 순위 · 친구 기록은 서버에 없어 앱이 비워 둔다(null · 빈 목록). 숨김 · 비공개는 403 `RESOURCE_FORBIDDEN`, 없으면 404 `COURSE_NOT_FOUND`. 응답 필드가 정해지지 않았다. 앱이 쓰는 필드는 `entities/course/types.ts`의 `CourseDetail`(상태, 지역, 만든 사람, 거리, 예상 시간, 난이도, 오르막, 태그, 경로, 고도 프로필, 완주자 수, 이번 주 러너 수, 추천 시간, 환경, 내 기록, 경쟁 정보, 저장 여부) |
+| GET /courses/{id}/route | 상세 안의 `route` | 서버 구현 · 앱 미사용 | 서버는 `[{ seq, latitude, longitude, altitudeM }]` 전체(10m 간격)를 준다. 앱은 상세의 줄인 경로로 충분하다 |
+| POST /courses `sourceRunId, name, description, tags` | `CourseRegistrationRepository.create(input)` → `httpCourseRegistration` | 서버 구현 | 201 + 상세. 앱의 기록 id(`run-N` · `srv-N`)를 서버 Run id로 바꿔 보낸다(`serverRunId`). 이름 1~100자, 설명 1000자, 태그 6개 · 20자까지. 거부: 짧거나 정상 point가 모자라면 422 `RUN_POINT_INVALID`, 끝나지 않은 기록 409 `RUN_INVALID_STATE`, 남의 기록 403, 없는 기록 404. `recommendedTime`은 명세 요청 필드에 없어 보내지 않는다(SCR-E05 화면 요소에는 있다) |
+| POST · DELETE /courses/{id}/bookmarks | `setBookmark(id, saved)` | 서버 구현 | 204. 여러 번 보내도 같다 |
+| GET /courses/{id}/rankings `scope, period, cursor, size` | `RankingRepository.getPage(query)` | 일치 · 서버 미구현 | 응답 항목 필드: `rank, userId, name, timeSec, paceSecPerKm, relation, isPB`. 랭킹(WBS 6) 전이라 mock이다. mock에 없는 서버 코스는 빈 랭킹 |
 | (내 주변 순위) | `getMyStanding(courseId, scope, period)` → `{ total, entry, around }` | 명세 없음 | RNK-005 내 주변 순위 API가 없다 |
-| (내 코스) | `getMine(kind)` | 명세 없음 | MY-005 등록 / 저장 / 완주 코스 목록 API가 없다 |
+| GET /users/me/courses?kind=CREATED·SAVED·FINISHED | `getMine(kind)` | 명세 없음 · 서버 구현 | MY-005. 명세 표에 경로가 없어 정했다. 완주는 공식 기록(tbl_course_record)이 있는 코스 |
 | POST /courses/{id}/reviews · reports | 없음 | 미구현 | REV-001, CREG-005 (P1) |
 
 ## 5. 친구 · 도전 (44장)
@@ -161,13 +161,14 @@
 4. ~~닉네임 중복 확인 API~~ → GET /users/nickname-availability로 구현
 5. 프로필 이미지 업로드 방식
 6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부)
-7. 코스 상세 응답 필드, 경로를 상세에 포함할지
+7. 코스 상세 응답 필드, 경로를 상세에 포함할지 (서버는 상세에 줄인 경로를 넣고 GET /route로 전체를 준다)
 8. 코스 등록 요청의 추천 시간
 9. 내 주변 순위 API (RNK-005)
-10. 내 코스 목록 API (MY-005)
+10. ~~내 코스 목록 API (MY-005)~~ → GET /users/me/courses?kind=로 구현. 명세 표에 넣어야 한다
 11. Together 방 목록(예정 · 최근), 준비 취소, 재대결
 12. 공유 링크 요청 · 응답 필드
 13. ~~일시정지 · 재개 시각~~ → finish에 `activeSeconds`를 더했다(사용자 결정). 명세 42.4장 요청 필드에 넣어야 한다
 14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 서버 · 앱 모두 200 + `status: FINISHING`으로 구현했다
 15. `RESOURCE_NOT_FOUND`(404): 서버가 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드가 없는 404에 쓴다. 명세 표에 넣을지 정한다
 16. 히스토리 목록 경로 미리보기: GET /runs 항목에 줄인 경로를 넣을지. 지금은 서버 기록 썸네일이 빈칸이다
+17. 코스 지역("대구 수성구") · 러닝 환경 · 추천 시간을 저장할 곳: ERD에 없다. 서버 코스 상세에는 비어 있다

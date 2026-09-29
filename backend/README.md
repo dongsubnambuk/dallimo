@@ -9,7 +9,7 @@
 | 언어 · 빌드 | Java 21, Gradle(Groovy) wrapper 9.7.1 | 사용자 결정 |
 | 프레임워크 | Spring Boot 4.1.1 (Web MVC, Validation, Data JPA, JDBC, Flyway, Actuator) | 명세 40.3장 |
 | DB | MySQL 8.4(로컬 · 개발) / MariaDB(운영) | 명세 15.2장, ADR-004 |
-| 마이그레이션 | Flyway `src/main/resources/db/migration` (V1~V3 = 명세 22.4장 DDL 그대로) | 명세 22.4장 |
+| 마이그레이션 | Flyway `src/main/resources/db/migration` (V1~V3 = 명세 22.4장 DDL 그대로, V4부터 추가분) | 명세 22.4장 |
 | 테스트 | JUnit 5 + Testcontainers (MySQL 8.4 · MariaDB 11.4) | 명세 13.1장, 40.3장 |
 
 ## 로컬 실행
@@ -86,6 +86,26 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **검증 상태**: 코스를 쓰는 모드(COURSE · PB · CHALLENGE)이고 `courseId`가 있으면 PENDING, 아니면 NONE. 검증 엔진(26장)은 아직 없다.
 - **테스트**: `RunApiContractTest`를 MySQL · MariaDB에서 모두 돌린다(RUN-IT-001~007 + 상태 · 검증 · 목록). `RunMetricsTest`는 거리 계산.
 
+## Course API (명세 43장)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/courses/nearby?lat=&lng=&radius=&cursor=&size=` | 로그인 없이도. 출발점이 반경(m, 100~20000, 기본 5000) 안인 코스를 가까운 순으로 |
+| `GET /api/v1/courses/search?query=&cursor=&size=` | 로그인 없이도. 이름으로 찾기, 최근 등록순 |
+| `GET /api/v1/courses/{id}` | 로그인 없이도. 상세 + 줄인 경로(1000점 이하) + 고도 그래프. 로그인하면 내 기록 · 저장 여부 |
+| `GET /api/v1/courses/{id}/route` | 로그인 없이도. 정규화한 경로 전체 |
+| `POST /api/v1/courses` | `{ sourceRunId, name, description?, tags? }` → 201 상세 |
+| `POST · DELETE /api/v1/courses/{id}/bookmarks` | 204. 여러 번 보내도 같다 |
+| `GET /api/v1/users/me/courses?kind=CREATED\|SAVED\|FINISHED` | 내 코스(MY-005): 등록 · 저장 · 완주 |
+
+- **코스 등록** (43.1장): 내 FINISHED Run만 된다(남의 것 403, 끝나지 않음 409 `RUN_INVALID_STATE`, 없음 404 `RUN_NOT_FOUND`). Run point 중 거리 계산과 같은 판정(`RunMetrics`)을 통과한 point만 이어서 10m 간격으로 다시 찍는다(`CourseRoute`). 정상 point가 10개 미만이거나 500m 미만이면 422 `RUN_POINT_INVALID`. 경로는 이때 한 번 만들고 바꾸지 않는다(route snapshot 불변). 새 코스는 `NEW` · `PUBLIC`.
+- **보이는 코스**: 삭제 · `HIDDEN` · `BLOCKED`는 목록에서 빠지고 상세는 403 `RESOURCE_FORBIDDEN`. `PRIVATE`은 만든 사람만 본다.
+- **주변 조회** (23.2장): 위 · 경도 bounding box로 후보를 줄인 뒤 애플리케이션에서 출발점까지 실제 거리를 계산한다. 공간 인덱스는 쓰지 않는다.
+- **숫자**: 코스 1위 · 완주자 수 · 내 기록은 공식 기록(`tbl_course_record`)만 센다. 검증(WBS 5) 전이라 지금은 비어 있다. 주간 러너 수는 최근 7일 이 코스를 끝까지 달린(FINISHED) 사람 수. 예상 시간은 6'00"/km.
+- **아직 없는 것**: 랭킹(WBS 6), 코스 평가 · 신고(WBS 14), 코스 지역 · 러닝 환경 · 추천 시간(저장할 곳이 ERD에 없다).
+- **로컬 코스 데이터**: local 프로필에서만 `db/seed/local/R__local_seed_courses.sql`(수성못 둘레길 · 신천 강변 왕복 · 들안로 왕복, 만든 사람 "달리모")을 넣는다. 앱 mock 코스와 같은 OpenStreetMap 경로를 10m 간격으로 찍었다. 다시 만들 때: `node --experimental-strip-types scripts/gen-local-seed.mts`.
+- **테스트**: `CourseApiContractTest`를 MySQL · MariaDB에서 모두 돌린다(등록 · 거부 · 주변 · 숨김 · 검색 · 저장 · 내 코스 · 기록 숫자). `CourseRouteTest`는 경로 정규화.
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -113,3 +133,13 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | Batch 크기 | 한 번에 point 500개까지(넘으면 400) | 명세에 값 없음. 앱은 60개씩 |
 | 끝난 뒤 Batch | 이미 받은 Batch를 다시 보내면 성공, 새 Batch는 409 `RUN_INVALID_STATE` | 응답을 못 받은 재전송이 끝난 뒤 와도 앱이 실패로 보지 않게 |
 | 히스토리 cursor | `"startedAt 밀리초:id"`의 base64url | 6.4장 정렬 기준(started_at), 같은 시각은 id로 |
+| 코스 저장 테이블 | `tbl_course_bookmark`를 ERD(20장 course_bookmark) 그대로 V5에 추가 | 22.4장 최종 DDL에 빠져 있음 |
+| 코스 태그 테이블 | `tbl_course_tag(course_id, tag, seq)` 추가. 태그 6개 · 20자까지 | 43장 POST 요청에 tags가 있는데 ERD에 저장할 곳이 없음 |
+| 코스 경로 정규화 | 정상 point를 10m 간격으로 다시 찍는다. 10개 미만 · 500m 미만이면 거부 | 명세에 값 없음(26장 "일정 간격으로 정규화/샘플링") |
+| 코스 등록 거부 코드 | 경로가 모자라면 422 `RUN_POINT_INVALID` | 27.1장 "의미상 처리 불가한 GPS"와 가장 가깝다 |
+| 숨김 · 비공개 코스 | 403 `RESOURCE_FORBIDDEN` | 앱이 "볼 수 없는 코스"로 구분 |
+| 코스 설명 길이 | 1000자 | 명세에 규칙 없음 |
+| 예상 시간 · 주간 러너 | 6'00"/km, 최근 7일 | 명세에 값 없음(앱 mock과 같은 기준) |
+| 내 코스 API | `GET /users/me/courses?kind=` | MY-005인데 41~43장 표에 경로 없음 |
+| 코스 cursor | 주변: 거리순 위치, 검색: 마지막 id (둘 다 base64url) | 27.3장 opaque cursor |
+| 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |
