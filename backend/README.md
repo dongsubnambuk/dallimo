@@ -136,6 +136,27 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **cursor**: 순위 위치의 base64url (23.1장 LIMIT · OFFSET). 기록이 많아져 느려지면 사용자별 최고 기록 projection이나 Redis를 검토한다(23.1장, 측정 뒤).
 - **테스트**: `RankingApiContractTest`를 MySQL · MariaDB에서(RNK-IT-001, 한국 시간 주 · 월 경계, cursor, 내 주변, 친구 빈 목록, 숨김 코스, 코스 상세 미리보기, 실제 검증을 거친 주간 순위 변화).
 
+## 공유 링크 · 함께 달리기 초대 (SHR-001~004, 45장 대기실)
+
+| API | 설명 |
+| --- | --- |
+| `POST /api/v1/shares` | `{ type: RUN\|COURSE\|LIVE_ROOM, referenceId }` → 201 `{ code, url }`. 같은 사람이 같은 대상을 다시 공유하면 같은 링크 |
+| `GET /api/v1/shares/{code}` | 로그인 없이. `{ type, referenceId, courseId, preview }` |
+| `GET /s/{code}` | 로그인 없이. 공유 페이지(HTML): 미리보기 태그, "달리모 앱에서 열기"(dallimo://share/{code}), 휴대폰이면 바로 앱을 연다 |
+| `POST /api/v1/live-runs` | 방 만들기(45.1장 invariant). 방장은 JOINED |
+| `GET /api/v1/live-runs` | 내가 참가한 예정 · 진행 중 방 |
+| `GET /api/v1/live-runs/{id}?inviteCode=` | 참가자이거나 초대 코드가 있어야 본다. 아직 참가 전이면 내 줄이 INVITED |
+| `POST /api/v1/live-runs/{id}/join` | `{ inviteCode }`. 시작 · 취소 · 가득 찬 방은 409 |
+| `POST /api/v1/live-runs/{id}/ready` · `leave` · `cancel` | 준비(취소 포함) · 나가기(달리는 중이면 DNF) · 방장 취소 |
+
+- **공유 코드** (16장): 헷갈리는 글자를 뺀 31글자 × 10자리 무작위(SecureRandom, 약 2^50). 내부 id를 URL에 쓰지 않는다. 만료는 없다(`expires_at` null).
+- **링크 주소**: `url`은 `dallimo.share.public-base-url`, 없으면 요청이 들어온 서버 주소 + `/s/{code}`. 메신저가 `dallimo://`를 링크로 보여주지 않는 경우가 많아 http(s) 공유 페이지를 거친다(사용자 요청: 링크를 누르면 열려야 한다). 앱 설치 안내 · 스토어 링크 · 도메인 · Universal Link는 배포 단계.
+- **받은 사람이 보는 것** (사용자 결정): 공유한 사람 이름, 기록 숫자(거리 · 시간 · 페이스 · 인증된 코스 기록), 코스 이름, 방 목표 · 예약 시각 · 인원. 자유 달리기 경로는 내보내지 않는다.
+- **방 초대** (사용자 요청: 초대가 실제로 되어야 한다): 방 id만으로는 방을 볼 수 없고, 방 초대 링크(type LIVE_ROOM)의 코드가 있어야 보고 참가한다. 참가자 · 방장만 초대 링크를 만든다.
+- **방 상태 전이** (45.1장 서버가 정한다): 참가자(방장 포함) 2명 이상이 모두 준비되고 예약 시각이 지나면 5초 뒤 출발 시각(`startsAt`)을 잡고 READY, 그 시각이 지나면 RUNNING(준비한 참가자도 RUNNING). 출발 전 누가 준비를 풀면 다시 WAITING. 읽거나 바꿀 때마다 방 행을 잠그고 다시 정한다.
+- **아직 없는 것**: 친구 초대(POST /invite, WBS 8), 달리는 중 실시간 상태 · 결과 확정(46장 WebSocket, WBS 11). 달리기 · 결과 화면은 지금까지의 흐름(mock 채널)을 그대로 쓴다.
+- **테스트**: `ShareAndRoomApiContractTest`를 MySQL · MariaDB에서(같은 링크 재사용, 경로 없는 미리보기, 공유 페이지 escape, 권한, 초대 코드 없이 404, 초대 링크로 참가 → 준비 → 5초 뒤 RUNNING, 시작 뒤 참가 불가, 준비 취소, 나가기 · 취소, 45.1장 invariant, 예약 시각 전 출발 안 함).
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -181,3 +202,10 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 친구 랭킹 | 빈 목록 | 사용자 결정. 친구 기능(WBS 8) 뒤에 채운다 |
 | 내 주변 순위 API | `GET /courses/{id}/rankings/me` | RNK-005인데 43장 표에 경로 없음 |
 | 랭킹 동점 | 같은 기록이면 user_id 순 | 23.1장 쿼리 그대로 |
+| 공유 테이블 | `tbl_share_link`를 ERD 그대로 V6에 추가 + `uk_share_target(creator_id, type, reference_id)` | 22.4장 최종 DDL에 빠져 있음. 같은 대상 같은 링크 |
+| 공유 type | `LIVE_ROOM` 추가 (함께 달리기 초대) | 14.3장은 코스 · 기록 · Challenge만 |
+| 공유 URL | 서버 공유 페이지 `/s/{code}`(http(s)) → 앱 `dallimo://share/{code}` | 사용자 요청: 링크를 누르면 열려야 한다 |
+| 방 테이블 | `tbl_live_run_room` · `tbl_live_run_member`를 ERD대로 V6에 추가 + room `course_id` · `starts_at` · `updated_at` | 방 만들기 화면의 코스 선택, 서버가 정한 출발 시각(대기실 카운트다운) |
+| 방 참가 | 초대 링크 코드가 있어야 방을 보고 참가(없으면 404). 최대 10명 | 방 id 추측으로 남의 방에 들어오지 않게. 인원은 명세에 값 없음 |
+| 출발 규칙 | 2명 이상 모두 준비 + 예약 시각 → 5초 뒤 출발 | 명세에 값 없음(앱 mock과 같은 값) |
+| 방 목록 API | `GET /live-runs` (내 예정 · 진행 중 방, 시작 뒤 3시간까지) | 45장 표에 경로 없음. 결과 확정 전이라 진행 중 방이 끝나지 않는다 |
