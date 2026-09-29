@@ -19,6 +19,7 @@ import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
 
 import { CompetitionCard } from './components/CompetitionCard';
 import { CourseRouteMap } from './components/CourseRouteMap';
+import { ReviewsSection } from './components/ReviewsSection';
 import { ElevationProfile } from '@/components/ElevationProfile';
 import type { CourseScenario } from './scenario';
 import { useCourseDetail } from './useCourseDetail';
@@ -211,14 +212,14 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
         </Section>
       ) : null}
 
-      <Section title="러닝 환경">
+      <Section title="러닝 환경" note={course.rating.count > 0 ? '완주자 평가 기준' : undefined}>
         <View style={styles.envGrid}>
           <EnvItem icon="signals" label="신호" value={levelLabel(course.environment.signals, ['적음', '보통', '많음'])} />
           <EnvItem icon="nightLight" label="야간 조명" value={levelLabel(course.environment.nightLight, ['어두움', '보통', '밝음'])} />
           <EnvItem icon="crowd" label="혼잡" value={levelLabel(course.environment.crowd, ['한적함', '보통', '붐빔'])} />
           <EnvItem icon="surface" label="노면" value={course.environment.surface ?? '정보 없음'} />
-          <EnvItem icon="toilet" label="화장실" value={countLabel(course.environment.toilets)} />
-          <EnvItem icon="water" label="급수대" value={countLabel(course.environment.waterFountains)} />
+          <EnvItem icon="toilet" label="화장실" value={presenceLabel(course.environment.toilets)} />
+          <EnvItem icon="water" label="급수대" value={presenceLabel(course.environment.waterFountains)} />
         </View>
       </Section>
 
@@ -235,6 +236,24 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
           <MetaRow icon="tabMy" text={`만든 사람 ${course.creatorName}`} />
         </View>
       </Section>
+
+      {/* REV-001 완주자 평가 */}
+      <Section title="완주자 평가">
+        <ReviewsSection course={course} />
+      </Section>
+
+      {/* CREG-005 신고: 맨 아래, 눈에 띄지 않게 */}
+      <AppPressable
+        onPress={() => router.push({ pathname: '/course/[id]/report', params: { id: course.id } })}
+        accessibilityRole="button"
+        accessibilityLabel="이 코스 신고하기"
+        style={styles.report}
+      >
+        <AppIcon name="report" size={14} color={colors.text.secondary} />
+        <AppText role="label" tone="secondary">
+          코스 신고
+        </AppText>
+      </AppPressable>
       <View style={{ height: spacing.lg, backgroundColor: colors.bg.canvas }} />
     </>
   );
@@ -361,14 +380,23 @@ function levelLabel(level: Level | null, words: [string, string, string]) {
   return '정보 없음';
 }
 
-function countLabel(n: number | null) {
-  if (n == null) return '정보 없음';
-  return n === 0 ? '없음' : `${n}곳`;
+function presenceLabel(v: boolean | null) {
+  if (v == null) return '정보 없음';
+  return v ? '있음' : '없음';
 }
 
 const CTA_BAR = touchTarget.primary + spacing.md * 2;
 
 const styles = StyleSheet.create({
+  report: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacing.xs,
+    minHeight: touchTarget.min,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+  },
   rankingLink: {
     alignSelf: 'flex-start',
     marginTop: spacing.md,

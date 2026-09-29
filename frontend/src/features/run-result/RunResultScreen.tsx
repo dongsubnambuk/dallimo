@@ -140,6 +140,15 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
 
       {/* 6. 공유 · 다시 도전 */}
       <Actions result={r} outcome={outcome} />
+      {/* REV-001 인증 완주한 코스는 평가를 남길 수 있다 (완주자 기반 환경 평가) */}
+      {r.course && r.verification === 'verified' && course?.rating.canReview ? (
+        <SecondaryButton
+          label={course.rating.mine ? '내 코스 평가 고치기' : '이 코스 평가하기'}
+          size="sm"
+          onPress={() => router.push({ pathname: '/course/[id]/review', params: { id: r.course!.id } })}
+          style={styles.rankingLink}
+        />
+      ) : null}
       {/* CREG-001 자유 달리기 경로를 코스로 등록 (3.2장 코스 생성 흐름) */}
       {r.mode === 'FREE' ? (
         <SecondaryButton

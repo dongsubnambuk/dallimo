@@ -56,6 +56,9 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="course/[id]/index" options={{ headerShown: false }} />
             <Stack.Screen name="course/[id]/ranking" options={{ headerShown: false }} />
+            {/* REV-001 평가 · CREG-005 신고 */}
+            <Stack.Screen name="course/[id]/review" options={{ headerShown: false, presentation: 'modal' }} />
+            <Stack.Screen name="course/[id]/report" options={{ headerShown: false, presentation: 'modal' }} />
             {/* Play Mode는 코스 상세 위 하단 sheet (89장) */}
             <Stack.Screen
               name="course/[id]/play"

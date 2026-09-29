@@ -1,5 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { FlatList, Linking, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,20 +8,25 @@ import { BrandSymbol } from '@/components/Brand';
 import { CourseCard } from '@/components/CourseCard';
 import { FilterChip } from '@/components/FilterChip';
 import { SecondaryButton } from '@/components/SecondaryButton';
+import { getCourseRepository } from '@/entities/course/api';
 import type { CourseSummary } from '@/entities/course/types';
+import { runResultRepository } from '@/entities/run/api';
 import { AppDivider, AppIcon, AppPressable, AppSurface, AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { elevation, fontFamily, OBLIQUE_SKEW, radius, spacing, touchTarget, typography } from '@/design/tokens';
 import { formatCount, formatDistanceKm, formatDuration } from '@/shared/format';
+import { distanceM, type GeoPoint } from '@/shared/geo';
 
 import { DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
 import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
 import { parseScenario } from './api/scenario';
 import { ExploreMap } from './components/ExploreMap';
 import { StateNotice } from '@/components/StateNotice';
+import { recommendCourses, typicalDistance, type Recommendation } from './recommend';
 import { useNearbyCourses } from './useNearbyCourses';
 
-// SCR-E01 Explore 홈 (CRS-001 주변 코스, CRS-004 빠른 필터·정렬, LOC-001/002 위치 권한).
+// SCR-E01 Explore 홈 (CRS-001 주변 코스, CRS-002 지도 이 지역에서 찾기, CRS-003 이름 · 지역 · 태그 검색,
+// CRS-004 빠른 필터·정렬(평점 포함), CRS-005 추천, LOC-001/002 위치 권한).
 // 89장: 밝은 지도 55~65% + 하단 코스 결과, 상단 검색은 지도 위 고정, 선택 코스가 route signal로 강조.
 // 74장 필수 상태: loading, location denied, no nearby course, network error, map ready, list ready.
 // v0.5 (FOUNDATION-DECISION-LOG 10항): 무채색 브랜드 지도 위 형광 민트 코스, 검정 코스 티켓(1위 기록·내 PB·이번 주 러너),
@@ -40,17 +46,25 @@ const QUICK_FILTERS: QuickFilter[] = [
   { key: 'flat', label: '평지', match: (c) => c.tags.includes('평지') },
   { key: 'night', label: '야간 밝음', match: (c) => c.tags.includes('야간 밝음') },
   { key: 'easy', label: '초보 추천', match: (c) => c.tags.includes('초보 추천') },
+  // REV-001 완주자 평점 (평가가 있는 코스만)
+  { key: 'rated', label: '평점 4점 이상', match: (c) => c.reviewCount > 0 && (c.ratingAvg ?? 0) >= 4 },
 ];
 
-type SortKey = 'near' | 'popular' | 'short';
+// 검색어를 다 친 뒤에 찾는다
+const SEARCH_DEBOUNCE_MS = 300;
+
+type SortKey = 'near' | 'popular' | 'rating' | 'short';
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'near', label: '가까운 순' },
   { key: 'popular', label: '인기순' },
+  { key: 'rating', label: '평점순' },
   { key: 'short', label: '짧은 순' },
 ];
 const sorters: Record<SortKey, (a: CourseSummary, b: CourseSummary) => number> = {
-  near: (a, b) => (a.startDistanceM ?? 0) - (b.startDistanceM ?? 0),
+  near: (a, b) => (a.startDistanceM ?? Infinity) - (b.startDistanceM ?? Infinity),
   popular: (a, b) => b.weeklyRunnerCount - a.weeklyRunnerCount,
+  // 평가가 없는 코스는 뒤로
+  rating: (a, b) => (b.reviewCount > 0 ? (b.ratingAvg ?? 0) : -1) - (a.reviewCount > 0 ? (a.ratingAvg ?? 0) : -1) || b.reviewCount - a.reviewCount,
   short: (a, b) => a.distanceM - b.distanceM,
 };
 
@@ -69,18 +83,49 @@ export function ExploreScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focus, setFocus] = useState<'selection' | 'user'>('selection');
 
-  const { state, position } = useNearbyCourses(scenario, radiusM);
+  // CRS-002 지도를 옮긴 곳에서 찾기 (moved: 옮기고 멈춘 곳, area: 찾기를 누른 곳)
+  const [moved, setMoved] = useState<{ center: GeoPoint; radiusM: number } | null>(null);
+  const [area, setArea] = useState<{ center: GeoPoint; radiusM: number } | null>(null);
+  const { state: nearbyState, position } = useNearbyCourses(scenario, radiusM, area);
+
+  // CRS-003 이름 · 지역 · 태그 검색 (서버). 검색어가 있으면 목록 · 지도가 검색 결과로 바뀐다
+  const [searchQ, setSearchQ] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQ(query.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+  const courseRepo = useMemo(() => getCourseRepository(scenario === 'denied' ? 'normal' : scenario), [scenario]);
+  const search = useQuery({
+    queryKey: ['courses', 'search', searchQ, scenario],
+    queryFn: async () => {
+      const list = await courseRepo.search(searchQ);
+      return list.map((c) => ({ ...c, startDistanceM: position ? Math.round(distanceM(position, c.displayRoute[0])) : null }));
+    },
+    enabled: searching && searchQ.length > 0,
+    retry: false,
+  });
+  const searchMode = searching && searchQ.length > 0;
+  const state: typeof nearbyState = !searchMode
+    ? nearbyState
+    : search.isPending
+      ? { kind: 'loading' }
+      : search.isError
+        ? { kind: 'error', retry: () => search.refetch() }
+        : { kind: 'ready', courses: search.data, locationDenied: nearbyState.kind === 'ready' && nearbyState.locationDenied };
+
   const ready = state.kind === 'ready' ? state.courses : null;
   const locationDenied = state.kind === 'ready' && state.locationDenied;
   const all = useMemo(() => ready ?? [], [ready]);
 
   const visible = useMemo(() => {
     const active = QUICK_FILTERS.filter((f) => filters[f.key]);
-    const q = query.trim();
-    return all
-      .filter((c) => active.every((f) => f.match(c)) && (q === '' || c.name.includes(q) || c.tags.some((t) => t.includes(q))))
-      .sort(sorters[sort]);
-  }, [all, filters, query, sort]);
+    return all.filter((c) => active.every((f) => f.match(c))).sort(sorters[sort]);
+  }, [all, filters, sort]);
+
+  // CRS-005 추천: 평소 달리는 거리(최근 기록 20개의 가운데 값)에 맞춘 규칙 기반 추천 하나
+  const recent = useQuery({ queryKey: ['run', 'typical-distance'], queryFn: () => runResultRepository.list(null, 20), staleTime: 5 * 60_000, retry: false });
+  const typical = typicalDistance((recent.data?.items ?? []).map((r) => r.distanceM));
+  const recommendation = useMemo(() => (searchMode ? null : (recommendCourses(all, typical)[0] ?? null)), [all, typical, searchMode]);
 
   const weeklyRunners = all.reduce((n, c) => n + c.weeklyRunnerCount, 0);
   // 이번 주에 달린 사람이 있을 때만 "이번 주 인기" (아무도 안 달렸는데 인기라고 하지 않는다)
@@ -113,7 +158,28 @@ export function ExploreScreen() {
           loading={state.kind === 'locating' || state.kind === 'loading'}
           height={mapHeight}
           obscured={{ top: topObscured, bottom: bottomObscured }}
+          onUserMoved={searchMode ? undefined : (center, r) => setMoved({ center, radiusM: r })}
         />
+
+        {/* CRS-002 지도를 옮기면 그 지역 코스를 찾는다 */}
+        {moved && !searchMode ? (
+          <View style={[styles.areaSearch, { top: insets.top + spacing.sm + TOP_BAR_HEIGHT + spacing.sm }]} pointerEvents="box-none">
+            <AppPressable
+              onPress={() => {
+                setArea(moved);
+                setMoved(null);
+                setFocus('selection');
+              }}
+              accessibilityLabel="이 지역에서 코스 찾기"
+              style={[styles.areaButton, { backgroundColor: colors.bg.elevated, boxShadow: elevation.mapOverlay }]}
+            >
+              <AppIcon name="search" size={16} color={colors.text.primary} />
+              <AppText role="label" style={styles.bold}>
+                이 지역에서 찾기
+              </AppText>
+            </AppPressable>
+          </View>
+        ) : null}
 
         <View style={[styles.topBar, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
           {searching ? (
@@ -123,7 +189,7 @@ export function ExploreScreen() {
                 autoFocus
                 value={query}
                 onChangeText={setQuery}
-                placeholder="코스 이름, 태그 검색"
+                placeholder="코스 이름, 지역, 특징 검색"
                 placeholderTextColor={colors.text.secondary}
                 accessibilityLabel="코스 검색"
                 returnKeyType="search"
@@ -160,7 +226,12 @@ export function ExploreScreen() {
 
         {position ? (
           <AppPressable
-            onPress={() => setFocus('user')}
+            onPress={() => {
+              setFocus('user');
+              // 내 위치로 돌아오면 내 주변 코스로
+              setArea(null);
+              setMoved(null);
+            }}
             accessibilityLabel="내 위치로 이동"
             accessibilityState={{ selected: focus === 'user' }}
             style={[
@@ -186,6 +257,10 @@ export function ExploreScreen() {
         <View style={[styles.handle, { backgroundColor: colors.border.strong }]} />
         <SheetBody
           state={state}
+          title={searchMode ? `'${searchQ}' 검색 결과` : area ? '이 지역 코스' : undefined}
+          searchMode={searchMode}
+          recommendation={recommendation}
+          onPressRecommendation={(c) => select(c.id)}
           all={all}
           visible={visible}
           locationDenied={locationDenied}
@@ -337,6 +412,10 @@ function BigStat({ value, unit }: { value: string; unit: string }) {
 
 function SheetBody({
   state,
+  title,
+  searchMode,
+  recommendation,
+  onPressRecommendation,
   all,
   visible,
   locationDenied,
@@ -351,6 +430,10 @@ function SheetBody({
   onClearFilters,
 }: {
   state: ReturnType<typeof useNearbyCourses>['state'];
+  title?: string;
+  searchMode: boolean;
+  recommendation: Recommendation | null;
+  onPressRecommendation: (c: CourseSummary) => void;
   all: CourseSummary[];
   visible: CourseSummary[];
   locationDenied: boolean;
@@ -387,6 +470,17 @@ function SheetBody({
     );
   }
 
+  if (all.length === 0 && searchMode) {
+    return (
+      <StateNotice
+        icon="search"
+        title="찾는 코스가 없어요"
+        body="코스 이름, 지역(예: 수성구), 특징(예: 강변)으로 찾아보세요."
+        actions={<SecondaryButton label="검색어 지우기" size="sm" onPress={onClearFilters} />}
+      />
+    );
+  }
+
   if (all.length === 0) {
     return (
       <StateNotice
@@ -402,7 +496,8 @@ function SheetBody({
     );
   }
 
-  const sorts = SORTS.filter((s) => !(locationDenied && s.key === 'near'));
+  // 내 위치를 모르면 가까운 순이 없다
+  const sorts = SORTS.filter((s) => !((locationDenied || all.every((c) => c.startDistanceM == null)) && s.key === 'near'));
   const current = sorts.find((s) => s.key === sort) ?? sorts[0];
   const nextSort = () => onSort(sorts[(sorts.indexOf(current) + 1) % sorts.length].key);
 
@@ -417,8 +512,9 @@ function SheetBody({
           actions={<SecondaryButton label="설정에서 권한 켜기" size="sm" onPress={() => Linking.openSettings()} />}
         />
       ) : null}
+      {recommendation ? <RecommendRow item={recommendation} onPress={() => onPressRecommendation(recommendation.course)} /> : null}
       <SheetHeader
-        title={locationDenied ? '대구 수성구 코스' : '내 주변 코스'}
+        title={title ?? (locationDenied ? '대구 수성구 코스' : '내 주변 코스')}
         count={visible.length}
         right={
           <AppPressable onPress={nextSort} accessibilityLabel={`정렬: ${current.label}. 눌러서 바꾸기`} style={styles.sortButton}>
@@ -457,7 +553,9 @@ function SheetBody({
           distanceM={item.distanceM}
           tags={item.tags}
           route={item.displayRoute}
-          socialContext={`이번 주 ${formatCount(item.weeklyRunnerCount)}명`}
+          socialContext={[item.reviewCount > 0 && item.ratingAvg != null ? `★ ${item.ratingAvg.toFixed(1)}` : null, `이번 주 ${formatCount(item.weeklyRunnerCount)}명`, searchMode ? item.region : null]
+            .filter(Boolean)
+            .join(' · ')}
           proximityM={locationDenied ? undefined : (item.startDistanceM ?? undefined)}
           recordContext={item.myBestSec != null ? `내 PB ${formatDuration(item.myBestSec)}` : item.leaderSec != null ? `1위 ${formatDuration(item.leaderSec)}` : undefined}
           selected={item.id === selectedId}
@@ -467,6 +565,30 @@ function SheetBody({
       )}
       contentContainerStyle={styles.listContent}
     />
+  );
+}
+
+// CRS-005 오늘의 추천 한 줄. 누르면 지도 · 목록에서 그 코스를 고른다
+function RecommendRow({ item, onPress }: { item: Recommendation; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <AppPressable
+      onPress={onPress}
+      accessibilityLabel={`추천 코스 ${item.course.name}, ${formatDistanceKm(item.course.distanceM, 1)}킬로미터, ${item.reason}`}
+      style={[styles.recommend, { backgroundColor: colors.action.tint }]}
+    >
+      <AppText role="caption" tone="accent" style={styles.bold}>
+        추천
+      </AppText>
+      <View style={styles.flexShrink}>
+        <AppText role="label" style={styles.bold} numberOfLines={1}>
+          {item.course.name} · {formatDistanceKm(item.course.distanceM, 1)}km
+        </AppText>
+        <AppText role="caption" tone="secondary" numberOfLines={1}>
+          {item.reason}
+        </AppText>
+      </View>
+    </AppPressable>
   );
 }
 
@@ -491,6 +613,36 @@ const CTA_HEIGHT = 40;
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  areaSearch: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  areaButton: {
+    minHeight: touchTarget.min - 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+  },
+  recommend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.control,
+    minHeight: touchTarget.min,
+  },
+  bold: {
+    fontFamily: fontFamily.bold,
+  },
+  flexShrink: {
+    flexShrink: 1,
   },
   topBar: {
     position: 'absolute',

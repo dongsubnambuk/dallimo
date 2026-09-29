@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -21,6 +21,7 @@ import { dayLabel, startedAt } from '@/features/my/labels';
 import { ResultMap } from '@/features/run-result/components/ResultMap';
 import { useRunResult } from '@/features/run-result/useRunResult';
 import { formatDistanceKm, formatDuration } from '@/shared/format';
+import { regionNameAt } from '@/shared/location/regionName';
 
 // 탐색 필터 · 기존 코스와 같은 태그 이름을 쓴다
 const TAGS = ['평지', '오르막', '강변', '신호 적음', '야간 밝음', '초보 추천'];
@@ -59,6 +60,9 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
+  // 출발점 지역 이름 (CRS-003 지역 검색). 휴대폰 지오코더, 못 찾으면 비워 둔다
+  const start = run.path[0] ?? null;
+  const region = useQuery({ queryKey: ['region', start?.latitude, start?.longitude], queryFn: () => (start ? regionNameAt(start) : null), staleTime: Infinity });
   const trimmed = name.trim();
   const nameOk = trimmed.length > 0 && trimmed.length <= COURSE_NAME_MAX;
   const blocked = run.sync !== 'synced' ? '기록을 서버에 올린 뒤에 코스로 등록할 수 있어요' : null;
@@ -72,6 +76,7 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
         tags,
         // 고른 순서가 아니라 하루 순서대로 적는다. 예: "새벽 · 저녁"
         recommendedTime: times.length ? TIMES.filter((t) => times.includes(t)).join(' · ') : null,
+        region: region.data ?? null,
       }),
     onSuccess: (course) => {
       queryClient.invalidateQueries({ queryKey: ['course', 'mine'] });
@@ -179,6 +184,11 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
               </AppText>
             </View>
             <View style={[styles.summary, { backgroundColor: colors.bg.surface }]}>
+              {region.data ? (
+                <AppText role="caption" tone="secondary">
+                  {region.data}
+                </AppText>
+              ) : null}
               <AppText role="sectionTitle" numberOfLines={2}>
                 {trimmed}
               </AppText>

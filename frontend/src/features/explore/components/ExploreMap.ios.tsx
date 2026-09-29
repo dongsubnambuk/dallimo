@@ -14,7 +14,7 @@ import { frameFor, MIN_SPAN_M } from './exploreFrame';
 // iOS 탐색 지도 (애플 지도). SVG 지도(ExploreMap.tsx)와 같은 props · 같은 범위 기준.
 // 장소 이름은 애플 지도가 보여주므로 mock 지명(base.labels)은 쓰지 않는다.
 // 90장: 리스트 선택과 지도 route highlight가 서로 연결된다. 경로나 러너 수 핀을 눌러도 선택된다.
-export function ExploreMap({ courses, selectedId, onSelectCourse, userPosition, fallbackCenter, focus, loading = false, height, obscured }: ExploreMapProps) {
+export function ExploreMap({ courses, selectedId, onSelectCourse, userPosition, fallbackCenter, focus, loading = false, height, obscured, onUserMoved }: ExploreMapProps) {
   const { colors } = useTheme();
   const ref = useRef<MapView>(null);
   const selected = courses.find((c) => c.id === selectedId) ?? null;
@@ -29,6 +29,12 @@ export function ExploreMap({ courses, selectedId, onSelectCourse, userPosition, 
         initialRegion={region ?? undefined}
         pointsOfInterest
         padding={{ top: obscured.top, bottom: obscured.bottom, left: 0, right: 0 }}
+        // CRS-002: 손으로 옮긴 지도만 알린다 (선택으로 옮긴 지도는 제외). 반경은 보이는 가로 폭의 절반
+        onRegionChangeComplete={(r, isGesture) => {
+          if (!isGesture || !onUserMoved) return;
+          const halfWidthM = (r.longitudeDelta * 111_320 * Math.cos((r.latitude * Math.PI) / 180)) / 2;
+          onUserMoved({ latitude: r.latitude, longitude: r.longitude }, Math.round(Math.min(20_000, Math.max(500, halfWidthM))));
+        }}
         accessibilityLabel="주변 코스 지도"
       >
         {courses

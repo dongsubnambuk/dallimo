@@ -6,7 +6,7 @@ import type { CourseRegistrationRepository } from './courseRegistration';
 import { toCourseDetail, toCourseError, type CourseDetailDto } from './httpCourseRepository';
 
 // CREG-004 POST /api/v1/courses. 서버가 내 FINISHED Run의 경로를 코스용으로 정규화해 만든다 (43.1장).
-// 추천 시간은 명세 요청 필드에 없어 보내지 않는다 (MOCK-CONTRACT-CHECK 8번).
+// 추천 시간 · 지역은 명세 요청 필드에 없어 서버와 정했다 (MOCK-CONTRACT-CHECK 8번).
 const REJECTED: Record<string, string> = {
   RUN_POINT_INVALID: '경로 기록이 부족해서 코스로 만들 수 없어요',
   RUN_INVALID_STATE: '끝난 러닝만 코스로 만들 수 있어요',
@@ -23,7 +23,14 @@ export function createHttpCourseRegistration(): CourseRegistrationRepository {
       try {
         const dto = await apiRequest<CourseDetailDto>('/api/v1/courses', {
           method: 'POST',
-          body: { sourceRunId: Number(runId), name: input.name.trim(), description: input.description?.trim() || null, tags: input.tags },
+          body: {
+            sourceRunId: Number(runId),
+            name: input.name.trim(),
+            description: input.description?.trim() || null,
+            tags: input.tags,
+            region: input.region,
+            recommendedTime: input.recommendedTime,
+          },
         });
         return toCourseDetail(dto);
       } catch (e) {
