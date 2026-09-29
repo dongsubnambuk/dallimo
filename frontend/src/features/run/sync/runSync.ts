@@ -1,7 +1,11 @@
-import { RunApiError, toPointDto, type FinishRunResponse, type RunApi } from '@/entities/run/api/runApi';
+import { RunApiError, toPointDto, toWorkoutStepDto, type FinishRunResponse, type RunApi } from '@/entities/run/api/runApi';
+import { flattenBlocks } from '@/entities/workout/flatten';
+import { parseWorkoutPlan } from '@/entities/workout/plan';
+import { stepResults } from '@/entities/workout/tracker';
 import type { ApiErrorCode } from '@/shared/api/contract';
 
-import type { LocalRunStore, SyncBatch } from '../engine/localRunStore';
+import { parseBoundaries } from '../engine/intervalTracking';
+import type { LocalRun, LocalRunStore, SyncBatch } from '../engine/localRunStore';
 
 // 29.4장 Sync Worker: 러닝 하나를 서버까지 올린다.
 // 서버 Run 만들기(clientRunUuid) → 연속 seq Batch 기록 후 전송(batchUuid) → 성공 ACKED · 실패 backoff → 끝난 러닝이면 finish.
@@ -51,6 +55,29 @@ export function planValue(plan: string | null, key: 'liveRoomId' | 'challengeId'
   }
 }
 
+// 인터벌 달리기: 계획의 인터벌 (plan.workout JSON)
+function planWorkout(plan: string | null) {
+  try {
+    const p: unknown = plan ? JSON.parse(plan) : null;
+    const w = p && typeof p === 'object' ? (p as Record<string, unknown>).workout : null;
+    return typeof w === 'string' ? parseWorkoutPlan(w) : null;
+  } catch {
+    return null;
+  }
+}
+
+function workoutLink(run: LocalRun) {
+  const w = run.mode === 'INTERVAL' ? planWorkout(run.plan) : null;
+  return w ? { templateId: w.id, version: w.version, name: w.name } : null;
+}
+
+// 인터벌 달리기의 구간 결과: 계획의 구간 순서 + 기기에 저장한 경계
+function workoutSteps(run: LocalRun) {
+  const w = run.mode === 'INTERVAL' ? planWorkout(run.plan) : null;
+  if (!w) return undefined;
+  return stepResults(flattenBlocks(w.blocks), parseBoundaries(run.workoutProgress)).map(toWorkoutStepDto);
+}
+
 export async function syncRun(runUuid: string, deps: SyncDeps): Promise<SyncOutcome> {
   const { store, api } = deps;
   const outcome = async (state: SyncOutcome['state'], retryAt: number | null = null): Promise<SyncOutcome> => ({
@@ -75,6 +102,7 @@ export async function syncRun(runUuid: string, deps: SyncDeps): Promise<SyncOutc
         challengeId: planValue(run.plan, 'challengeId'),
         liveRoomId: planValue(run.plan, 'liveRoomId'),
         startedAt: new Date(run.startedAt).toISOString(),
+        workout: workoutLink(run),
       });
       runId = created.runId;
       await store.setServerRunId(runUuid, runId);
@@ -123,6 +151,7 @@ export async function syncRun(runUuid: string, deps: SyncDeps): Promise<SyncOutc
       lastSeq: run.lastSeq,
       // 일시정지 시간은 기기만 안다 (오프라인에서 멈춘 시각은 서버에 가지 않음)
       activeSeconds: Math.round(run.elapsedMs / 1000),
+      workoutSteps: workoutSteps(run),
     });
     // 42.4장: 서버에 빠진 seq가 있으면 FINISHING. 빠진 Batch를 보낸 뒤 다시 요청한다
     if (finish.status === 'FINISHING') return outcome('pending', deps.now() + SYNC_POLICY.backoffBaseMs);

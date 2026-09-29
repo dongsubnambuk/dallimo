@@ -5,9 +5,9 @@ import { MODE_TITLE } from '@/features/run-ready/runPlanParams';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
-// 기록 이름: 코스를 달렸으면 코스 이름, 아니면 모드 이름
-export function runTitle(r: Pick<RunSummary, 'course' | 'mode'>): string {
-  return r.course?.name ?? MODE_TITLE[r.mode];
+// 기록 이름: 코스를 달렸으면 코스 이름, 인터벌이면 인터벌 이름, 아니면 모드 이름
+export function runTitle(r: Pick<RunSummary, 'course' | 'mode'> & { workoutName?: string | null }): string {
+  return r.course?.name ?? r.workoutName ?? MODE_TITLE[r.mode];
 }
 
 // 시작 시각 (run.started_at)

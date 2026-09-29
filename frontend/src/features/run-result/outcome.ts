@@ -1,14 +1,17 @@
+import { getRunPolicySync } from '@/entities/run/policy';
 import type { RunResult } from '@/entities/run/result';
+import { resultGap, workoutFinished } from '@/entities/workout/tracker';
 import { formatDistanceKm, formatDurationSpoken } from '@/shared/format';
 
 // 63.1장 1순위 "Finish 감정 피드백: 완주/PB/Challenge 성공 여부". 결과 맨 위 한 줄과 그 아래 설명.
 export type Outcome = {
-  kind: 'pb' | 'firstRecord' | 'won' | 'finished' | 'missed' | 'dnf' | 'free';
+  kind: 'pb' | 'firstRecord' | 'won' | 'finished' | 'missed' | 'dnf' | 'free' | 'intervalDone' | 'intervalPartial';
   headline: string;
   detail: string;
 };
 
 export function outcomeOf(r: RunResult): Outcome {
+  if (r.mode === 'INTERVAL' && r.workout?.steps.length) return intervalOutcome(r.workout.steps);
   if (!r.course) return { kind: 'free', headline: '자유 달리기 완료', detail: `${formatDistanceKm(r.distanceM)}km를 달렸어요` };
   const time = r.course.timeSec;
   if (time == null) return { kind: 'dnf', headline: '코스를 끝까지 달리지 못했어요', detail: '이번 기록은 러닝 기록으로만 남아요' };
@@ -39,4 +42,17 @@ export function outcomeOf(r: RunResult): Outcome {
     return { kind: 'finished', headline: '코스 완주', detail: `PB까지 ${formatDurationSpoken(time - r.pb.previousSec)} 남았어요` };
   }
   return { kind: 'finished', headline: '코스 완주', detail: '끝까지 완주했어요' };
+}
+
+// 인터벌 달리기: 끝까지 마쳤는지, 빠르게 구간 목표를 몇 번 맞췄는지 (목표보다 빠르거나 목표 안이면 맞춘 것)
+function intervalOutcome(steps: NonNullable<RunResult['workout']>['steps']): Outcome {
+  const done = steps.filter((s) => s.completed).length;
+  if (!workoutFinished(steps)) {
+    return { kind: 'intervalPartial', headline: '인터벌을 중간에 끝냈어요', detail: done > 0 ? `${done}개 구간을 마쳤어요` : '첫 구간을 마치기 전에 끝냈어요' };
+  }
+  const minSample = getRunPolicySync().minPaceSampleM;
+  const work = steps.filter((s) => s.stepType === 'WORK' && s.targetType != null);
+  if (work.length === 0) return { kind: 'intervalDone', headline: '인터벌 완료', detail: `${steps.length}개 구간을 모두 마쳤어요` };
+  const hit = work.filter((s) => (resultGap(s, minSample)?.gap ?? 1) <= 0).length;
+  return { kind: 'intervalDone', headline: '인터벌 완료', detail: `빠르게 ${work.length}번 중 ${hit}번 목표를 맞췄어요` };
 }

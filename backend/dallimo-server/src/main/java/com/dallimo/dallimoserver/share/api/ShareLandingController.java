@@ -56,7 +56,7 @@ public class ShareLandingController {
         Preview p = r.preview();
         return switch (r.type()) {
             case RUN -> {
-                String what = p.courseName() != null ? p.courseName() : p.runMode() == RunMode.FREE ? "자유 달리기" : "달리기";
+                String what = p.courseName() != null ? p.courseName() : p.runMode() == RunMode.FREE ? "자유 달리기" : p.runMode() == RunMode.INTERVAL ? "인터벌 달리기" : "달리기";
                 String time = duration(p.recordSeconds() != null ? p.recordSeconds() : p.elapsedSeconds());
                 yield new String[]{p.sharerName() + "님의 달리기 기록", what + " · " + km(p.distanceM()) + "km · " + time};
             }

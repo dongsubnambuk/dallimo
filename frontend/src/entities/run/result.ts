@@ -1,4 +1,5 @@
 import type { Challenge } from '@/entities/challenge/types';
+import type { RunWorkoutResult } from '@/entities/workout/types';
 import type { GeoPoint } from '@/shared/geo';
 
 import type { RunMode, RunSplit } from './types';
@@ -45,4 +46,6 @@ export type RunResult = {
   friendBest: { name: string; timeSec: number } | null;
   // CHL-003 이 러닝으로 한 도전 (서버 판정). 서버에 올라가기 전 · 도전이 아니면 없다
   challenge?: Challenge | null;
+  // 인터벌 달리기: 달린 인터벌과 구간별 실제 거리 · 시간 (123.2장)
+  workout?: RunWorkoutResult | null;
 };

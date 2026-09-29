@@ -1,4 +1,5 @@
 import { toChallenge, type ChallengeDto } from '@/entities/challenge/api/httpChallengeRepository';
+import type { RunWorkoutResult, StepResult } from '@/entities/workout/types';
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { CursorPage } from '@/shared/api/contract';
 
@@ -26,6 +27,8 @@ type ServerSummary = {
   elapsedSeconds: number;
   avgPaceSecPerKm: number | null;
   verificationStatus: string;
+  // 인터벌 달리기면 인터벌 이름
+  workoutName?: string | null;
 };
 // 판정 전(PENDING)이면 status만 있다
 type ServerVerification = {
@@ -40,8 +43,31 @@ type ServerVerification = {
   // 이 코스 친구 최고 기록 (RST-004)
   friendBest?: { userId: number; name: string; timeSec: number } | null;
 };
-// challenge: 이 Run으로 한 도전 (CHL-003)
-type ServerDetail = { summary: ServerSummary; splits: RunSplit[]; path: [number, number][]; verification: ServerVerification | null; challenge?: ChallengeDto | null };
+// 인터벌 달리기 구간 결과 (RunDtos.WorkoutStepDto)
+type ServerWorkoutStep = Omit<StepResult, 'elapsedSec'> & { elapsedSeconds: number };
+type ServerWorkout = { templateId: number | null; version: number | null; name: string; steps: ServerWorkoutStep[] };
+// challenge: 이 Run으로 한 도전 (CHL-003), workout: 인터벌 결과
+type ServerDetail = {
+  summary: ServerSummary;
+  splits: RunSplit[];
+  path: [number, number][];
+  verification: ServerVerification | null;
+  challenge?: ChallengeDto | null;
+  workout?: ServerWorkout | null;
+};
+
+function toWorkoutResult(w: ServerWorkout | null | undefined, name: string | null | undefined): RunWorkoutResult | null {
+  if (w) {
+    return {
+      templateId: w.templateId != null ? String(w.templateId) : null,
+      version: w.version,
+      name: w.name,
+      steps: w.steps.map(({ elapsedSeconds, ...s }) => ({ ...s, elapsedSec: elapsedSeconds })),
+    };
+  }
+  // 목록에는 이름만 온다
+  return name ? { templateId: null, version: null, name, steps: [] } : null;
+}
 
 const SERVER_PREFIX = 'srv-';
 
@@ -72,7 +98,14 @@ function challengeOf(dto: ChallengeDto | null | undefined) {
   return { challenge, target: { sec: challenge.targetSec, label: challenge.target.nickname } };
 }
 
-function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number][], v: ServerVerification | null, c?: ChallengeDto | null): RunResult {
+function fromServer(
+  s: ServerSummary,
+  splits: RunSplit[],
+  path: [number, number][],
+  v: ServerVerification | null,
+  c?: ChallengeDto | null,
+  w?: ServerWorkout | null,
+): RunResult {
   const startedAt = Date.parse(s.startedAt);
   const { recordSec, ...judged } = verdict(v, s.verificationStatus);
   return {
@@ -91,6 +124,7 @@ function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number]
     sync: 'synced',
     ...judged,
     ...challengeOf(c),
+    workout: toWorkoutResult(w, s.workoutName),
   };
 }
 
@@ -154,16 +188,16 @@ export function createHttpRunResultRepository(): RunResultRepository {
       if (!id.startsWith(SERVER_PREFIX)) throw new RunResultNotFoundError(id);
       try {
         const d = await detailOf(id.slice(SERVER_PREFIX.length));
-        return fromServer(d.summary, d.splits, d.path, d.verification, d.challenge);
+        return fromServer(d.summary, d.splits, d.path, d.verification, d.challenge, d.workout);
       } catch (e) {
         if (e instanceof ApiRequestError && (e.code === 'RUN_NOT_FOUND' || e.code === 'RESOURCE_FORBIDDEN')) throw new RunResultNotFoundError(id);
         throw e;
       }
     },
 
-    async list(cursor, size) {
+    async list(cursor, size, mode) {
       const page = await apiRequest<CursorPage<ServerSummary>>('/api/v1/runs', {
-        query: { size: String(Math.min(50, size)), ...(cursor ? { cursor } : {}) },
+        query: { size: String(Math.min(50, size)), ...(cursor ? { cursor } : {}), ...(mode ? { mode } : {}) },
       });
       // 이번 실행에서 끝낸 기록은 첫 페이지에 모두 기기 값(코스 이름 · 경로 포함)으로 보여준다.
       // 서버에 아직 없는 기록(기기에만 있음 · 올리는 중)도 여기에 들어간다. 다음 페이지에서는 같은 기록을 빼서 두 번 나오지 않게 한다.
@@ -172,7 +206,11 @@ export function createHttpRunResultRepository(): RunResultRepository {
       if (!cursor) {
         // 서버에 올라간 기기 기록은 서버 판정 상태를 쓴다
         const judged = new Map(page.items.map((s) => [s.clientRunUuid, toVerification(s.verificationStatus)]));
-        items.push(...[...local.values()].map((l) => toRunSummary({ ...localResult(l), verification: judged.get(l.input.clientRunUuid) ?? localResult(l).verification })));
+        items.push(
+          ...[...local.values()]
+            .filter((l) => !mode || l.input.mode === mode)
+            .map((l) => toRunSummary({ ...localResult(l), verification: judged.get(l.input.clientRunUuid) ?? localResult(l).verification })),
+        );
       }
       items.sort((a, b) => b.finishedAt - a.finishedAt);
       return { items, nextCursor: page.nextCursor };

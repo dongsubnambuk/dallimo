@@ -22,6 +22,7 @@ import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } fr
 import { RecordState } from './components/RecordState';
 import { ResultMap } from './components/ResultMap';
 import { SplitList } from './components/SplitList';
+import { WorkoutStepList } from './components/WorkoutStepList';
 import { outcomeOf, type Outcome } from './outcome';
 import { useRunResult } from './useRunResult';
 
@@ -76,7 +77,7 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
       <View style={styles.hero} accessible accessibilityRole="header" accessibilityLabel={`${outcome.headline}. ${outcome.detail}`}>
         <View style={styles.context}>
           <AppText role="label" tone="secondary" numberOfLines={1} style={styles.flexShrink}>
-            {[r.course?.name, MODE_TITLE[r.mode]].filter(Boolean).join(' · ')}
+            {[r.course?.name ?? r.workout?.name, MODE_TITLE[r.mode]].filter(Boolean).join(' · ')}
           </AppText>
         </View>
         <View style={styles.headlineRow}>
@@ -119,6 +120,16 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
         </AppText>
       ) : null}
 
+      {/* 인터벌 달리기: 구간별 기록이 핵심 수치 다음 (123.2장 WorkoutResult) */}
+      {r.workout?.steps.length ? (
+        <View style={styles.intervalSection}>
+          <AppText role="sectionTitle" accessibilityRole="header">
+            인터벌 구간
+          </AppText>
+          <WorkoutStepList steps={r.workout.steps} />
+        </View>
+      ) : null}
+
       {/* 3. 지도 */}
       <ResultMap path={r.path} course={course?.route ?? null} height={220} />
 
@@ -149,6 +160,9 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
           style={styles.rankingLink}
         />
       ) : null}
+      {r.mode === 'INTERVAL' ? (
+        <SecondaryButton label="인터벌 달리기 목록" size="sm" onPress={() => router.push('/training')} style={styles.rankingLink} />
+      ) : null}
       {/* CREG-001 자유 달리기 경로를 코스로 등록 (3.2장 코스 생성 흐름) */}
       {r.mode === 'FREE' ? (
         <SecondaryButton
@@ -162,7 +176,7 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
       {/* 7. 구간 · 고도 */}
       <View style={[styles.section, { borderTopColor: colors.border.subtle }]}>
         <AppText role="sectionTitle" accessibilityRole="header">
-          구간 기록
+          {r.workout ? '1km 기록' : '구간 기록'}
         </AppText>
         <SplitList splits={r.splits} />
       </View>
@@ -181,8 +195,17 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
 // 결과 종류 표시. 색만이 아니라 아이콘 모양으로도 구분한다.
 function OutcomeMark({ kind }: { kind: Outcome['kind'] }) {
   const { colors } = useTheme();
-  const good = kind === 'pb' || kind === 'firstRecord' || kind === 'won';
-  const icon: IconName = kind === 'pb' || kind === 'firstRecord' ? 'trophy' : kind === 'dnf' ? 'unverified' : kind === 'free' ? 'tabRun' : 'finished';
+  const good = kind === 'pb' || kind === 'firstRecord' || kind === 'won' || kind === 'intervalDone';
+  const icon: IconName =
+    kind === 'pb' || kind === 'firstRecord'
+      ? 'trophy'
+      : kind === 'dnf'
+        ? 'unverified'
+        : kind === 'free'
+          ? 'tabRun'
+          : kind === 'intervalDone' || kind === 'intervalPartial'
+            ? 'modeInterval'
+            : 'finished';
   return (
     <View style={[styles.mark, { backgroundColor: good ? colors.action.primary : colors.bg.surface }]}>
       <AppIcon name={icon} size={22} color={good ? colors.action.onPrimary : colors.text.primary} />
@@ -306,6 +329,9 @@ function useCourse(id: string | null): CourseDetail | null {
 }
 
 const styles = StyleSheet.create({
+  intervalSection: {
+    gap: spacing.sm,
+  },
   competition: {
     gap: spacing.md,
   },

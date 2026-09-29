@@ -17,6 +17,7 @@ type RunRow = {
   plan: string | null;
   server_run_id: string | number | null;
   sync_state: string;
+  workout_progress: string | null;
 };
 
 type BatchRow = {
@@ -63,6 +64,7 @@ const toRun = (r: RunRow): LocalRun => ({
   plan: r.plan,
   serverRunId: r.server_run_id != null ? String(r.server_run_id) : null,
   syncState: r.sync_state as LocalRunSyncState,
+  workoutProgress: r.workout_progress,
 });
 
 const toPoint = (r: PointRow): RunPoint => ({
@@ -76,7 +78,7 @@ const toPoint = (r: PointRow): RunPoint => ({
   qualityFlag: r.quality_flag as RunPointQuality,
 });
 
-const RUN_COLUMNS = 'client_run_uuid, mode, course_id, status, started_at, ended_at, elapsed_ms, last_seq, plan, server_run_id, sync_state';
+const RUN_COLUMNS = 'client_run_uuid, mode, course_id, status, started_at, ended_at, elapsed_ms, last_seq, plan, server_run_id, sync_state, workout_progress';
 const POINT_COLUMNS = 'seq, latitude, longitude, altitude, accuracy, speed, recorded_at, quality_flag';
 
 export function createSqliteRunStore(db: SqlDb): LocalRunStore {
@@ -141,6 +143,11 @@ export function createSqliteRunStore(db: SqlDb): LocalRunStore {
       const row = await db.getFirstAsync<RunRow>(`SELECT ${RUN_COLUMNS} FROM local_run WHERE client_run_uuid = ?`, runUuid);
       return row ? toRun(row) : null;
     },
+
+    setWorkoutProgress: (runUuid, json) =>
+      write(async () => {
+        await db.runAsync('UPDATE local_run SET workout_progress = ? WHERE client_run_uuid = ?', json, runUuid);
+      }),
 
     pauseRun: (runUuid, at) =>
       tx(async () => {

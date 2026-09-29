@@ -11,6 +11,9 @@ import com.dallimo.dallimoserver.running.domain.RunMetrics;
 import com.dallimo.dallimoserver.running.domain.RunMode;
 import com.dallimo.dallimoserver.running.domain.RunPoint;
 import com.dallimo.dallimoserver.running.domain.RunStatus;
+import com.dallimo.dallimoserver.running.domain.RunWorkoutStep;
+import com.dallimo.dallimoserver.running.infrastructure.RunWorkoutJdbcRepository;
+import com.dallimo.dallimoserver.workout.application.WorkoutService;
 import com.dallimo.dallimoserver.running.infrastructure.RunJpaRepository;
 import com.dallimo.dallimoserver.running.infrastructure.RunPointJdbcRepository;
 import com.dallimo.dallimoserver.running.infrastructure.RunSyncBatchRepository;
@@ -50,9 +53,12 @@ public class RunService {
     private final ApplicationEventPublisher events;
     private final LiveMemberJdbcRepository liveMembers;
     private final ChallengeService challenges;
+    private final RunWorkoutJdbcRepository workoutSteps;
+    private final WorkoutService workouts;
 
     public RunService(RunJpaRepository runs, RunPointJdbcRepository points, RunSyncBatchRepository batches, JdbcTemplate jdbc, Clock clock,
-                      ApplicationEventPublisher events, LiveMemberJdbcRepository liveMembers, ChallengeService challenges) {
+                      ApplicationEventPublisher events, LiveMemberJdbcRepository liveMembers, ChallengeService challenges,
+                      RunWorkoutJdbcRepository workoutSteps, WorkoutService workouts) {
         this.runs = runs;
         this.points = points;
         this.batches = batches;
@@ -61,6 +67,8 @@ public class RunService {
         this.events = events;
         this.liveMembers = liveMembers;
         this.challenges = challenges;
+        this.workoutSteps = workoutSteps;
+        this.workouts = workouts;
     }
 
     public record Created(Run run, boolean created) {
@@ -72,26 +80,40 @@ public class RunService {
     public record Finished(Run run) {
     }
 
-    public record Detail(Run run, RunMetrics.Result metrics) {
+    public record Detail(Run run, RunMetrics.Result metrics, List<RunWorkoutStep> workoutSteps) {
+    }
+
+    /** 인터벌 달리기에서 달린 인터벌. 저장한 인터벌이면 id · 버전, 추천 인터벌이면 이름만 */
+    public record WorkoutLink(Long templateId, Integer version, String name) {
     }
 
     /** 25.1장: 같은 clientRunUuid면 이미 만든 Run을 돌려준다. 동시 요청은 UNIQUE가 막는다 */
     @Transactional
     public Created create(long userId, String clientRunUuid, RunMode mode, Long courseId, Instant startedAt) {
-        return create(userId, clientRunUuid, mode, courseId, null, null, startedAt);
+        return create(userId, clientRunUuid, mode, courseId, null, null, null, startedAt);
+    }
+
+    @Transactional
+    public Created create(long userId, String clientRunUuid, RunMode mode, Long courseId, Long challengeId, Long liveRoomId, Instant startedAt) {
+        return create(userId, clientRunUuid, mode, courseId, challengeId, liveRoomId, null, startedAt);
     }
 
     /**
      * liveRoomId: 함께 달리기 방에서 달린 개인 Run이면 그 방 참가 기록에 이어 둔다 (45.1장 개인 Run은 항상 생성).
      * challengeId: 내 도전(OPEN, 같은 코스)이면 이 Run을 잇는다. 검증이 끝나면 도전을 판정한다
+     * workout: 인터벌 달리기(INTERVAL)에만 있다. 저장한 인터벌이면 내 것이고 그 버전이 있어야 한다 (123.3장)
      */
     @Transactional
-    public Created create(long userId, String clientRunUuid, RunMode mode, Long courseId, Long challengeId, Long liveRoomId, Instant startedAt) {
+    public Created create(long userId, String clientRunUuid, RunMode mode, Long courseId, Long challengeId, Long liveRoomId, WorkoutLink workout,
+                          Instant startedAt) {
         var existing = runs.findByClientRunUuid(clientRunUuid);
         if (existing.isPresent()) return new Created(owned(existing.get(), userId, ErrorCode.IDEMPOTENCY_CONFLICT), false);
         if (courseId != null && !courseExists(courseId)) throw new ApiException(ErrorCode.COURSE_NOT_FOUND);
+        checkWorkout(userId, mode, courseId, workout);
         try {
-            Run created = runs.saveAndFlush(Run.start(userId, clientRunUuid, mode, courseId, startedAt, clock.instant()));
+            Run run = Run.start(userId, clientRunUuid, mode, courseId, startedAt, clock.instant());
+            if (workout != null) run.linkWorkout(workout.templateId(), workout.version(), workout.name());
+            Run created = runs.saveAndFlush(run);
             // 참가하지 않은 방이면 아무것도 바뀌지 않는다
             if (liveRoomId != null) liveMembers.linkRun(liveRoomId, userId, created.getId());
             if (challengeId != null) challenges.attachRun(userId, challengeId, courseId, created.getId());
@@ -143,8 +165,19 @@ public class RunService {
      */
     @Transactional
     public Finished finish(long userId, long runId, Instant endedAt, int lastSeq, Integer activeSeconds) {
+        return finish(userId, runId, endedAt, lastSeq, activeSeconds, null);
+    }
+
+    /** steps: 인터벌 달리기의 구간별 결과. 끝낼 때 한 번 저장한다 (FINISHING이면 다음 요청에 다시 온다) */
+    @Transactional
+    public Finished finish(long userId, long runId, Instant endedAt, int lastSeq, Integer activeSeconds, List<RunWorkoutStep> steps) {
         Run run = lockOwned(userId, runId);
         if (run.getStatus() == RunStatus.FINISHED) return new Finished(run);
+        if (steps != null && !steps.isEmpty()) {
+            if (run.getMode() != RunMode.INTERVAL) throw new ApiException(ErrorCode.VALIDATION_ERROR, "구간 결과는 인터벌 달리기에만 보낼 수 있어요.");
+            if (steps.size() > RunWorkoutStep.MAX_STEPS) throw new ApiException(ErrorCode.VALIDATION_ERROR, "구간 결과가 너무 많아요.");
+            steps.forEach(RunWorkoutStep::validate);
+        }
         if (run.getStatus() == RunStatus.CANCELED) throw new ApiException(ErrorCode.RUN_INVALID_STATE);
         if (lastSeq > 0 && points.lastContiguousSeq(runId) < lastSeq) {
             run.markFinishing(clock.instant());
@@ -156,6 +189,7 @@ public class RunService {
         RunMetrics.Result m = RunMetrics.compute(points.findAll(runId));
         int distance = (int) Math.round(m.distanceM());
         run.finish(end, elapsed, distance, RunMetrics.avgPace(m.distanceM(), elapsed), clock.instant());
+        if (steps != null && !steps.isEmpty()) workoutSteps.insertAll(runId, steps);
         // 코스 러닝이면 커밋 뒤 완주 검증 (26장)
         if (run.awaitingVerification()) events.publishEvent(new RunFinishedEvent(runId));
         return new Finished(run);
@@ -164,6 +198,12 @@ public class RunService {
     /** 27.3장: 끝난 러닝을 최근 시작 순으로. cursor는 앱이 해석하지 않는 문자열 */
     @Transactional(readOnly = true)
     public CursorPage<Run> list(long userId, String cursor, int size) {
+        return list(userId, null, cursor, size);
+    }
+
+    /** mode가 있으면 그 모드만 */
+    @Transactional(readOnly = true)
+    public CursorPage<Run> list(long userId, RunMode mode, String cursor, int size) {
         Instant beforeAt = Instant.parse("9999-12-31T00:00:00Z");
         long beforeId = Long.MAX_VALUE;
         if (cursor != null && !cursor.isBlank()) {
@@ -175,7 +215,7 @@ public class RunService {
                 throw new ApiException(ErrorCode.VALIDATION_ERROR, "cursor가 올바르지 않아요.");
             }
         }
-        List<Run> page = runs.findPage(userId, beforeAt, beforeId, PageRequest.of(0, size + 1));
+        List<Run> page = runs.findPage(userId, mode, beforeAt, beforeId, PageRequest.of(0, size + 1));
         boolean hasNext = page.size() > size;
         List<Run> items = hasNext ? page.subList(0, size) : page;
         String next = null;
@@ -190,7 +230,8 @@ public class RunService {
     @Transactional(readOnly = true)
     public Detail detail(long userId, long runId) {
         Run run = owned(runs.findById(runId).orElseThrow(() -> new ApiException(ErrorCode.RUN_NOT_FOUND)), userId, ErrorCode.RESOURCE_FORBIDDEN);
-        return new Detail(run, RunMetrics.compute(points.findAll(runId)));
+        return new Detail(run, RunMetrics.compute(points.findAll(runId)),
+                run.getMode() == RunMode.INTERVAL ? workoutSteps.findAll(runId) : List.of());
     }
 
     /** 코스 러닝의 코스 이름 (courseId → 이름) */
@@ -204,6 +245,23 @@ public class RunService {
                     out.put(rs.getLong("id"), rs.getString("name"));
                 });
         return out;
+    }
+
+    /** 인터벌 달리기면 인터벌이 있어야 하고(코스 없이), 아니면 없어야 한다 */
+    private void checkWorkout(long userId, RunMode mode, Long courseId, WorkoutLink workout) {
+        if (mode != RunMode.INTERVAL) {
+            if (workout != null) throw new ApiException(ErrorCode.VALIDATION_ERROR, "인터벌은 인터벌 달리기에만 이을 수 있어요.");
+            return;
+        }
+        if (workout == null || workout.name() == null || workout.name().isBlank()) throw new ApiException(ErrorCode.VALIDATION_ERROR, "달린 인터벌을 알려 주세요.");
+        if (courseId != null) throw new ApiException(ErrorCode.VALIDATION_ERROR, "인터벌 달리기는 코스 없이 달려요.");
+        if (workout.templateId() == null) {
+            if (workout.version() != null) throw new ApiException(ErrorCode.VALIDATION_ERROR, "인터벌 버전만 보낼 수 없어요.");
+            return;
+        }
+        if (workout.version() == null || !workouts.canLink(userId, workout.templateId(), workout.version())) {
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "인터벌을 찾을 수 없어요.");
+        }
     }
 
     private Run lockOwned(long userId, long runId) {

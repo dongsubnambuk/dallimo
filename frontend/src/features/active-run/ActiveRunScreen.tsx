@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,22 +10,27 @@ import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitiv
 import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { runResultRepository } from '@/entities/run/api';
+import { flattenBlocks } from '@/entities/workout/flatten';
+import { stepResults } from '@/entities/workout/tracker';
+import type { WorkoutPlan } from '@/entities/workout/types';
 import { endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSession';
 import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { useGapLine, useGapVoice } from '@/features/run/voice/useCompetitionVoice';
+import { useIntervalCues } from '@/features/run/voice/useIntervalCues';
 import type { RunFinishResult, RunningEngine } from '@/features/run/engine/runningEngine';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import type { GeoPoint } from '@/shared/geo';
 import { haptics } from '@/shared/haptics';
 import { speak } from '@/shared/voice';
 
+import { IntervalPanel } from './components/IntervalPanel';
 import { ModeStrip, type RunTarget } from './components/ModeStrip';
 import { RunPathMap } from './components/RunPathMap';
 import { useElapsedSec } from './useElapsedSec';
 
 // SCR-R02 Active Run 공통 Run Shell (72장 6~7번). 92장 레이아웃:
 // 위 GPS·기록 상태 → 가운데 giant 거리 → 시간·평균 페이스 → 모드별 강조 strip 하나 → 아래 넓은 일시정지.
-// 모드별로 바뀌는 것은 strip(`ModeStrip`)과 지도 위 기준 코스뿐이다.
+// 모드별로 바뀌는 것은 strip(`ModeStrip`)과 지도 위 기준 코스뿐이다. 인터벌 달리기는 구간 중심 패널(`IntervalPanel`)로 바뀐다.
 type Props = {
   engine: RunningEngine;
   summary: string;
@@ -33,21 +38,29 @@ type Props = {
   course: { id: string; name: string; route: GeoPoint[] } | null;
   // PB ATTACK / CHALLENGE 목표
   target: RunTarget | null;
+  // 인터벌 달리기 (123장)
+  workout?: WorkoutPlan | null;
 };
 
-export function ActiveRunScreen({ engine, summary, course, target }: Props) {
+export function ActiveRunScreen({ engine, summary, course, target, workout = null }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const status = useRunSnapshot(engine, (s) => s.status);
   const [view, setView] = useState<'metrics' | 'map'>('metrics');
   const [confirming, setConfirming] = useState(false);
   const [finished, setFinished] = useState<{ result: RunFinishResult; id: string } | null>(null);
-  const completed = useRunSnapshot(engine, (s) => s.course?.completedActiveMs != null);
+  // 코스 끝에 닿았거나 인터벌 구간을 모두 마쳤으면 확인 없이 바로 저장할 수 있다
+  const courseDone = useRunSnapshot(engine, (s) => s.course?.completedActiveMs != null);
+  const flat = useMemo(() => (workout ? flattenBlocks(workout.blocks) : null), [workout]);
+  const intervalDone = useRunSnapshot(engine, (s) => flat != null && s.interval != null && s.interval.boundaries.length >= flat.length);
+  const completed = courseDone || intervalDone;
   useCourseAlerts(engine, target);
   useAutoPauseAlerts(engine);
   // AUD-002 경쟁 안내: 목표보다 앞섬 · 뒤처짐, 구간 안내 끝에 목표 차이
   useGapVoice(engine, target);
-  useSplitAnnouncer(engine, useGapLine(engine, target));
+  // 인터벌 달리기는 구간 안내가 1km 안내를 대신한다 (겹쳐 읽지 않게)
+  useSplitAnnouncer(engine, useGapLine(engine, target), flat == null);
+  useIntervalCues(engine, flat);
 
   // 러닝 중 Android 뒤로 가기로 화면을 벗어나지 않게 한다 (종료는 일시정지 → 종료 확인으로만)
   useEffect(() => {
@@ -71,6 +84,11 @@ export function ActiveRunScreen({ engine, summary, course, target }: Props) {
         path: result.path,
         course: course ? { id: course.id, name: course.name, timeSec: result.courseTimeSec } : null,
         target,
+        // 인터벌 달리기: 구간별 실제 거리 · 시간 (123.2장)
+        workout:
+          workout && flat && result.intervalBoundaries
+            ? { templateId: workout.id, version: workout.version, name: workout.name, steps: stepResults(flat, result.intervalBoundaries) }
+            : null,
       },
       result.synced,
     );
@@ -94,7 +112,9 @@ export function ActiveRunScreen({ engine, summary, course, target }: Props) {
       <TopBar engine={engine} view={view} onToggleView={() => setView((v) => (v === 'metrics' ? 'map' : 'metrics'))} />
       <RunNotice engine={engine} />
 
-      {view === 'metrics' ? (
+      {view === 'metrics' && flat ? (
+        <IntervalPanel engine={engine} flat={flat} />
+      ) : view === 'metrics' ? (
         <View style={styles.metrics}>
           <DistanceHero engine={engine} />
           <View style={styles.row}>
@@ -119,6 +139,7 @@ export function ActiveRunScreen({ engine, summary, course, target }: Props) {
       <Controls
         paused={paused}
         completed={completed}
+        saveLabel={intervalDone ? '인터벌 기록 저장' : '완주 기록 저장'}
         onSave={finish}
         disabled={status !== 'RUNNING' && status !== 'PAUSED'}
         onPause={() => {
@@ -290,6 +311,7 @@ function useAutoPauseAlerts(engine: RunningEngine) {
 function Controls({
   paused,
   completed,
+  saveLabel,
   disabled,
   onPause,
   onResume,
@@ -299,6 +321,7 @@ function Controls({
   paused: boolean;
   // 코스 끝에 닿았으면 기록이 정해졌으므로 확인 없이 바로 저장할 수 있다
   completed: boolean;
+  saveLabel: string;
   disabled: boolean;
   onPause: () => void;
   onResume: () => void;
@@ -317,10 +340,10 @@ function Controls({
             </AppText>
           </AppPressable>
         )}
-        <AppPressable onPress={onSave} accessibilityLabel="완주 기록 저장" style={[styles.control, styles.resume, { backgroundColor: colors.action.primary }]}>
+        <AppPressable onPress={onSave} accessibilityLabel={saveLabel} style={[styles.control, styles.resume, { backgroundColor: colors.action.primary }]}>
           <AppIcon name="finished" size={22} color={colors.action.onPrimary} />
           <AppText role="sectionTitle" style={[styles.controlText, { color: colors.action.onPrimary }]}>
-            완주 기록 저장
+            {saveLabel}
           </AppText>
         </AppPressable>
       </View>

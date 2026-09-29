@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dallimo.dallimoserver.common.ratelimit.RateLimitFilter;
 import com.dallimo.dallimoserver.common.web.ApiResponse;
 
 import java.util.Map;
@@ -23,8 +26,10 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 7.1 · 27.1장 응답 모양 */
-// 인증은 AuthFlowTest에서 본다. 여기서는 오류 응답 모양만 본다
-@WebMvcTest(controllers = GlobalExceptionHandlerTest.ProbeController.class)
+// 인증은 AuthFlowTest에서, 요청 제한은 RateLimitApiTest에서 본다. 여기서는 오류 응답 모양만 본다
+// (요청 제한 필터는 Redis 제한기가 필요해 이 slice에서 뺀다)
+@WebMvcTest(controllers = GlobalExceptionHandlerTest.ProbeController.class,
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class))
 @AutoConfigureMockMvc(addFilters = false)
 @Import({GlobalExceptionHandler.class, GlobalExceptionHandlerTest.ProbeController.class})
 class GlobalExceptionHandlerTest {

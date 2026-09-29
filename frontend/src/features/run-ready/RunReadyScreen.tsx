@@ -16,6 +16,8 @@ import { useChallenges } from '@/features/challenge/useChallenges';
 import { DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
 import type { CourseDetail } from '@/entities/course/types';
 import type { RunMode } from '@/entities/run/types';
+import { summarizeBlocks, totalLabel } from '@/entities/workout/labels';
+import type { WorkoutPlan } from '@/entities/workout/types';
 import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
@@ -32,6 +34,7 @@ const MODE_ICON: Partial<Record<RunMode, IconName>> = {
   COURSE: 'modeCourse',
   PB: 'modePB',
   CHALLENGE: 'modeRival',
+  INTERVAL: 'modeInterval',
 };
 
 // SCR-R01 Run 홈/준비 (RUN-001~003, LOC-001~003). 89장: dark pre-run canvas, 가운데 GPS 상태와 목표, 아래 넓은 Start.
@@ -53,7 +56,7 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
   const detail = course.kind === 'ready' ? course.course : null;
   const courseName = detail?.name ?? (plan.kind === 'course' ? plan.courseName : null);
 
-  const status = statusCopy(readiness, plan.kind === 'free');
+  const status = statusCopy(readiness, plan.kind !== 'course');
   const button = buttonState(readiness, course);
   const position = 'position' in readiness ? readiness.position : null;
 
@@ -79,17 +82,17 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
     <View style={[styles.root, { backgroundColor: colors.bg.canvas, paddingTop: insets.top }]}>
       {focused ? <StatusBar style="light" /> : null}
       <View style={styles.header}>
-        {plan.kind === 'course' ? (
+        {plan.kind !== 'free' ? (
           <>
             <AppPressable
               onPress={() => router.replace('/run')}
-              accessibilityLabel="코스 러닝 취소, 자유 달리기로"
+              accessibilityLabel={plan.kind === 'course' ? '코스 러닝 취소, 자유 달리기로' : '인터벌 달리기 취소, 자유 달리기로'}
               style={[styles.round, { backgroundColor: colors.bg.surface }]}
             >
               <AppIcon name="close" size={20} color={colors.text.primary} />
             </AppPressable>
             <AppText role="label" tone="secondary" style={styles.headerTitle}>
-              코스 러닝 준비
+              {plan.kind === 'course' ? '코스 러닝 준비' : '인터벌 달리기 준비'}
             </AppText>
             <View style={styles.round} />
           </>
@@ -141,6 +144,8 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
             <FreeGoal />
             <RecentChallenges />
           </>
+        ) : plan.kind === 'interval' ? (
+          <IntervalGoal workout={plan.workout} />
         ) : course.kind === 'error' ? (
           <View style={[styles.goal, { backgroundColor: colors.bg.surface }]}>
             <StateNotice
@@ -183,7 +188,7 @@ function ModeBadge({ mode }: { mode: RunMode }) {
   );
 }
 
-// RUN-001 빠른 러닝. 125장: Run 탭에서 시작하면 목적 중심 진입점을 보여준다. TRAINING은 roadmap 후속이라 두지 않는다.
+// RUN-001 빠른 러닝. 125장: Run 탭에서 시작하면 목적 중심 진입점 4개(자유 · 코스 · 인터벌 · 함께)를 보여준다.
 // 65장 Run › Recent Challenge: 최근 주고받은 도전 3개. 없으면 보이지 않는다
 function RecentChallenges() {
   const list = useChallenges();
@@ -222,6 +227,33 @@ function FreeGoal() {
         <EntryLink icon="modeCourse" title="코스 달리기" caption="기록이 남는 코스" onPress={() => router.navigate('/')} />
         <EntryLink icon="modeTogether" title="함께 달리기" caption="친구와 동시에" onPress={() => router.navigate('/together')} />
       </View>
+      <EntryLink icon="modeInterval" title="인터벌 달리기" caption="빠르게 · 천천히를 반복해요" onPress={() => router.push('/training')} />
+    </View>
+  );
+}
+
+// 123장 인터벌 달리기: 고른 인터벌의 구성과 전체 양. 다른 인터벌로 바꿀 수 있다
+function IntervalGoal({ workout }: { workout: WorkoutPlan }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.goal, { backgroundColor: colors.bg.surface }]}>
+      <View style={styles.goalTop}>
+        <ModeBadge mode="INTERVAL" />
+        <AppText role="label" tone="secondary" tabular>
+          {totalLabel(workout.blocks)}
+        </AppText>
+      </View>
+      <AppText role="sectionTitle" numberOfLines={2}>
+        {workout.name}
+      </AppText>
+      <AppText role="body" tone="secondary">
+        {summarizeBlocks(workout.blocks)}
+      </AppText>
+      <AppText role="caption" tone="secondary">
+        구간이 바뀌면 소리와 진동으로 알려 줘요. 멈춰 서도 자동 일시정지는 하지 않아요.
+      </AppText>
+      <View style={[styles.divider, { backgroundColor: colors.border.subtle }]} />
+      <EntryLink icon="modeInterval" title="다른 인터벌 고르기" caption="내 인터벌 · 추천 · 직접 만들기" onPress={() => router.push('/training')} />
     </View>
   );
 }

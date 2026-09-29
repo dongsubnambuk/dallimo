@@ -18,6 +18,7 @@ import type { RunResult } from '@/entities/run/result';
 import { RecordState } from '@/features/run-result/components/RecordState';
 import { ResultMap } from '@/features/run-result/components/ResultMap';
 import { SplitList } from '@/features/run-result/components/SplitList';
+import { WorkoutStepList } from '@/features/run-result/components/WorkoutStepList';
 import { useRunResult } from '@/features/run-result/useRunResult';
 import { MODE_TITLE } from '@/features/run-ready/runPlanParams';
 import { formatDistanceKm, formatDuration, formatPace } from '@/shared/format';
@@ -72,11 +73,11 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
           {fullDateLabel(startedAt(r))}
         </AppText>
         <AppText role="screenTitle" accessibilityRole="header">
-          {runTitle(r)}
+          {runTitle({ ...r, workoutName: r.workout?.name })}
         </AppText>
-        {r.course || pb ? (
+        {r.course || pb || r.workout ? (
           <View style={styles.modeLine}>
-            {r.course ? (
+            {r.course || r.workout ? (
               <AppText role="label" tone="secondary">
                 {MODE_TITLE[r.mode]}
               </AppText>
@@ -109,6 +110,15 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
         </View>
       </View>
 
+      {r.workout?.steps.length ? (
+        <View style={styles.intervalSection}>
+          <AppText role="sectionTitle" accessibilityRole="header">
+            인터벌 구간
+          </AppText>
+          <WorkoutStepList steps={r.workout.steps} />
+        </View>
+      ) : null}
+
       <ResultMap path={r.path} course={course?.route ?? null} height={220} />
 
       <RecordState result={r} />
@@ -116,6 +126,9 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
       {r.mode === 'FREE' ? (
         // CREG-001 자유 달리기 경로를 코스로 등록
         <SecondaryButton label="이 경로를 코스로 등록" size="sm" onPress={() => router.push({ pathname: '/course/new', params: { runId: r.id } })} style={styles.selfStart} />
+      ) : null}
+      {r.mode === 'INTERVAL' ? (
+        <SecondaryButton label="인터벌 달리기 목록" size="sm" onPress={() => router.push('/training')} style={styles.selfStart} />
       ) : null}
       {r.course ? (
         <SecondaryButton
@@ -128,7 +141,7 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
 
       <View style={[styles.section, { borderTopColor: colors.border.subtle }]}>
         <AppText role="sectionTitle" accessibilityRole="header">
-          구간 기록
+          {r.workout ? '1km 기록' : '구간 기록'}
         </AppText>
         <SplitList splits={r.splits} />
       </View>
@@ -157,6 +170,9 @@ function useCourse(id: string | null): CourseDetail | null {
 }
 
 const styles = StyleSheet.create({
+  intervalSection: {
+    gap: spacing.sm,
+  },
   root: {
     flex: 1,
   },
