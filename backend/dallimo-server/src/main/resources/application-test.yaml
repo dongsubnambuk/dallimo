@@ -1,0 +1,4 @@
+# 테스트: DB는 Testcontainers가 띄워 연결 정보를 넣는다 (TestcontainersConfiguration)
+spring:
+  jpa:
+    show-sql: false
