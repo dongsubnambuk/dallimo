@@ -30,7 +30,9 @@ export function startLabel(scheduledAt: number | null, now = Date.now()) {
   const dayDiff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000);
   const day = dayDiff === 0 ? '오늘' : dayDiff === 1 ? '내일' : `${d.getMonth() + 1}월 ${d.getDate()}일`;
   const left = scheduledAt - now;
-  const rel = left <= 60_000 ? '곧' : left < 3_600_000 ? `${Math.ceil(left / 60_000)}분 뒤` : `${Math.floor(left / 3_600_000)}시간 ${Math.round((left % 3_600_000) / 60_000)}분 뒤`;
+  // 분으로 먼저 반올림해야 "2시간 60분"이 되지 않는다
+  const mins = Math.round(left / 60_000);
+  const rel = left <= 60_000 ? '곧' : left < 3_600_000 ? `${Math.ceil(left / 60_000)}분 뒤` : mins % 60 === 0 ? `${mins / 60}시간 뒤` : `${Math.floor(mins / 60)}시간 ${mins % 60}분 뒤`;
   return `${day} ${pad2(d.getHours())}:${pad2(d.getMinutes())} · ${rel}`;
 }
 

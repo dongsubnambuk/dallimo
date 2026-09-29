@@ -5,6 +5,8 @@ import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.course.application.CourseService;
 import com.dallimo.dallimoserver.course.domain.Course;
 import com.dallimo.dallimoserver.friend.application.FriendService;
+import com.dallimo.dallimoserver.notification.application.NotificationService;
+import com.dallimo.dallimoserver.notification.domain.NotificationType;
 import com.dallimo.dallimoserver.live.domain.LiveMemberStatus;
 import com.dallimo.dallimoserver.live.domain.LiveMode;
 import com.dallimo.dallimoserver.live.domain.LiveRoom;
@@ -44,16 +46,18 @@ public class LiveRoomService {
     private final ShareJdbcRepository shares;
     private final CourseService courses;
     private final FriendService friends;
+    private final NotificationService notifications;
     private final Clock clock;
     private final ApplicationEventPublisher events;
 
     public LiveRoomService(LiveRoomJpaRepository rooms, LiveMemberJdbcRepository members, ShareJdbcRepository shares, CourseService courses,
-                           FriendService friends, Clock clock, ApplicationEventPublisher events) {
+                           FriendService friends, NotificationService notifications, Clock clock, ApplicationEventPublisher events) {
         this.rooms = rooms;
         this.members = members;
         this.shares = shares;
         this.courses = courses;
         this.friends = friends;
+        this.notifications = notifications;
         this.clock = clock;
         this.events = events;
     }
@@ -113,6 +117,10 @@ public class LiveRoomService {
         if (in.size() + fresh.size() > MAX_MEMBERS) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "방이 가득 찼어요.");
         Instant now = clock.instant();
         for (Long id : fresh) members.add(roomId, id, LiveMemberStatus.INVITED, now);
+        String who = me.nickname();
+        for (Long id : fresh) {
+            notifications.notify(id, NotificationType.LIVE_INVITE, "함께 달리기 초대", who + "님이 " + room.goalLabel() + "에 초대했어요", "/together/" + roomId);
+        }
         return advanceAndSnapshot(room, userId);
     }
 
@@ -149,6 +157,14 @@ public class LiveRoomService {
         if (room.getHostUserId() != userId) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN, "방장만 취소할 수 있어요.");
         advance(room);
         room.cancel(clock.instant());
+        // 예약한 방이면 참가 · 초대된 사람에게 알린다 (사용자 결정: 모르고 기다리지 않게)
+        if (room.getScheduledAt() != null) {
+            String host = members.nickname(userId);
+            for (Member m : members.list(roomId)) {
+                if (m.userId() == userId) continue;
+                notifications.notify(m.userId(), NotificationType.LIVE_CANCELED, "함께 달리기 취소", host + "님이 함께 달리기를 취소했어요 · " + room.goalLabel(), "/together");
+            }
+        }
     }
 
     /** 내가 참가했거나 초대받은 예정 · 진행 중 방 (예약 시각 순, 예약 없으면 앞) */

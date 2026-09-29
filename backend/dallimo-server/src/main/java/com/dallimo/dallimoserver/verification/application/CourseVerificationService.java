@@ -31,15 +31,17 @@ public class CourseVerificationService {
     private final CourseJdbcRepository courses;
     private final VerificationJdbcRepository store;
     private final ChallengeService challenges;
+    private final RecordBeatenNotifier recordBeaten;
     private final Clock clock;
 
     public CourseVerificationService(RunJpaRepository runs, RunPointJdbcRepository points, CourseJdbcRepository courses,
-                                     VerificationJdbcRepository store, ChallengeService challenges, Clock clock) {
+                                     VerificationJdbcRepository store, ChallengeService challenges, RecordBeatenNotifier recordBeaten, Clock clock) {
         this.runs = runs;
         this.points = points;
         this.courses = courses;
         this.store = store;
         this.challenges = challenges;
+        this.recordBeaten = recordBeaten;
         this.clock = clock;
     }
 
@@ -59,6 +61,7 @@ public class CourseVerificationService {
             int courseDistance = store.courseDistance(courseId).orElse(result.segmentDistanceM());
             int pace = (int) Math.round(result.recordSeconds() / (Math.max(1, courseDistance) / 1000.0));
             store.insertRecord(courseId, runId, run.getUserId(), result.recordSeconds(), pace, result.matchRate(), now);
+            recordBeaten.onRecord(courseId, runId, run.getUserId(), result.recordSeconds());
         }
         run.completeVerification(result.outcome().name(), now);
         // 이 Run으로 진행 중인 도전 판정 (CHL-003)

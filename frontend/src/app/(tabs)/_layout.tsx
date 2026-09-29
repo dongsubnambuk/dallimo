@@ -4,6 +4,7 @@ import { View, type ColorValue } from 'react-native';
 import { AppIcon, type IconName } from '@/design/primitives';
 import { darkTheme, useTheme } from '@/design/theme';
 import { fontFamily } from '@/design/tokens';
+import { useNotificationSetup } from '@/features/notifications/useNotificationSetup';
 import { useRunRecovery } from '@/features/run/useRunRecovery';
 import { useOpenPendingShareLink } from '@/features/share/usePendingShareLink';
 
@@ -21,6 +22,8 @@ export default function TabsLayout() {
   useRunRecovery();
   // 로그인 전에 연 공유 · 초대 링크를 이어서 연다
   useOpenPendingShareLink();
+  // 알림 채널 · Push 토큰 · 알림을 눌렀을 때 이동
+  useNotificationSetup();
   return (
     <Tabs
       screenOptions={{

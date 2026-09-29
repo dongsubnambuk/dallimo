@@ -189,4 +189,15 @@ public class LiveRoom {
     public Instant getCreatedAt() {
         return createdAt;
     }
+
+    /** 알림 문구용 목표. 앱 goalLabel과 같은 말: "5km 레이스", "30분 타임 어택", "함께 3km" */
+    public String goalLabel() {
+        String goal = targetSeconds != null ? Math.round(targetSeconds / 60.0) + "분"
+                : java.math.BigDecimal.valueOf(targetDistanceM == null ? 0 : targetDistanceM, 3).stripTrailingZeros().toPlainString() + "km";
+        return switch (mode) {
+            case LIVE_RACE -> goal + " 레이스";
+            case TIME_ATTACK -> goal + " 타임 어택";
+            case TOGETHER -> "함께 " + goal;
+        };
+    }
 }

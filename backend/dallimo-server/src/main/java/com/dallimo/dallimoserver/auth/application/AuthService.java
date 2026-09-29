@@ -7,6 +7,7 @@ import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.security.AuthProperties;
 import com.dallimo.dallimoserver.friend.application.FriendService;
+import com.dallimo.dallimoserver.notification.application.NotificationService;
 import com.dallimo.dallimoserver.user.application.UserService;
 import com.dallimo.dallimoserver.user.domain.User;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +26,7 @@ public class AuthService {
 
     private final UserService users;
     private final FriendService friends;
+    private final NotificationService notifications;
     private final RefreshSessionRepository sessions;
     private final PasswordEncoder passwords;
     private final TokenIssuer tokens;
@@ -33,10 +35,11 @@ public class AuthService {
     // 없는 이메일로 로그인해도 비밀번호 확인 시간이 비슷하게 걸리도록 (가입 여부를 시간으로 알 수 없게)
     private final String dummyHash;
 
-    public AuthService(UserService users, FriendService friends, RefreshSessionRepository sessions, PasswordEncoder passwords, TokenIssuer tokens,
-                       AuthProperties props, Clock clock) {
+    public AuthService(UserService users, FriendService friends, NotificationService notifications, RefreshSessionRepository sessions,
+                       PasswordEncoder passwords, TokenIssuer tokens, AuthProperties props, Clock clock) {
         this.users = users;
         this.friends = friends;
+        this.notifications = notifications;
         this.sessions = sessions;
         this.passwords = passwords;
         this.tokens = tokens;
@@ -95,18 +98,23 @@ public class AuthService {
         return issue(user, session, secret, now);
     }
 
+    /** 이 기기 세션을 끊고, 이 기기로는 Push를 보내지 않는다 */
     @Transactional
     public void logout(long userId, long sessionId) {
         sessions.findForUpdate(sessionId)
                 .filter(s -> s.getUserId() == userId)
-                .ifPresent(s -> s.revoke(clock.instant()));
+                .ifPresent(s -> {
+                    notifications.unregisterSession(userId, sessionId);
+                    s.revoke(clock.instant());
+                });
     }
 
-    /** 탈퇴(AUTH-004): 계정 정보를 지우고 모든 기기의 세션을 끊는다. 친구 · 친구 요청도 끝낸다 */
+    /** 탈퇴(AUTH-004): 계정 정보를 지우고 모든 기기의 세션을 끊는다. 친구 · 친구 요청도 끝내고 Push 토큰을 지운다 */
     @Transactional
     public void withdraw(long userId) {
         users.withdraw(userId);
         friends.endAllOf(userId);
+        notifications.forgetUser(userId);
         sessions.revokeAllOfUser(userId, clock.instant());
     }
 

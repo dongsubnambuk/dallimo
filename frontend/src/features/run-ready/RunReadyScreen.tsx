@@ -11,6 +11,7 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { StateNotice } from '@/components/StateNotice';
 import { getChallengeRepository } from '@/entities/challenge/api';
 import { ChallengeItem } from '@/features/challenge/ChallengeItem';
+import { askNotifications } from '@/features/notifications/push';
 import { useChallenges } from '@/features/challenge/useChallenges';
 import { DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
 import type { CourseDetail } from '@/entities/course/types';
@@ -59,6 +60,8 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
   // 친구 기록 도전이면 출발할 때 서버 도전을 만든다 (CHL-001). 서버에 닿지 못하면 목표만 두고 달린다 (라이벌 연습)
   const [creating, setCreating] = useState(false);
   const start = async () => {
+    // 처음 달릴 때 알림 권한을 묻는다 (GPS 약함 · 코스 이탈 등 달리는 중 알림). 창이 닫힌 뒤 출발한다
+    await askNotifications();
     const params = toRunPlanParams(plan, courseName);
     const recordId = plan.kind === 'course' && plan.plan.mode === 'CHALLENGE' ? plan.plan.targetRecordId : undefined;
     if (recordId) {

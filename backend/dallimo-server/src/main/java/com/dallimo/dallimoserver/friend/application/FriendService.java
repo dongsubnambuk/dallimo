@@ -10,6 +10,8 @@ import com.dallimo.dallimoserver.friend.infrastructure.FriendJdbcRepository.Cour
 import com.dallimo.dallimoserver.friend.infrastructure.FriendJdbcRepository.Link;
 import com.dallimo.dallimoserver.friend.infrastructure.FriendJdbcRepository.Pair;
 import com.dallimo.dallimoserver.friend.infrastructure.FriendJdbcRepository.UserRow;
+import com.dallimo.dallimoserver.notification.application.NotificationService;
+import com.dallimo.dallimoserver.notification.domain.NotificationType;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,10 +39,12 @@ public class FriendService {
     private static final Pattern FRIEND_CODE = Pattern.compile("^(?:RUN-)?([23456789A-HJ-NP-Z]{6})$");
 
     private final FriendJdbcRepository store;
+    private final NotificationService notifications;
     private final Clock clock;
 
-    public FriendService(FriendJdbcRepository store, Clock clock) {
+    public FriendService(FriendJdbcRepository store, NotificationService notifications, Clock clock) {
         this.store = store;
+        this.notifications = notifications;
         this.clock = clock;
     }
 
@@ -89,9 +93,11 @@ public class FriendService {
         UserRow target = store.activeUser(targetId).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "사용자를 찾을 수 없어요."));
         Instant now = clock.instant();
         Pair pair = null;
+        boolean sent = false;
         if (store.findPair(me, targetId).isEmpty()) {
             try {
                 store.insert(me, targetId, now);
+                sent = true;
             } catch (DuplicateKeyException race) {
                 // 상대가 같은 때 나에게 요청했다. 그 줄로 이어서 처리한다
                 pair = store.lockPair(me, targetId).orElseThrow();
@@ -104,10 +110,18 @@ public class FriendService {
                 case PENDING -> {
                     if (pair.requesterId() != me) store.respond(pair.id(), FriendshipStatus.ACCEPTED, now);
                 }
-                case REJECTED, CANCELED -> store.reopen(pair.id(), me, now);
+                case REJECTED, CANCELED -> {
+                    store.reopen(pair.id(), me, now);
+                    sent = true;
+                }
                 case ACCEPTED -> {
                 }
             }
+        }
+        // Push (사용자 결정): 새 요청일 때만. 다시 보낸 같은 요청 · 바로 친구가 된 경우는 알리지 않는다
+        if (sent) {
+            String name = store.activeUser(me).map(UserRow::nickname).orElse("");
+            notifications.notify(targetId, NotificationType.FRIEND_REQUEST, "친구 요청", name + "님이 친구 요청을 보냈어요", "/my/friends");
         }
         return summary(me, target, store.lockPair(me, targetId).orElseThrow());
     }

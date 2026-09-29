@@ -24,7 +24,10 @@ import type { GpsQuality } from '@/shared/location/locationSource';
 import { createMockLocationSource } from '@/shared/location/mockLocationSource';
 import { useNow } from '@/shared/useNow';
 
+import { askNotifications } from '@/features/notifications/push';
+
 import { InviteFriendsSheet } from './InviteFriendsSheet';
+import { syncLiveReminder } from './liveReminders';
 import { goalLabel, goalValue, MODE_INFO, participantStatus, startLabel } from './labels';
 
 // 대기실은 WebSocket ROOM_SNAPSHOT이 붙기 전까지 방 snapshot을 1초마다 다시 읽는다
@@ -57,8 +60,16 @@ function WaitingRoom({ roomId, scenario, invite }: { roomId: string; scenario: L
     retryDelay: POLL_MS,
   });
   const setRoom = (r: LiveRoom) => qc.setQueryData(key, r);
+  // 예약 방에 참가했으면 시작 10분 전 휴대폰 알림, 나가거나 취소 · 시작되면 지운다
+  const reminderKey = room.data ? `${room.data.status}:${room.data.scheduledAt}:${room.data.members.find((m) => m.isMe)?.status}` : null;
+  useEffect(() => {
+    if (room.data && /^\d+$/.test(room.data.id)) syncLiveReminder(room.data);
+    // 방 상태 · 예약 시각 · 내 참가 상태가 바뀔 때만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminderKey]);
   const ready = useMutation({ mutationFn: (v: boolean) => repo.setReady(roomId, v), onSuccess: setRoom });
-  const join = useMutation({ mutationFn: () => repo.join(roomId, invite), onSuccess: setRoom });
+  // 참가할 때 알림 권한을 묻는다 (취소 · 시작 10분 전)
+  const join = useMutation({ mutationFn: () => repo.join(roomId, invite), onSuccess: (r) => (setRoom(r), void askNotifications()) });
   // 방장은 방을 취소(POST /cancel), 참가자는 나가기(POST /leave)
   const leave = useMutation({
     mutationFn: () => (room.data?.members.find((m) => m.isMe)?.isHost ? repo.cancel(roomId) : repo.leave(roomId)),

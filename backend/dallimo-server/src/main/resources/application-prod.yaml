@@ -14,3 +14,9 @@ management:
   endpoint:
     health:
       show-details: never
+
+dallimo:
+  # Expo Push. Enhanced push security를 켰으면 access token (저장소에 넣지 않는다)
+  push:
+    provider: expo
+    expo-access-token: ${EXPO_ACCESS_TOKEN:}

@@ -8,6 +8,8 @@ import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.course.application.CourseService;
 import com.dallimo.dallimoserver.friend.application.FriendService;
+import com.dallimo.dallimoserver.notification.application.NotificationService;
+import com.dallimo.dallimoserver.notification.domain.NotificationType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,12 +32,14 @@ public class ChallengeService {
     private final ChallengeJdbcRepository store;
     private final FriendService friends;
     private final CourseService courses;
+    private final NotificationService notifications;
     private final Clock clock;
 
-    public ChallengeService(ChallengeJdbcRepository store, FriendService friends, CourseService courses, Clock clock) {
+    public ChallengeService(ChallengeJdbcRepository store, FriendService friends, CourseService courses, NotificationService notifications, Clock clock) {
         this.store = store;
         this.friends = friends;
         this.courses = courses;
+        this.notifications = notifications;
         this.clock = clock;
     }
 
@@ -96,9 +100,14 @@ public class ChallengeService {
     @Transactional
     public void judge(long runId, Integer recordSeconds, Instant now) {
         store.lockRunning(runId).ifPresent(id -> {
-            int target = store.find(id).orElseThrow().targetSec();
-            boolean won = recordSeconds != null && recordSeconds <= target;
+            Row c = store.find(id).orElseThrow();
+            boolean won = recordSeconds != null && recordSeconds <= c.targetSec();
             store.setStatus(id, won ? ChallengeStatus.SUCCESS : ChallengeStatus.FAILED, now);
+            // 막아낸 도전은 알림함에만 (Push 없음). 넘은 경우는 "친구가 내 코스 기록을 넘음"으로 알린다
+            if (!won) {
+                notifications.notify(c.targetUserId(), NotificationType.CHALLENGE_DEFENDED, "도전을 막아냈어요",
+                        c.challengerName() + "님이 " + c.courseName() + " 내 기록에 도전했지만 넘지 못했어요", "/course/" + c.courseId());
+            }
         });
     }
 

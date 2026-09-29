@@ -143,8 +143,11 @@
 
 | API | 프론트 | 상태 |
 | --- | --- | --- |
-| GET /activities | 없음 | 미구현 (SCR-M06) |
-| GET /notifications, POST /notifications/{id}/read | 없음 | 미구현 |
+| GET /activities | 없음 | 미구현 (SCR-M06). 알림을 줄이는 방향과 함께 따로 한다 |
+| GET /notifications, POST /notifications/{id}/read | `NotificationRepository.list · read` → `httpNotificationRepository` | 서버 구현. 알림함(마이 › 알림), 누르면 `link`로 이동 |
+| POST /notifications/read-all, GET /notifications/unread-count | `readAll`, `unreadCount` | 명세 없음 · 서버 구현. 마이 알림 배지 |
+| PUT · DELETE /users/me/push-token | `registerToken`, `unregisterToken` | 명세 없음 · 서버 구현. 권한을 허락했을 때 Expo Push 토큰 등록 (EAS projectId가 있어야 토큰이 나온다) |
+| GET · PUT /users/me/notification-settings | `settings`, `saveSettings` | 명세 없음 · 서버 구현. 설정 화면 알림 토글을 기기와 서버에 함께 저장 |
 
 ## 10. 엔진 경계 (49장)
 
@@ -188,3 +191,4 @@
 18. 실시간 메시지 필드: 46장은 `elapsedMs · currentPace · memberSeq · runId`, 서버 · 앱은 `elapsedSeconds · currentPaceSecPerKm · seq`, runId는 POST /runs `liveRoomId`로 잇는다. ROOM_SNAPSHOT 대신 SYNC_STATE. 명세에 맞출지 정한다
 19. 친구 API 모양: 44장은 경로만 있다. 요청 응답(요청 뒤 관계), 요청 목록 `{ received, sent }`, 검색 항목의 `relation · requestId`, 프로필 경로 `GET /users/{userId}`를 서버 · 앱이 정했다. 명세에 넣어야 한다
 20. 도전 API 모양: 44장은 경로만 있다. 응답 필드(`role, targetSec, resultSec, targetBest`), 목록 `GET /challenges`, 러닝 상세의 `challenge`를 서버 · 앱이 정했다. 명세에 넣어야 한다
+21. 알림 API 추가분: 모두 읽음 · 안 읽은 수 · Push 토큰 · 알림 설정 경로와 모양, 알림 종류(14.2장에서 LIVE_START · CHALLENGE를 빼고 LIVE_CANCELED · CHALLENGE_DEFENDED를 더함). 명세에 넣어야 한다
