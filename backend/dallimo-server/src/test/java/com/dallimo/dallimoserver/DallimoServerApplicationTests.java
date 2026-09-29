@@ -31,9 +31,9 @@ class DallimoServerApplicationTests {
     }
 
     @Test
-    void unknownPathUsesErrorEnvelope() {
+    void apiRequiresLogin() {
         assertThat(mvc.get().uri("/api/v1/nothing-here"))
-                .hasStatus(404)
-                .bodyJson().extractingPath("$.error.code").isEqualTo("RESOURCE_NOT_FOUND");
+                .hasStatus(401)
+                .bodyJson().extractingPath("$.error.code").isEqualTo("AUTH_REQUIRED");
     }
 }

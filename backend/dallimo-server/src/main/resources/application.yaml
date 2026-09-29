@@ -26,3 +26,12 @@ management:
     web:
       exposure:
         include: health,info
+
+# 14.1장 인증. 유효 시간은 명세에 없어 정한 값 (backend/README 결정 사항)
+dallimo:
+  auth:
+    jwt-secret: ${JWT_SECRET:}
+    issuer: dallimo
+    access-token-ttl: 30m
+    refresh-token-ttl: 30d
+    refresh-reuse-grace: 60s

@@ -2,3 +2,7 @@
 spring:
   jpa:
     show-sql: false
+
+dallimo:
+  auth:
+    jwt-secret: HaSada1RP35IJ1qg77GriqEzZTIFUUajipn/c5Tszjw=

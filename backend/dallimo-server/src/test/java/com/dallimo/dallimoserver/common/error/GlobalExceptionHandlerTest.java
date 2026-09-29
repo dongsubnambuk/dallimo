@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -22,7 +23,9 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 7.1 · 27.1장 응답 모양 */
+// 인증은 AuthFlowTest에서 본다. 여기서는 오류 응답 모양만 본다
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.ProbeController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @Import({GlobalExceptionHandler.class, GlobalExceptionHandlerTest.ProbeController.class})
 class GlobalExceptionHandlerTest {
 
