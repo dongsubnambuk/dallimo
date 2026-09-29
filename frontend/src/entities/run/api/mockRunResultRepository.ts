@@ -2,6 +2,7 @@ import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepo
 import { MOCK_COURSE_ROUTES } from '@/entities/course/api/mockCourseRoutes';
 
 import { currentMockAccount } from '@/entities/auth/api/mockAccounts';
+import { API_BASE_URL } from '@/shared/api/config';
 import { legRoute, loopRoute, type GeoPoint } from '@/shared/geo';
 import { createUuid } from '@/shared/uuid';
 
@@ -57,7 +58,8 @@ export function createMockRunResultRepository(history: HistoryScenario = 'normal
         ...mine.map(toRunSummary),
         ...(history === 'localOnly' ? [toRunSummary(localOnlyRun())] : []),
         // 처음 가입한 계정에는 지난 기록이 없다
-        ...(history === 'empty' || currentMockAccount()?.hasHistory === false ? [] : pastRuns().map(toRunSummary)),
+        // 서버 계정(EXPO_PUBLIC_API_URL)에는 mock 지난 기록을 섞지 않는다
+        ...(history === 'empty' || API_BASE_URL != null || currentMockAccount()?.hasHistory === false ? [] : pastRuns().map(toRunSummary)),
       ].sort((a, b) => b.finishedAt - a.finishedAt);
       const start = cursor ? Number(cursor) : 0;
       const items = all.slice(start, start + size);

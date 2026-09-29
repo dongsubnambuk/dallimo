@@ -85,13 +85,10 @@ export default function RootLayout() {
             <Stack.Screen name="share/compose" options={{ headerShown: false, presentation: 'modal' }} />
             <Stack.Screen name="share/[code]" options={{ headerShown: false, animation: 'fade' }} />
           </Stack.Protected>
-          {/* SCR-A01 로그인 (dark) */}
+          {/* SCR-A01 로그인 · 회원가입 (dark) */}
           <Stack.Protected guard={auth === 'signedOut'}>
             <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
-          </Stack.Protected>
-          {/* SCR-A02 처음 가입한 사용자의 프로필 설정 */}
-          <Stack.Protected guard={auth === 'needsProfile'}>
-            <Stack.Screen name="onboarding/profile" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
+            <Stack.Screen name="signup" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
           </Stack.Protected>
           {/* 약관 · 개인정보 처리방침은 로그인 전에도 본다 */}
           <Stack.Screen name="legal/[kind]" options={{ headerShown: false }} />

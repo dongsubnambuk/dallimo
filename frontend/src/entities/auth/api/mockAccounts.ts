@@ -1,30 +1,31 @@
 import { getJson, setJson } from '@/shared/storage/keyValueStore';
 
-import type { AuthProvider } from '../types';
-
-// mock 서버의 계정 상태. 새로고침해도 이어지도록 기기에 저장한다. 실제로는 서버 tbl_user.
-// 카카오는 기록이 있는 기존 계정(수성러너), Apple · Google은 처음 가입하는 계정으로 흉내 낸다.
+// 서버 없이 쓸 때(EXPO_PUBLIC_API_URL 없음)의 가짜 계정 저장소. 새로고침해도 이어지도록 기기에 저장한다.
+// 기록이 있는 기존 계정(수성러너)이 하나 들어 있다. 실제 서버는 tbl_user.
 export type MockAccount = {
   userId: string;
-  provider: AuthProvider;
-  nickname: string | null;
+  email: string;
+  password: string;
+  nickname: string;
   profileImageUrl: string | null;
   friendCode: string;
   // 지난 러닝 기록(mock 히스토리)을 보여줄지
   hasHistory: boolean;
 };
 
-type State = { accounts: Record<AuthProvider, MockAccount>; currentUserId: string | null };
+// 개발 확인용 기존 계정
+export const DEMO_EMAIL = 'runner@dallimo.app';
+export const DEMO_PASSWORD = 'dallimo123';
 
-const KEY = 'dallimo.mock.accounts';
+type State = { accounts: MockAccount[]; currentUserId: string | null };
+
+const KEY = 'dallimo.mock.emailAccounts';
 
 function initial(): State {
   return {
-    accounts: {
-      KAKAO: { userId: 'me', provider: 'KAKAO', nickname: '수성러너', profileImageUrl: null, friendCode: 'SUSEONG-7Q2K', hasHistory: true },
-      APPLE: { userId: 'u-apple', provider: 'APPLE', nickname: null, profileImageUrl: null, friendCode: 'RUN-4M8P', hasHistory: false },
-      GOOGLE: { userId: 'u-google', provider: 'GOOGLE', nickname: null, profileImageUrl: null, friendCode: 'RUN-9X3D', hasHistory: false },
-    },
+    accounts: [
+      { userId: 'me', email: DEMO_EMAIL, password: DEMO_PASSWORD, nickname: '수성러너', profileImageUrl: null, friendCode: 'RUN-7Q2KSU', hasHistory: true },
+    ],
     currentUserId: null,
   };
 }
@@ -43,7 +44,12 @@ function save() {
 }
 
 export function findAccount(userId: string | null): MockAccount | null {
-  return Object.values(state.accounts).find((a) => a.userId === userId) ?? null;
+  return state.accounts.find((a) => a.userId === userId) ?? null;
+}
+
+export function findAccountByEmail(email: string): MockAccount | null {
+  const e = email.trim().toLowerCase();
+  return state.accounts.find((a) => a.email === e) ?? null;
 }
 
 /** 지금 로그인한 계정. 로그인 전(개발용 직접 진입)이면 null */
@@ -51,14 +57,29 @@ export function currentMockAccount(): MockAccount | null {
   return findAccount(state.currentUserId);
 }
 
-export async function signInMockAccount(provider: AuthProvider): Promise<MockAccount> {
-  state.currentUserId = state.accounts[provider].userId;
-  await save();
-  return state.accounts[provider];
+export function nicknameTaken(nickname: string, exceptUserId?: string): boolean {
+  return state.accounts.some((a) => a.nickname === nickname && a.userId !== exceptUserId);
 }
 
-export async function signOutMockAccount() {
-  state.currentUserId = null;
+export async function createMockAccount(email: string, password: string, nickname: string): Promise<MockAccount> {
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const a: MockAccount = {
+    userId: `u-${Date.now().toString(36)}`,
+    email: email.trim().toLowerCase(),
+    password,
+    nickname: nickname.trim(),
+    profileImageUrl: null,
+    friendCode: `RUN-${code}`,
+    hasHistory: false,
+  };
+  state.accounts.push(a);
+  state.currentUserId = a.userId;
+  await save();
+  return a;
+}
+
+export async function setCurrentMockAccount(userId: string | null) {
+  state.currentUserId = userId;
   await save();
 }
 
@@ -70,16 +91,9 @@ export async function updateMockAccount(userId: string, patch: Partial<Pick<Mock
   return a;
 }
 
-// 탈퇴: 계정을 처음 상태로 되돌린다 (다시 가입하면 새 사용자)
-export async function withdrawMockAccount(userId: string) {
-  const a = findAccount(userId);
-  if (a) state.accounts[a.provider] = { ...a, nickname: null, profileImageUrl: null, hasHistory: false };
+// 탈퇴: 계정을 지운다 (같은 이메일로 다시 가입할 수 있다)
+export async function removeMockAccount(userId: string) {
+  state.accounts = state.accounts.filter((a) => a.userId !== userId);
   state.currentUserId = null;
   await save();
-}
-
-export function nicknameTaken(nickname: string, exceptUserId: string | null): boolean {
-  const others = ['민수', '하늘', '지수', '도윤', '서연', '러너 박', '달리모'];
-  const accounts = Object.values(state.accounts).filter((a) => a.userId !== exceptUserId && a.nickname);
-  return others.includes(nickname) || accounts.some((a) => a.nickname === nickname);
 }

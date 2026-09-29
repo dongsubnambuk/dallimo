@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 
 import { runResultRepository } from '@/entities/run/api';
 import { createMockRunResultRepository, type HistoryScenario } from '@/entities/run/api/mockRunResultRepository';
-import { createMockUserRepository } from '@/entities/user/api/mockUserRepository';
+import { getUserRepository } from '@/entities/user/api';
 
 // 히스토리는 cursor로 20개씩 이어 받는다 (1321행 GET /runs?cursor=&size=20)
 const PAGE_SIZE = 20;
@@ -13,7 +13,7 @@ function useRunRepository(scenario: HistoryScenario) {
 }
 
 export function useMe(scenario: HistoryScenario) {
-  const repo = useMemo(() => createMockUserRepository(scenario), [scenario]);
+  const repo = useMemo(() => getUserRepository(scenario), [scenario]);
   return useQuery({ queryKey: ['me', scenario], queryFn: () => repo.getMe(), retry: false });
 }
 
