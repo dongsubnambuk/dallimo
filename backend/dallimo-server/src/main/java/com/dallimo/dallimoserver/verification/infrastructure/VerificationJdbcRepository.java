@@ -40,6 +40,10 @@ public class VerificationJdbcRepository {
                 courseId, runId, userId, seconds, paceSecPerKm, rate(matchRate), Timestamp.from(now), Timestamp.from(now));
     }
 
+    public long recordIdOfRun(long runId) {
+        return jdbc.queryForObject("SELECT id FROM tbl_course_record WHERE run_id = ?", Long.class, runId);
+    }
+
     /** 끝났는데 검증 대기로 남은 Run (커밋 뒤 검증이 서버 재시작 등으로 돌지 못한 것) */
     public List<Long> stalePending(Instant updatedBefore, int limit) {
         return jdbc.queryForList("""

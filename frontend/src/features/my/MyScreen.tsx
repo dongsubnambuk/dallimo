@@ -83,6 +83,24 @@ export function MyScreen({ scenario }: { scenario: HistoryScenario }) {
             <AppIcon name="collapse" size={18} color={colors.text.secondary} />
           </AppPressable>
           <FriendsEntry />
+          {/* SCR-M06 친구 활동 (65장: 독립 탭이 아니라 마이에서 들어간다) */}
+          <AppPressable
+            onPress={() => router.push('/my/activity')}
+            accessibilityRole="button"
+            accessibilityLabel="친구 활동, PB · 새 코스 · 도전 · 랭킹 소식"
+            style={[styles.entry, { backgroundColor: colors.bg.surface }]}
+          >
+            <AppIcon name="trophy" size={22} color={colors.text.primary} />
+            <View style={styles.flex}>
+              <AppText role="body" style={styles.bold}>
+                친구 활동
+              </AppText>
+              <AppText role="caption" tone="secondary">
+                PB · 새 코스 · 도전 · 랭킹 소식
+              </AppText>
+            </View>
+            <AppIcon name="collapse" size={18} color={colors.text.secondary} />
+          </AppPressable>
 
           <View style={styles.section}>
             <View style={styles.sectionHead}>

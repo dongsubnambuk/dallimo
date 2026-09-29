@@ -4,6 +4,7 @@ import com.dallimo.dallimoserver.challenge.domain.ChallengeStatus;
 import com.dallimo.dallimoserver.challenge.infrastructure.ChallengeJdbcRepository;
 import com.dallimo.dallimoserver.challenge.infrastructure.ChallengeJdbcRepository.Row;
 import com.dallimo.dallimoserver.challenge.infrastructure.ChallengeJdbcRepository.TargetRecord;
+import com.dallimo.dallimoserver.activity.application.ActivityService;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.course.application.CourseService;
@@ -33,13 +34,16 @@ public class ChallengeService {
     private final FriendService friends;
     private final CourseService courses;
     private final NotificationService notifications;
+    private final ActivityService activities;
     private final Clock clock;
 
-    public ChallengeService(ChallengeJdbcRepository store, FriendService friends, CourseService courses, NotificationService notifications, Clock clock) {
+    public ChallengeService(ChallengeJdbcRepository store, FriendService friends, CourseService courses, NotificationService notifications,
+                            ActivityService activities, Clock clock) {
         this.store = store;
         this.friends = friends;
         this.courses = courses;
         this.notifications = notifications;
+        this.activities = activities;
         this.clock = clock;
     }
 
@@ -103,6 +107,7 @@ public class ChallengeService {
             Row c = store.find(id).orElseThrow();
             boolean won = recordSeconds != null && recordSeconds <= c.targetSec();
             store.setStatus(id, won ? ChallengeStatus.SUCCESS : ChallengeStatus.FAILED, now);
+            if (won) activities.onChallengeWon(c.challengerId(), id, now);
             // 막아낸 도전은 알림함에만 (Push 없음). 넘은 경우는 "친구가 내 코스 기록을 넘음"으로 알린다
             if (!won) {
                 notifications.notify(c.targetUserId(), NotificationType.CHALLENGE_DEFENDED, "도전을 막아냈어요",
