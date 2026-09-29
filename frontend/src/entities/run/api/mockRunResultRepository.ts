@@ -23,7 +23,8 @@ export function parseResultScenario(value: unknown): ResultScenario {
 const SYNC_MS = 2000;
 const VERIFY_MS = 2500;
 
-type Saved = { input: NewRunResult; savedAt: number; scenario: ResultScenario };
+// verifyFrom: 서버 검증을 시작한 시각 (기기에만 있다가 나중에 올라간 기록은 올라간 시각)
+type Saved = { input: NewRunResult; savedAt: number; scenario: ResultScenario; verifyFrom?: number };
 
 // 앱을 켜 둔 동안만 남는 저장소. 실제로는 SQLite local_run + 서버.
 const saved = new Map<string, Saved>();
@@ -67,12 +68,20 @@ export function createMockRunResultRepository(history: HistoryScenario = 'normal
       saved.set(id, { input, savedAt: Date.now(), scenario: synced ? 'normal' : 'localOnly' });
       return id;
     },
+    async markSynced(clientRunUuid) {
+      for (const s of saved.values()) {
+        if (s.input.clientRunUuid !== clientRunUuid || s.scenario !== 'localOnly') continue;
+        // 올라간 시점부터 서버 검증이 시작된다
+        s.scenario = 'normal';
+        s.verifyFrom = Date.now();
+      }
+    },
     async get(id) {
       const past = pastRuns().find((r) => r.id === id) ?? (id === LOCAL_ONLY_ID ? localOnlyRun() : null);
       if (past) return past;
       const s = saved.get(id);
       if (!s) throw new RunResultNotFoundError(id);
-      const age = Date.now() - s.savedAt;
+      const age = Date.now() - (s.verifyFrom ?? s.savedAt);
       const { input, scenario } = s;
       const base: RunResult = {
         id,

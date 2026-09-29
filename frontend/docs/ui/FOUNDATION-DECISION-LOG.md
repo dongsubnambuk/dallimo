@@ -702,3 +702,23 @@ Pretendard (사용자 승인, 88.1장 후보). Regular·Medium·SemiBold·ExtraB
 | 문서 | `docs/test/gps-poc.md`: 설치, 시나리오, 정할 값 | 57장 |
 | 확인한 것 | SQLite 저장소를 Node SQLite로 실행해 확인(seq · 구간 · 통계 · 동시 저장). 웹에서 브라우저 위치를 움직여 전체 경로 확인: 120m→0.12km, 튄 point 제외, 정확도 낮음 동안 거리 멈춤 + "GPS 약함", 일시정지 중 이동 · 시간 제외, 복구 후 이어서 기록. iOS · Android 번들 빌드, Info.plist(UIBackgroundModes location, 위치 문구) | |
 | 확인 못 한 것 | 아이폰 실기기: 화면 잠금 기록, 강제 종료 뒤 복구, 실제 정확도 · 배터리 | CLAUDE.md 11항 |
+
+## 28. Running Core — 기록 동기화 · 오프라인 (WBS 2)
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 범위 | WBS 2 중 남은 것: batch sync, offline. 상태 머신 · 거리/페이스 · pause/resume · recovery는 WBS 1(27항)에서 이미 실제 엔진으로 돌아간다 | 19장 WBS 2 |
+| 동기화 | `features/run/sync/runSync`: 서버 Run 만들기(clientRunUuid) → 아직 Batch에 들지 않은 연속 seq를 Batch로 SQLite에 먼저 기록 → 전송 → 성공 ACKED + point SYNCED · 실패 RETRY_WAIT → 끝난 러닝이면 finish → `local_run.sync_state` SYNCED | 29.4 · 50.2 · 50.3장 |
+| 값 | Batch 최대 60 point, 재시도 2초 · 4초 · 8초 … 최대 5분, 러닝 중 15초마다, 종료 때 최대 20초 기다림. 명세에 값이 없어 정한 시작값 | 29.4장 "backoff", 20.2장 GPS 샘플링과 함께 PoC에서 조정 |
+| 재시도하지 않는 오류 | 422 RUN_POINT_INVALID, 409 IDEMPOTENCY_CONFLICT, 400, 403 → Batch · 러닝 FAILED | 50.3장 FAILED, MOCK-CONTRACT-CHECK 1.1 |
+| 앱이 꺼질 때 | 켜질 때 SENDING Batch를 RETRY_WAIT로 되돌려 같은 batchUuid로 다시 보낸다 | 50.3장 |
+| 서버가 Run을 모를 때 | 404면 서버 id · Batch를 지우고 처음부터 다시 올린다(clientRunUuid 멱등이라 중복 없음) | 11.3장 |
+| FINISHING | finish 응답이 FINISHING이면 빠진 Batch를 보낸 뒤 다시 요청 | 42.4장 |
+| 언제 도나 | 앱을 켤 때(로그인 뒤 탭) · 앱으로 돌아올 때 · 인터넷이 다시 연결될 때 · 재시도 시각 · 러닝 중 주기. 백그라운드 위치 task에서는 네트워크를 부르지 않는다 | 29.3장 |
+| 종료 | 온라인이면 남은 point를 바로 올리고("남은 기록 N개를 올리고 있어요") finish까지 끝나면 결과로. 오프라인이거나 20초 안에 못 끝내면 "기록은 휴대폰에 저장했어요" → 결과 보기(휴대폰에만 저장됨). 연결되면 뒤에서 올리고 결과 · 히스토리가 저절로 바뀐다(결과 화면은 5초마다 다시 읽음) | RUN-006 · RUN-007 · RUN-010, 15항 local-only |
+| 네트워크 상태 | `@react-native-community/netinfo`. 연결이 없거나 인터넷에 닿지 않으면 오프라인. 러닝 중 "오프라인이에요. 기록은 휴대폰에 저장하고 있어요"가 실제 상태로 뜬다. 웹은 브라우저 online/offline만 본다 | SCREEN-SPECS Active Run offline |
+| 서버 | 백엔드 전까지 `mockRunApi`(clientRunUuid · batchUuid 멱등, 서버가 point로 거리를 다시 계산). 앱을 다시 켜면 비어 있어 위 404 경로로 다시 올린다 | 42 · 25.2장 |
+| pause · resume API | 부르지 않는다. 요청에 시각이 없어 오프라인 일시정지를 나중에 올릴 수 없다. 백엔드 결정 항목에 넣었다 | MOCK-CONTRACT-CHECK 12항 13번 |
+| PoC 화면 | 러닝마다 "서버 동기화 PENDING / SYNCED / FAILED · 서버 id" | |
+| 확인한 것 | 동기화를 Node SQLite · 메모리 저장소로 실행해 확인(60개씩 나눔, 오프라인이면 안 보냄, backoff 시각 전 대기 · 같은 batchUuid 재전송, SENDING 복구, finish → SYNCED, 서버가 잊으면 처음부터, FINISHING이면 대기, 422면 FAILED 후 재시도 없음). 웹에서 온라인 종료 → 바로 결과, 러닝 중 오프라인 안내, 오프라인 종료 → 휴대폰에 저장 → 다시 연결 → 자동으로 올라가 결과의 "휴대폰에만 저장됨"이 사라짐. iOS · Android 번들 빌드 | |
+| 확인 못 한 것 | 아이폰에서 비행기 모드 · 네트워크 전환(GPS-M-002), 실제 서버 | |

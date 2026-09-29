@@ -1,7 +1,7 @@
 import type { RunMode, RunPoint, RunPointQuality } from '@/entities/run/types';
 import type { SqlDb } from '@/shared/db/schema';
 
-import type { LocalRun, LocalRunStatus, LocalRunStore, RunSegment } from './localRunStore';
+import type { LocalRun, LocalRunStatus, LocalRunStore, LocalRunSyncState, RunSegment, SyncBatch, SyncBatchStatus } from './localRunStore';
 
 // 11 · 29 · 50장 SQLite 저장소. 쓰기는 한 줄로 세워 트랜잭션이 겹치지 않게 한다.
 // (expo-sqlite withTransactionAsync는 같은 연결의 다른 쿼리가 끼어들 수 있다)
@@ -15,7 +15,30 @@ type RunRow = {
   elapsed_ms: number;
   last_seq: number;
   plan: string | null;
+  server_run_id: string | number | null;
+  sync_state: string;
 };
+
+type BatchRow = {
+  batch_uuid: string;
+  client_run_uuid: string;
+  from_seq: number;
+  to_seq: number;
+  status: string;
+  retry_count: number;
+  next_retry_at: number | null;
+};
+
+const toBatch = (r: BatchRow): SyncBatch => ({
+  batchUuid: r.batch_uuid,
+  clientRunUuid: r.client_run_uuid,
+  fromSeq: r.from_seq,
+  toSeq: r.to_seq,
+  status: r.status as SyncBatchStatus,
+  retryCount: r.retry_count,
+  nextRetryAt: r.next_retry_at,
+});
+const BATCH_COLUMNS = 'batch_uuid, client_run_uuid, from_seq, to_seq, status, retry_count, next_retry_at';
 
 type PointRow = {
   seq: number;
@@ -38,6 +61,8 @@ const toRun = (r: RunRow): LocalRun => ({
   elapsedMs: r.elapsed_ms,
   lastSeq: r.last_seq,
   plan: r.plan,
+  serverRunId: r.server_run_id != null ? String(r.server_run_id) : null,
+  syncState: r.sync_state as LocalRunSyncState,
 });
 
 const toPoint = (r: PointRow): RunPoint => ({
@@ -51,7 +76,7 @@ const toPoint = (r: PointRow): RunPoint => ({
   qualityFlag: r.quality_flag as RunPointQuality,
 });
 
-const RUN_COLUMNS = 'client_run_uuid, mode, course_id, status, started_at, ended_at, elapsed_ms, last_seq, plan';
+const RUN_COLUMNS = 'client_run_uuid, mode, course_id, status, started_at, ended_at, elapsed_ms, last_seq, plan, server_run_id, sync_state';
 const POINT_COLUMNS = 'seq, latitude, longitude, altitude, accuracy, speed, recorded_at, quality_flag';
 
 export function createSqliteRunStore(db: SqlDb): LocalRunStore {
@@ -237,6 +262,107 @@ export function createSqliteRunStore(db: SqlDb): LocalRunStore {
         await db.runAsync('DELETE FROM local_run_segment WHERE client_run_uuid = ?', runUuid);
         await db.runAsync('DELETE FROM local_sync_batch WHERE client_run_uuid = ?', runUuid);
         await db.runAsync('DELETE FROM local_run WHERE client_run_uuid = ?', runUuid);
+      }),
+
+    setServerRunId: (runUuid, serverRunId) =>
+      write(() => db.runAsync('UPDATE local_run SET server_run_id = ? WHERE client_run_uuid = ?', serverRunId, runUuid)).then(() => undefined),
+
+    setRunSyncState: (runUuid, state) =>
+      write(() => db.runAsync('UPDATE local_run SET sync_state = ? WHERE client_run_uuid = ?', state, runUuid)).then(() => undefined),
+
+    async listUnsyncedRuns() {
+      const rows = await db.getAllAsync<RunRow>(`SELECT ${RUN_COLUMNS} FROM local_run WHERE sync_state = 'PENDING' ORDER BY started_at`);
+      return rows.map(toRun);
+    },
+
+    async nextBatchRange(runUuid, limit) {
+      const after = await db.getFirstAsync<{ s: number | null }>('SELECT MAX(to_seq) AS s FROM local_sync_batch WHERE client_run_uuid = ?', runUuid);
+      const rows = await db.getAllAsync<{ seq: number }>(
+        "SELECT seq FROM local_run_point WHERE client_run_uuid = ? AND sync_state = 'PENDING' AND seq > ? ORDER BY seq LIMIT ?",
+        runUuid,
+        after?.s ?? 0,
+        limit,
+      );
+      if (!rows.length) return null;
+      // 이어지는 seq까지만 한 Batch로 (gap이 있으면 다음 Batch)
+      let toSeq = rows[0].seq;
+      for (const r of rows.slice(1)) {
+        if (r.seq !== toSeq + 1) break;
+        toSeq = r.seq;
+      }
+      return { fromSeq: rows[0].seq, toSeq };
+    },
+
+    createBatch: ({ batchUuid, clientRunUuid, fromSeq, toSeq }) =>
+      write(() =>
+        db.runAsync(
+          "INSERT INTO local_sync_batch (batch_uuid, client_run_uuid, from_seq, to_seq, status, retry_count) VALUES (?, ?, ?, ?, 'PENDING', 0)",
+          batchUuid,
+          clientRunUuid,
+          fromSeq,
+          toSeq,
+        ),
+      ).then(() => undefined),
+
+    async getOpenBatches(runUuid) {
+      const rows = await db.getAllAsync<BatchRow>(
+        `SELECT ${BATCH_COLUMNS} FROM local_sync_batch WHERE client_run_uuid = ? AND status NOT IN ('ACKED', 'FAILED') ORDER BY from_seq`,
+        runUuid,
+      );
+      return rows.map(toBatch);
+    },
+
+    async hasFailedBatch(runUuid) {
+      const row = await db.getFirstAsync<{ n: number }>("SELECT COUNT(*) AS n FROM local_sync_batch WHERE client_run_uuid = ? AND status = 'FAILED'", runUuid);
+      return (row?.n ?? 0) > 0;
+    },
+
+    updateBatch: (batchUuid, { status, retryCount, nextRetryAt }) =>
+      write(() =>
+        db.runAsync(
+          `UPDATE local_sync_batch SET status = ?,
+             retry_count = COALESCE(?, retry_count),
+             next_retry_at = CASE WHEN ? THEN ? ELSE next_retry_at END
+           WHERE batch_uuid = ?`,
+          status,
+          retryCount ?? null,
+          nextRetryAt !== undefined ? 1 : 0,
+          nextRetryAt ?? null,
+          batchUuid,
+        ),
+      ).then(() => undefined),
+
+    ackBatch: (batchUuid) =>
+      tx(async () => {
+        const b = await db.getFirstAsync<BatchRow>(`SELECT ${BATCH_COLUMNS} FROM local_sync_batch WHERE batch_uuid = ?`, batchUuid);
+        if (!b) return;
+        await db.runAsync("UPDATE local_sync_batch SET status = 'ACKED', next_retry_at = NULL WHERE batch_uuid = ?", batchUuid);
+        await db.runAsync(
+          "UPDATE local_run_point SET sync_state = 'SYNCED' WHERE client_run_uuid = ? AND seq BETWEEN ? AND ?",
+          b.client_run_uuid,
+          b.from_seq,
+          b.to_seq,
+        );
+      }),
+
+    async getPointRange(runUuid, fromSeq, toSeq) {
+      const rows = await db.getAllAsync<PointRow>(
+        `SELECT ${POINT_COLUMNS} FROM local_run_point WHERE client_run_uuid = ? AND seq BETWEEN ? AND ? ORDER BY seq`,
+        runUuid,
+        fromSeq,
+        toSeq,
+      );
+      return rows.map(toPoint);
+    },
+
+    resetSendingBatches: () =>
+      write(() => db.runAsync("UPDATE local_sync_batch SET status = 'RETRY_WAIT', next_retry_at = NULL WHERE status = 'SENDING'")).then(() => undefined),
+
+    resetSync: (runUuid) =>
+      tx(async () => {
+        await db.runAsync('DELETE FROM local_sync_batch WHERE client_run_uuid = ?', runUuid);
+        await db.runAsync("UPDATE local_run_point SET sync_state = 'PENDING' WHERE client_run_uuid = ?", runUuid);
+        await db.runAsync("UPDATE local_run SET server_run_id = NULL, sync_state = 'PENDING' WHERE client_run_uuid = ?", runUuid);
       }),
   };
 }
