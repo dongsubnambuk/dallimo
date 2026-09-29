@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import type { CourseSummary } from '@/entities/course/types';
+import { USES_DEVICE_LOCATION } from '@/shared/location/deviceLocation';
+import { createDeviceLocationSource } from '@/shared/location/expoLocation';
 import { createMockLocationSource } from '@/shared/location/mockLocationSource';
 
 import { createMockCourseRepository, DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
@@ -20,7 +22,8 @@ export type NearbyState =
 export function useNearbyCourses(scenario: ExploreScenario, radiusM: number) {
   const services = useMemo(
     () => ({
-      location: createMockLocationSource(scenario === 'denied' ? 'denied' : 'granted'),
+      location:
+        USES_DEVICE_LOCATION && scenario === 'normal' ? createDeviceLocationSource() : createMockLocationSource(scenario === 'denied' ? 'denied' : 'granted'),
       courses: createMockCourseRepository(scenario === 'denied' ? 'normal' : scenario),
     }),
     [scenario],

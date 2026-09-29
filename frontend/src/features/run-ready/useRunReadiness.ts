@@ -6,6 +6,8 @@ import type { CourseDetail } from '@/entities/course/types';
 import { getRunPolicy } from '@/entities/run/policy';
 import { distanceM, legRoute, type GeoPoint } from '@/shared/geo';
 import type { GpsQuality, LocationPermissionState, LocationSource } from '@/shared/location/locationSource';
+import { USES_DEVICE_LOCATION } from '@/shared/location/deviceLocation';
+import { createDeviceLocationSource } from '@/shared/location/expoLocation';
 import { createMockLocationSource, MOCK_POSITION } from '@/shared/location/mockLocationSource';
 
 import type { RunReadyScenario } from './scenario';
@@ -24,7 +26,8 @@ export type CourseLoad = { kind: 'none' } | { kind: 'loading' } | { kind: 'error
 // GPS·위치를 다시 읽는 간격
 const POLL_MS = 1000;
 
-export function useRunReadiness(courseId: string | null, scenario: RunReadyScenario): { readiness: Readiness; course: CourseLoad } {
+// active: 화면이 보이는 동안만 GPS를 켠다 (러닝 화면이 위에 떠 있으면 끈다)
+export function useRunReadiness(courseId: string | null, scenario: RunReadyScenario, active: boolean): { readiness: Readiness; course: CourseLoad } {
   const repo = useMemo(() => createMockCourseRepository('normal'), []);
   const courseQuery = useQuery({
     queryKey: ['course', 'detail', courseId, 'normal'],
@@ -35,7 +38,12 @@ export function useRunReadiness(courseId: string | null, scenario: RunReadyScena
   const policyQuery = useQuery({ queryKey: ['run', 'policy'], queryFn: getRunPolicy, staleTime: Infinity });
 
   const start = courseQuery.data?.route[0] ?? null;
-  const location = useMemo(() => mockLocationFor(scenario, start), [scenario, start]);
+  const location = useMemo(
+    () => (USES_DEVICE_LOCATION && scenario === 'normal' ? createDeviceLocationSource() : mockLocationFor(scenario, start)),
+    // 실제 위치는 코스 출발점과 상관없다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scenario, USES_DEVICE_LOCATION && scenario === 'normal' ? null : start],
+  );
 
   // 읽은 값은 어떤 LocationSource에서 왔는지와 함께 둔다. source가 바뀌면 이전 값은 버리고 처음부터 확인한다.
   const [snap, setSnap] = useState<{ source: LocationSource; permission: LocationPermissionState; quality: GpsQuality; position: GeoPoint | null } | null>(null);
@@ -45,6 +53,7 @@ export function useRunReadiness(courseId: string | null, scenario: RunReadyScena
   const position = current?.position ?? null;
 
   useEffect(() => {
+    if (!active) return;
     let alive = true;
     let timer: ReturnType<typeof setInterval> | undefined;
     (async () => {
@@ -64,8 +73,9 @@ export function useRunReadiness(courseId: string | null, scenario: RunReadyScena
     return () => {
       alive = false;
       if (timer) clearInterval(timer);
+      location.stop();
     };
-  }, [location]);
+  }, [location, active]);
 
   const course: CourseLoad =
     courseId == null

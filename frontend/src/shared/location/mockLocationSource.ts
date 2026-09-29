@@ -30,5 +30,6 @@ export function createMockLocationSource(permission: LocationPermissionState, op
       if (options.quality) return options.quality;
       return Date.now() - createdAt < ACQUIRE_MS ? 'acquiring' : 'good';
     },
+    async stop() {},
   };
 }
