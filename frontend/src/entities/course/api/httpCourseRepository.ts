@@ -1,3 +1,4 @@
+import { toRankingEntry, type RankingEntryDto } from '@/entities/ranking/api/httpRankingRepository';
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { CursorPage } from '@/shared/api/contract';
 
@@ -5,7 +6,7 @@ import type { CourseDetail, CourseDifficulty, CourseStatus, CourseSummary, MyCou
 import { CourseRepositoryError, type CourseRepository } from './courseRepository';
 
 // 43장 Course API 실제 클라이언트 (backend/dallimo-server /api/v1/courses).
-// 서버에 아직 없는 값(지역 · 추천 시간 · 러닝 환경 · 주간 순위 · 친구 기록)은 비워서 넘긴다. 화면은 모르는 값으로 처리한다.
+// 서버에 아직 없는 값(지역 · 추천 시간 · 러닝 환경 · 친구 기록)은 비워서 넘긴다. 화면은 모르는 값으로 처리한다.
 
 type LatLng = [number, number];
 
@@ -43,7 +44,7 @@ export type CourseDetailDto = {
   finisherCount: number;
   weeklyRunnerCount: number;
   myRecord: { bestSec: number; lastSec: number; finishCount: number } | null;
-  competition: { leaderSec: number | null };
+  competition: { leaderSec: number | null; myWeeklyRank: number | null; weeklyTop: RankingEntryDto[]; myEntry: RankingEntryDto | null };
   bookmarked: boolean;
 };
 
@@ -86,8 +87,14 @@ export function toCourseDetail(c: CourseDetailDto): CourseDetail {
     environment: { signals: null, nightLight: null, crowd: null, surface: null, toilets: null, waterFountains: null },
     // 서버 기록은 검증을 통과한 공식 기록(course_record)만 센다
     myRecord: c.myRecord ? { bestSec: c.myRecord.bestSec, bestVerification: 'verified', lastSec: c.myRecord.lastSec, finishCount: c.myRecord.finishCount } : null,
-    // 주간 순위 · 친구 기록은 랭킹 API(WBS 6) 뒤에 채운다
-    competition: { leaderSec: c.competition.leaderSec, myWeeklyRank: null, friendBest: null, weeklyTop: [], myEntry: null },
+    // 코스 1위는 전체 기간, 순위는 이번 주(한국 시간 월요일 0시부터). 친구 기록은 친구 기능(WBS 8) 뒤에 채운다
+    competition: {
+      leaderSec: c.competition.leaderSec,
+      myWeeklyRank: c.competition.myWeeklyRank,
+      friendBest: null,
+      weeklyTop: c.competition.weeklyTop.map(toRankingEntry),
+      myEntry: c.competition.myEntry ? toRankingEntry(c.competition.myEntry) : null,
+    },
     bookmarked: c.bookmarked,
   };
 }
