@@ -44,7 +44,14 @@ export type CourseDetailDto = {
   finisherCount: number;
   weeklyRunnerCount: number;
   myRecord: { bestSec: number; lastSec: number; finishCount: number } | null;
-  competition: { leaderSec: number | null; myWeeklyRank: number | null; weeklyTop: RankingEntryDto[]; myEntry: RankingEntryDto | null };
+  // friendBest: 친구 최고 기록 (친구가 없거나 기록이 없으면 null)
+  competition: {
+    leaderSec: number | null;
+    myWeeklyRank: number | null;
+    weeklyTop: RankingEntryDto[];
+    myEntry: RankingEntryDto | null;
+    friendBest: { userId: number; name: string; timeSec: number } | null;
+  };
   bookmarked: boolean;
 };
 
@@ -91,7 +98,7 @@ export function toCourseDetail(c: CourseDetailDto): CourseDetail {
     competition: {
       leaderSec: c.competition.leaderSec,
       myWeeklyRank: c.competition.myWeeklyRank,
-      friendBest: null,
+      friendBest: c.competition.friendBest ? { name: c.competition.friendBest.name, timeSec: c.competition.friendBest.timeSec } : null,
       weeklyTop: c.competition.weeklyTop.map(toRankingEntry),
       myEntry: c.competition.myEntry ? toRankingEntry(c.competition.myEntry) : null,
     },

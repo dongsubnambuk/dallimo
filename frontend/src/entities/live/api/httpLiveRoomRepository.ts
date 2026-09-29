@@ -1,3 +1,4 @@
+import { createHttpFriendRepository } from '@/entities/friend/api/httpFriendRepository';
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 
 import type { LiveMemberStatus, LiveMode, LiveRoom, LiveRoomStatus } from '../types';
@@ -5,7 +6,8 @@ import { toLiveResult, type ResultDto } from './liveDto';
 import { LiveRoomError, type LiveRoomRepository } from './liveRoomRepository';
 
 // 45장 Together REST (backend LiveRoomController).
-// 방은 초대 링크(share_code)로만 들어온다: 링크 → 방 보기(INVITED) → 참가 → 준비 → 서버가 출발 시각을 정한다.
+// 방에 들어오는 길은 둘: 친구 초대(POST /invite, 목록에 방이 뜨고 코드 없이 참가) · 초대 링크(share_code).
+// 참가 → 준비 → 서버가 출발 시각을 정한다.
 // 달리는 중 실시간 상태는 46장 WebSocket(httpLiveChannel), 결과는 서버가 확정한 값(GET /result)을 쓴다.
 
 type RoomDto = {
@@ -55,40 +57,47 @@ export function createHttpLiveRoomRepository(): LiveRoomRepository {
     listUpcoming: () => call(async () => (await apiRequest<RoomDto[]>('/api/v1/live-runs')).map(toRoom)),
     // 끝난 방 목록 API는 아직 없다 (결과는 방 id로 연다)
     listRecent: async () => [],
-    // 친구 기능(WBS 8) 전: 방을 만든 뒤 초대 링크로 부른다
-    listFriends: async () => [],
+    // 초대할 수 있는 사람 = 내 친구 (GET /friends)
+    listFriends: () => call(async () => (await createHttpFriendRepository().list()).map((f) => ({ userId: f.userId, name: f.nickname }))),
+    // 방을 만든 뒤 고른 친구를 초대한다 (TGT-002). 초대가 실패해도 방은 남고 대기실에서 링크로 부를 수 있다
     create: (input) =>
-      call(async () =>
-        toRoom(
-          await apiRequest<RoomDto>('/api/v1/live-runs', {
-            method: 'POST',
-            body: {
-              mode: input.mode,
-              targetDistanceM: input.targetDistanceM,
-              targetSeconds: input.targetSeconds,
-              courseId: input.courseId != null && /^\d+$/.test(input.courseId) ? Number(input.courseId) : null,
-              scheduledAt: input.scheduledAt != null ? new Date(input.scheduledAt).toISOString() : null,
-            },
-          }),
-        ),
-      ),
+      call(async () => {
+        const room = await apiRequest<RoomDto>('/api/v1/live-runs', {
+          method: 'POST',
+          body: {
+            mode: input.mode,
+            targetDistanceM: input.targetDistanceM,
+            targetSeconds: input.targetSeconds,
+            courseId: input.courseId != null && /^\d+$/.test(input.courseId) ? Number(input.courseId) : null,
+            scheduledAt: input.scheduledAt != null ? new Date(input.scheduledAt).toISOString() : null,
+          },
+        });
+        const ids = input.inviteeIds.filter((id) => /^\d+$/.test(id)).map(Number);
+        if (!ids.length) return toRoom(room);
+        const invited = await apiRequest<RoomDto>(`${path(String(room.id))}/invite`, { method: 'POST', body: { userIds: ids } }).catch(() => room);
+        return toRoom(invited);
+      }),
+    invite: (roomId, userIds) =>
+      call(async () => toRoom(await apiRequest<RoomDto>(`${path(roomId)}/invite`, { method: 'POST', body: { userIds: userIds.map(Number) } }))),
     get: (roomId, inviteCode) => call(async () => toRoom(await apiRequest<RoomDto>(path(roomId), { query: inviteCode ? { inviteCode } : undefined }))),
+    // 초대받은 친구는 코드 없이 참가한다
     join: (roomId, inviteCode) =>
-      call(async () => toRoom(await apiRequest<RoomDto>(`${path(roomId)}/join`, { method: 'POST', body: { inviteCode: inviteCode ?? '' } }))),
+      call(async () => toRoom(await apiRequest<RoomDto>(`${path(roomId)}/join`, { method: 'POST', body: inviteCode ? { inviteCode } : {} }))),
     setReady: (roomId, ready) => call(async () => toRoom(await apiRequest<RoomDto>(`${path(roomId)}/ready`, { method: 'POST', body: { ready } }))),
     leave: (roomId) => call(() => apiRequest<void>(`${path(roomId)}/leave`, { method: 'POST' })),
     cancel: (roomId) => call(() => apiRequest<void>(`${path(roomId)}/cancel`, { method: 'POST' })),
     getResult: (roomId) => call(async () => toLiveResult(await apiRequest<ResultDto>(`${path(roomId)}/result`))),
-    // 같은 조건으로 새 방. 사람은 새 초대 링크로 다시 부른다
+    // 같은 조건으로 새 방. 지난 방 사람 중 친구는 바로 초대하고, 나머지는 새 초대 링크로 부른다
     rematch: async (roomId) => {
-      const prev = await repo.get(roomId);
+      const [prev, friends] = await Promise.all([repo.get(roomId), repo.listFriends().catch(() => [])]);
+      const friendIds = new Set(friends.map((f) => f.userId));
       return repo.create({
         mode: prev.mode,
         targetDistanceM: prev.targetDistanceM,
         targetSeconds: prev.targetSeconds,
         courseId: prev.course?.id ?? null,
         scheduledAt: null,
-        inviteeIds: [],
+        inviteeIds: prev.members.filter((m) => !m.isMe && friendIds.has(m.userId)).map((m) => m.userId),
       });
     },
   };

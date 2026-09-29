@@ -2,6 +2,7 @@ package com.dallimo.dallimoserver.live.api;
 
 import com.dallimo.dallimoserver.common.web.ApiResponse;
 import com.dallimo.dallimoserver.live.api.LiveRoomDtos.CreateRoomRequest;
+import com.dallimo.dallimoserver.live.api.LiveRoomDtos.InviteRequest;
 import com.dallimo.dallimoserver.live.api.LiveRoomDtos.JoinRequest;
 import com.dallimo.dallimoserver.live.api.LiveRoomDtos.ReadyRequest;
 import com.dallimo.dallimoserver.live.api.LiveRoomDtos.RoomResponse;
@@ -59,9 +60,16 @@ public class LiveRoomController {
         return ApiResponse.ok(RoomResponse.from(rooms.get(userId(jwt), roomId, inviteCode), clock.instant()));
     }
 
+    /** TGT-002 친구 초대 */
+    @PostMapping("/{roomId}/invite")
+    public ApiResponse<RoomResponse> invite(@AuthenticationPrincipal Jwt jwt, @PathVariable long roomId, @Valid @RequestBody InviteRequest req) {
+        return ApiResponse.ok(RoomResponse.from(rooms.invite(userId(jwt), roomId, req.userIds()), clock.instant()));
+    }
+
+    /** 초대받은 친구는 본문 없이, 초대 링크로 온 사람은 inviteCode와 함께 */
     @PostMapping("/{roomId}/join")
-    public ApiResponse<RoomResponse> join(@AuthenticationPrincipal Jwt jwt, @PathVariable long roomId, @Valid @RequestBody JoinRequest req) {
-        return ApiResponse.ok(RoomResponse.from(rooms.join(userId(jwt), roomId, req.inviteCode()), clock.instant()));
+    public ApiResponse<RoomResponse> join(@AuthenticationPrincipal Jwt jwt, @PathVariable long roomId, @Valid @RequestBody(required = false) JoinRequest req) {
+        return ApiResponse.ok(RoomResponse.from(rooms.join(userId(jwt), roomId, req == null ? null : req.inviteCode()), clock.instant()));
     }
 
     @PostMapping("/{roomId}/ready")

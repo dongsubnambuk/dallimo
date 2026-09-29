@@ -81,6 +81,8 @@ export default function RootLayout() {
             <Stack.Screen name="my/runs/[id]" options={{ headerShown: false }} />
             {/* SCR-M04 내 코스, SCR-E05 코스 등록 */}
             <Stack.Screen name="my/courses/index" options={{ headerShown: false }} />
+            <Stack.Screen name="my/friends/index" options={{ headerShown: false }} />
+            <Stack.Screen name="my/friends/[userId]" options={{ headerShown: false }} />
             <Stack.Screen name="course/new" options={{ headerShown: false, presentation: 'modal' }} />
             {/* SCR-M07 설정, 프로필 수정 */}
             <Stack.Screen name="settings/index" options={{ headerShown: false }} />

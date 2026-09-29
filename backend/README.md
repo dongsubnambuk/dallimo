@@ -131,11 +131,11 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 
 - **순위** (23.1장): `tbl_course_record`(검증을 통과한 기록만 있다)를 사용자별 최고 기록으로 모아 빠른 순, 같은 기록이면 user_id 순. 한 사람은 한 줄(RNK-IT-001).
 - **기간** (사용자 결정): 한국 시간 기준 주간은 월요일 0시, 월간은 1일 0시부터. 기록이 만들어진 시각(`created_at`)으로 거른다(`idx_course_record_period`).
-- **항목**: `rank, userId, name, timeSec, paceSecPerKm(코스 거리 기준), relation(self · normal), isPB(내 줄에서 이 기간 기록이 내 전체 최고인가)`.
-- **친구 랭킹** (사용자 결정): 친구 기능(WBS 8) 전이라 빈 목록.
-- **다른 곳에 붙는 값**: 코스 상세 `competition { leaderSec(전체 기간 1위), myWeeklyRank, weeklyTop(이번 주 1~3위), myEntry }`, 러닝 상세 `verification { weeklyRankBefore, weeklyRankAfter }`(기록한 주에서 이 기록을 뺀 순위 → 넣은 순위, RST-003).
+- **항목**: `rank, userId, name, timeSec, paceSecPerKm(코스 거리 기준), relation(self · friend · normal), isPB(내 줄에서 이 기간 기록이 내 전체 최고인가)`.
+- **친구 랭킹** (RNK-004): 나와 친구의 기록만으로 같은 방식으로 센다. 친구가 없으면 나 혼자, 비회원이면 빈 목록. 어느 랭킹이든 친구 줄은 `relation: friend`.
+- **다른 곳에 붙는 값**: 코스 상세 `competition { leaderSec(전체 기간 1위), myWeeklyRank, weeklyTop(이번 주 1~3위), myEntry, friendBest }`, 러닝 상세 `verification { weeklyRankBefore, weeklyRankAfter, friendBest }`(기록한 주에서 이 기록을 뺀 순위 → 넣은 순위, RST-003). `friendBest { userId, name, timeSec }`는 친구 중 이 코스 최고 기록(전체 기간, CRS-104 · RST-004), 없으면 null.
 - **cursor**: 순위 위치의 base64url (23.1장 LIMIT · OFFSET). 기록이 많아져 느려지면 사용자별 최고 기록 projection이나 Redis를 검토한다(23.1장, 측정 뒤).
-- **테스트**: `RankingApiContractTest`를 MySQL · MariaDB에서(RNK-IT-001, 한국 시간 주 · 월 경계, cursor, 내 주변, 친구 빈 목록, 숨김 코스, 코스 상세 미리보기, 실제 검증을 거친 주간 순위 변화).
+- **테스트**: `RankingApiContractTest`를 MySQL · MariaDB에서(RNK-IT-001, 한국 시간 주 · 월 경계, cursor, 내 주변, 친구 랭킹 · 친구 최고 기록, 숨김 코스, 코스 상세 미리보기, 실제 검증을 거친 주간 순위 변화).
 
 ## 공유 링크 · 함께 달리기 초대 (SHR-001~004, 45장 대기실)
 
@@ -147,7 +147,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `POST /api/v1/live-runs` | 방 만들기(45.1장 invariant). 방장은 JOINED |
 | `GET /api/v1/live-runs` | 내가 참가한 예정 · 진행 중 방 |
 | `GET /api/v1/live-runs/{id}?inviteCode=` | 참가자이거나 초대 코드가 있어야 본다. 아직 참가 전이면 내 줄이 INVITED |
-| `POST /api/v1/live-runs/{id}/join` | `{ inviteCode }`. 시작 · 취소 · 가득 찬 방은 409 |
+| `POST /api/v1/live-runs/{id}/invite` | `{ userIds }` (TGT-002). 참가자가 자기 친구만. 초대받은 친구는 INVITED 줄로 들어가 목록에 방이 보인다 |
+| `POST /api/v1/live-runs/{id}/join` | 초대받은 친구는 본문 없이, 링크로 온 사람은 `{ inviteCode }`. 시작 · 취소 · 가득 찬 방은 409 |
 | `POST /api/v1/live-runs/{id}/ready` · `leave` · `cancel` | 준비(취소 포함) · 나가기(달리는 중이면 DNF) · 방장 취소 |
 | `GET /api/v1/live-runs/{id}/result` | 끝난 방 결과(참가자만). 아래 함께 달리기 실시간 경쟁 |
 
@@ -156,7 +157,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **받은 사람이 보는 것** (사용자 결정): 공유한 사람 이름, 기록 숫자(거리 · 시간 · 페이스 · 인증된 코스 기록), 코스 이름, 방 목표 · 예약 시각 · 인원. 자유 달리기 경로는 내보내지 않는다.
 - **방 초대** (사용자 요청: 초대가 실제로 되어야 한다): 방 id만으로는 방을 볼 수 없고, 방 초대 링크(type LIVE_ROOM)의 코드가 있어야 보고 참가한다. 참가자 · 방장만 초대 링크를 만든다.
 - **방 상태 전이** (45.1장 서버가 정한다): 참가자(방장 포함) 2명 이상이 모두 준비되고 예약 시각이 지나면 5초 뒤 출발 시각(`startsAt`)을 잡고 READY, 그 시각이 지나면 RUNNING(준비한 참가자도 RUNNING). 출발 전 누가 준비를 풀면 다시 WAITING. 읽거나 바꿀 때마다 방 행을 잠그고 다시 정한다.
-- **아직 없는 것**: 친구 초대(POST /invite, WBS 8).
+- **친구 초대** (TGT-002): 참가한 사람이 출발 전에 자기 친구를 부른다(친구가 아니면 403, 초대받기만 한 사람은 409). 초대받은 자리도 인원(10명)에 든다. 초대받은 친구는 코드 없이 방을 보고 참가 · 거절(leave)한다. 준비 판정에는 들어가지 않고, 출발할 때까지 참가하지 않으면 방에서 빠진다(결과에 들어가지 않게).
 - **테스트**: `ShareAndRoomApiContractTest`를 MySQL · MariaDB에서(같은 링크 재사용, 경로 없는 미리보기, 공유 페이지 escape, 권한, 초대 코드 없이 404, 초대 링크로 참가 → 준비 → 5초 뒤 RUNNING, 시작 뒤 참가 불가, 준비 취소, 나가기 · 취소, 45.1장 invariant, 예약 시각 전 출발 안 함).
 
 ## 함께 달리기 실시간 경쟁 (명세 8장 · 30장 · 46장 · 47장, WBS 11)
@@ -178,6 +179,25 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **순위**: 레이스 = 완주 시간, 타임 어택 = 거리, 함께 = 순위 없음. DNF는 순위 없음. 같으면 user_id 순.
 - **개인 Run 연결** (45.1장): `POST /runs`의 `liveRoomId`가 내가 참가한 방이면 `tbl_live_run_member.run_id`에 잇는다. 결과의 `myRunId`.
 - **테스트**: `LiveRaceContractTest`를 MySQL · MariaDB(+ Redis)에서(레이스 상태 · 늦은 seq · 완주 · 마감 DNF, 끊김 → 다시 연결 + 함께 달리기 모두 끝나면 바로 종료, 타임 어택 순위 + Run 연결, 참가자만 연결 · 구독).
+
+## 친구 (명세 44장, FND-001~005, WBS 8)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/users/search?q=&cursor=&size=` | 닉네임 일부(대소문자 무시) 또는 친구 코드 정확히(`RUN-` 없이 · 소문자도). 코드가 맞는 사람이 맨 앞, 나머지는 닉네임 순. 나 · 탈퇴한 사람은 빠진다. 항목 `{ userId, nickname, profileImageUrl, relation: NONE\|FRIEND\|SENT\|RECEIVED, requestId }` |
+| `POST /api/v1/friends/requests` | `{ userId }` → 요청 뒤 관계. 상대가 먼저 요청했으면 바로 FRIEND. 같은 요청을 다시 보내도 결과가 같다 |
+| `GET /api/v1/friends/requests` | `{ received[], sent[] }` (`requestId, userId, nickname, profileImageUrl, requestedAt`) |
+| `POST /api/v1/friends/requests/{id}/accept` · `reject` | 받은 사람만(아니면 404). 다시 해도 결과가 같고, 이미 다른 쪽으로 처리했으면 409 |
+| `DELETE /api/v1/friends/{userId}` | 친구 끊기. 요청 중이면 보낸 요청 취소 · 받은 요청 거절. 관계가 없어도 204 |
+| `GET /api/v1/friends` | 친구 목록(닉네임 순) `{ userId, nickname, profileImageUrl, since }` |
+| `GET /api/v1/users/{userId}` | 프로필 `{ user(검색 항목과 같은 모양), lastRunAt, records[{ courseId, courseName, bestSec, recordedAt }] }`. 기록 · 마지막 러닝은 친구(와 나)에게만 |
+
+- **저장** (44.1장): `tbl_friendship` 한 줄이 두 사람 사이 관계(`user_low_id, user_high_id` 쌍, `requester_id`가 방향). 거절 · 취소 · 끊은 관계는 새 요청으로 다시 쓴다.
+- **동시 요청** (FRD-IT-001): A→B · B→A가 같은 때 와도 한 줄이다. 먼저 넣은 쪽이 요청, 늦은 쪽은 중복 키를 받고 그 줄을 잠가 승인한다. 없는 줄을 `FOR UPDATE`로 읽으면 gap lock 때문에 서로 막혀(deadlock) 먼저 잠그지 않고 넣는다.
+- **알리지 않는 것**: 거절 · 친구 끊기는 상대에게 알리지 않는다. 요청 알림(Push)은 WBS 10.
+- **탈퇴**: 탈퇴하면 그 사람의 친구 · 요청을 모두 끝낸다(`CANCELED`). 목록 · 검색 · 프로필에서 빠진다.
+- **프로필** (사용자 결정): 닉네임, 인증된 코스 기록(코스마다 최고 기록, 최근 순 5개, 볼 수 있는 코스만), 마지막으로 끝낸 러닝 시각. 자유 달리기 경로 · 위치는 없다.
+- **테스트**: `FriendApiContractTest`를 MySQL · MariaDB에서(요청 → 승인 → 목록 → 삭제 → 다시 요청, 거절 · 잘못된 요청, 서로 요청하면 친구, 동시 요청 5번 한 줄, 닉네임 · 친구 코드 검색 · escape · 탈퇴 제외, 프로필 공개 범위 · 비공개 코스, 친구 초대 → 코드 없이 참가 → 참가하지 않은 초대는 출발 때 빠짐, 초대 거절).
 
 ## 공통 규칙
 
@@ -221,7 +241,14 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 비정상 속도 | 움직인 시간 30초 이상 평균 초속 7m 초과면 거부 | 명세에 값 없음. 1km 세계 기록 평균(약 7.6m/s)에 가깝고 짧은 전력 질주는 걸리지 않게 |
 | 검증 시점 | finish 커밋 뒤 비동기 + 1분마다 남은 PENDING 재검사 | 12.4장 비동기 후보. 응답을 늦추지 않고 서버 재시작에도 빠지지 않게 |
 | 랭킹 기간 경계 | 한국 시간 월요일 0시(주간), 1일 0시(월간) | 사용자 결정. 저장은 UTC |
-| 친구 랭킹 | 빈 목록 | 사용자 결정. 친구 기능(WBS 8) 뒤에 채운다 |
+| 친구 랭킹 | 나 + 친구 안에서 순위. 친구가 없으면 나 혼자 | RNK-004. 친구와 겨루는 화면이라 내 자리가 보여야 한다 |
+| 친구 테이블 | 44.1장 DDL 그대로 V7에 추가 + `idx_friend_high_status(user_high_id, status)` | 친구 목록 · 친구 랭킹이 user_high_id 쪽으로도 찾는다 |
+| 친구 검색 | 닉네임 일부 + 친구 코드 정확히, 1~40자, 한 페이지 20명(최대 50) | 사용자 결정. 41장에 `q, cursor, size`만 있다 |
+| 친구 프로필 API | `GET /users/{userId}` | FND-005 프로필인데 41 · 44장 표에 경로가 없다 |
+| 친구 요청 응답 | 200 + 요청 뒤 관계, 상대가 먼저 요청했으면 바로 친구 | 44장에 응답이 없다. 다시 보내도 결과가 같게 |
+| 친구 요청 오류 | 나에게 400, 없는 사용자 404, 남의 요청 승인 404, 이미 반대로 처리한 요청 409 | 27.1장에 친구 코드가 없어 기존 코드를 쓴다 |
+| 친구 초대 | 참가자가 자기 친구만, 출발 전, 인원 10명 안. 참가하지 않은 초대는 출발 때 빠진다 | 45장에 규칙이 없다. 결과에 달리지 않은 사람이 DNF로 남지 않게 |
+| 친구 최고 기록 | 코스 상세 · 러닝 상세에 친구 중 이 코스 최고 기록(전체 기간) | CRS-104 · RST-004. 앱에 자리가 있고 서버 값이 없었다 |
 | 내 주변 순위 API | `GET /courses/{id}/rankings/me` | RNK-005인데 43장 표에 경로 없음 |
 | 랭킹 동점 | 같은 기록이면 user_id 순 | 23.1장 쿼리 그대로 |
 | 공유 테이블 | `tbl_share_link`를 ERD 그대로 V6에 추가 + `uk_share_target(creator_id, type, reference_id)` | 22.4장 최종 DDL에 빠져 있음. 같은 대상 같은 링크 |

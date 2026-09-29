@@ -123,9 +123,10 @@ public class RunController {
                     RankingService.RankChange rank = v.recordId() == null ? null : ranking.weeklyChange(v.courseId(), r.getUserId(), v.recordId(), v.recordedAt());
                     return new VerificationResponse(r.getVerificationStatus(), v.failureReason(), v.matchRate(), v.recordSeconds(), v.previousBestSec(),
                             v.recordSeconds() == null ? null : v.previousBestSec() == null || v.recordSeconds() < v.previousBestSec(), v.policyVersion(),
-                            rank == null ? null : rank.before(), rank == null ? null : rank.after());
+                            rank == null ? null : rank.before(), rank == null ? null : rank.after(),
+                            v.recordSeconds() == null ? null : ranking.friendBest(v.courseId(), r.getUserId()));
                 })
-                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null, null, null));
+                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null, null, null, null));
     }
 
     private static long userId(Jwt jwt) {

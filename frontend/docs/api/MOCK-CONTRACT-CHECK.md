@@ -53,7 +53,8 @@
 | GET /users/me → `userId, email, nickname, profileImageUrl, friendCode` | `UserRepository.getMe()` | 구현 | provider 대신 email. 누적 통계(MY-002)는 아직 서버 집계가 없어 앱이 기기 기록으로 더한다 |
 | PATCH /users/me `nickname` | `updateMe` | 구현(닉네임만) | 프로필 이미지 업로드는 S3 결정 뒤. 그 전까지 사진은 기기에만 |
 | GET /users/nickname-availability?nickname= → `{ available }` | `checkNickname` | 구현 | 로그인 없이 부를 수 있다(가입 화면) |
-| GET /users/search | 없음 | 미구현 | 친구(SCR-M05) 화면 |
+| GET /users/search `q, cursor, size` | `FriendRepository.search(query, cursor)` → `httpFriendRepository` | 서버 구현 · 필드 추가 | 닉네임 일부 또는 친구 코드. 항목에 나와의 관계(`relation`, 요청 중이면 `requestId`)를 붙였다(UserSummary 필드가 명세에 없다) |
+| GET /users/{userId} | `FriendRepository.profile(userId)` | 명세 없음 · 서버 구현 | 친구 프로필(FND-005). 코스 기록 · 마지막 러닝은 친구에게만 |
 
 ## 3. Run (42장, 27.2장)
 
@@ -63,7 +64,7 @@
 | POST /runs/{id}/points `batchUuid, fromSeq, toSeq, points[]` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | `Idempotency-Key` 헤더에 batchUuid를 함께 보낸다(7.3장). SQLite에 Batch UUID를 먼저 기록한 뒤 보낸다(50.2장). 연속 seq 60개씩, 실패하면 같은 batchUuid로 backoff 재전송. 422 · 409 IDEMPOTENCY_CONFLICT · 400 · 403은 FAILED. `toPointDto`로 이름 · 단위 변환, `qualityFlag`는 보내지 않는다 |
 | POST /runs/{id}/pause · resume | 엔진 · SQLite 구간에만 | 서버 구현 · 앱은 부르지 않음 | 요청에 시각이 없어 오프라인에서 한 일시정지를 나중에 올릴 수 없다. 대신 finish에 `activeSeconds`를 보낸다(12항 13번) |
 | POST /runs/{id}/finish `endedAt, lastSeq, activeSeconds` | 엔진 `finish()` → `syncRunNow` | 서버 구현 · 필드 추가 | `activeSeconds`(앱이 잰 달린 시간, 일시정지 제외)는 명세에 없는 필드다(사용자 결정). 서버는 거리만 point로 다시 계산하고 달린 시간은 이 값을 받되 시작~종료 시간을 넘지 않게 자른다. 남은 Batch를 보낸 뒤 요청. 응답 `status`가 FINISHING이면 빠진 Batch를 보내고 다시 요청. 오프라인이거나 20초 안에 못 끝내면 휴대폰에 저장한 결과로 보여주고 연결되면 이어서 올린다 |
-| GET /runs/{id} → run detail | `RunResultRepository.get(id)` | 명세 없음 · 서버 구현 | 서버 응답: `{ summary(+courseName), splits[{ km, sec }], path[[위도, 경도]] (400개 이하), verification{ status, failureReason, matchRate, recordSeconds, previousBestSec, personalBest, policyVersion } }`. 앱 id는 `srv-{runId}`. 검증 결과 · 공식 기록 · PB · 주간 순위 변화(`weeklyRankBefore · After`)는 서버 값, 기기 기록도 서버에 올라간 뒤 서버 판정을 붙인다. 친구 최고 기록은 아직 없다(친구 기능 뒤). 앱이 쓰는 필드: `startedAt, finishedAt, distanceM, activeSec, avgPaceSec, splits, path(표시용으로 줄인 것), course{ id, name, timeSec }, target, verification, verificationReason, pb{ previousSec, improved }, weeklyRank{ before, after }, friendBest{ name, timeSec }` |
+| GET /runs/{id} → run detail | `RunResultRepository.get(id)` | 명세 없음 · 서버 구현 | 서버 응답: `{ summary(+courseName), splits[{ km, sec }], path[[위도, 경도]] (400개 이하), verification{ status, failureReason, matchRate, recordSeconds, previousBestSec, personalBest, policyVersion } }`. 앱 id는 `srv-{runId}`. 검증 결과 · 공식 기록 · PB · 주간 순위 변화(`weeklyRankBefore · After`)는 서버 값, 기기 기록도 서버에 올라간 뒤 서버 판정을 붙인다. 친구 최고 기록은 `verification.friendBest { userId, name, timeSec }`(인증된 코스 기록일 때). 앱이 쓰는 필드: `startedAt, finishedAt, distanceM, activeSec, avgPaceSec, splits, path(표시용으로 줄인 것), course{ id, name, timeSec }, target, verification, verificationReason, pb{ previousSec, improved }, weeklyRank{ before, after }, friendBest{ name, timeSec }` |
 | GET /runs?cursor&size | `list(cursor, size)` | 서버 구현 | FINISHED만, `startedAt` 최신순(6.4장), size 1~50(기본 20), cursor는 `"startedAt 밀리초:id"`의 base64url. 항목: `runId, clientRunUuid, mode, status, courseId, startedAt, endedAt, distanceM, elapsedSeconds, avgPaceSecPerKm, verificationStatus`. 이번 실행에서 끝낸 기록(기기에만 있음 포함)은 첫 페이지에 기기 값으로 더하고 서버 쪽 같은 기록은 뺀다. 목록의 `pb`, 경로 미리보기(`preview`)는 명세 없음 → 서버 기록은 썸네일이 빈칸 |
 | (기기 저장) | `saveFinished(input, synced)` | — | 서버 API가 아니라 기기 저장(11장 SQLite local_run). `clientRunUuid`와 `startedAt`을 함께 저장하도록 고침 |
 
@@ -73,11 +74,11 @@
 | --- | --- | --- | --- |
 | GET /courses/nearby `lat, lng, radius, cursor, size` | `getNearby({ center, radiusM })` → `httpCourseRepository` | 서버 구현 | 출발점까지 거리순. radius 100~20000m(기본 5000), size 1~50. 응답은 `{ items, nextCursor, hasNext }`. 앱은 첫 페이지(50개)만 받는다. 반경 안 코스가 많아지면 cursor를 붙인다. viewport는 아직 없다 |
 | GET /courses/search `query, cursor, size` | 없음 | 서버 구현 · 앱 미사용 | 이름에 query가 들어간 코스, 최근 등록순. 지역 검색(SCR-E02) 화면은 아직 받은 목록을 이름 · 태그로 거른다 |
-| GET /courses/{id} → CourseDetail | `getDetail(id)` | 명세 없음 · 서버 구현 | 서버 응답: `id, name, status, description, creatorName, distanceM, estimatedSec, difficulty, elevationGainM, tags, route[[위도, 경도]](1000점 이하), elevationProfile[[거리, 고도]], finisherCount, weeklyRunnerCount, myRecord{ bestSec, lastSec, finishCount }, competition{ leaderSec }, bookmarked, createdAt`. 지역 · 추천 시간 · 러닝 환경 · 친구 기록은 서버에 없어 앱이 비워 둔다(null · 빈 목록). `competition`에 `myWeeklyRank, weeklyTop(1~3위), myEntry`. 숨김 · 비공개는 403 `RESOURCE_FORBIDDEN`, 없으면 404 `COURSE_NOT_FOUND`. 응답 필드가 정해지지 않았다. 앱이 쓰는 필드는 `entities/course/types.ts`의 `CourseDetail`(상태, 지역, 만든 사람, 거리, 예상 시간, 난이도, 오르막, 태그, 경로, 고도 프로필, 완주자 수, 이번 주 러너 수, 추천 시간, 환경, 내 기록, 경쟁 정보, 저장 여부) |
+| GET /courses/{id} → CourseDetail | `getDetail(id)` | 명세 없음 · 서버 구현 | 서버 응답: `id, name, status, description, creatorName, distanceM, estimatedSec, difficulty, elevationGainM, tags, route[[위도, 경도]](1000점 이하), elevationProfile[[거리, 고도]], finisherCount, weeklyRunnerCount, myRecord{ bestSec, lastSec, finishCount }, competition{ leaderSec }, bookmarked, createdAt`. 지역 · 추천 시간 · 러닝 환경은 서버에 없어 앱이 비워 둔다(null · 빈 목록). `competition`에 `myWeeklyRank, weeklyTop(1~3위), myEntry, friendBest{ userId, name, timeSec }`. 숨김 · 비공개는 403 `RESOURCE_FORBIDDEN`, 없으면 404 `COURSE_NOT_FOUND`. 응답 필드가 정해지지 않았다. 앱이 쓰는 필드는 `entities/course/types.ts`의 `CourseDetail`(상태, 지역, 만든 사람, 거리, 예상 시간, 난이도, 오르막, 태그, 경로, 고도 프로필, 완주자 수, 이번 주 러너 수, 추천 시간, 환경, 내 기록, 경쟁 정보, 저장 여부) |
 | GET /courses/{id}/route | 상세 안의 `route` | 서버 구현 · 앱 미사용 | 서버는 `[{ seq, latitude, longitude, altitudeM }]` 전체(10m 간격)를 준다. 앱은 상세의 줄인 경로로 충분하다 |
 | POST /courses `sourceRunId, name, description, tags` | `CourseRegistrationRepository.create(input)` → `httpCourseRegistration` | 서버 구현 | 201 + 상세. 앱의 기록 id(`run-N` · `srv-N`)를 서버 Run id로 바꿔 보낸다(`serverRunId`). 이름 1~100자, 설명 1000자, 태그 6개 · 20자까지. 거부: 짧거나 정상 point가 모자라면 422 `RUN_POINT_INVALID`, 끝나지 않은 기록 409 `RUN_INVALID_STATE`, 남의 기록 403, 없는 기록 404. `recommendedTime`은 명세 요청 필드에 없어 보내지 않는다(SCR-E05 화면 요소에는 있다) |
 | POST · DELETE /courses/{id}/bookmarks | `setBookmark(id, saved)` | 서버 구현 | 204. 여러 번 보내도 같다 |
-| GET /courses/{id}/rankings `scope, period, cursor, size` | `RankingRepository.getPage(query)` → `httpRankingRepository` | 서버 구현 | scope `ALL · FRIENDS`, period `ALL · WEEKLY · MONTHLY`(한국 시간 월요일 · 1일 0시). 응답 항목: `rank, userId, name, timeSec, paceSecPerKm, relation(self · normal), isPB`. 친구 랭킹은 친구 기능 전이라 빈 목록 |
+| GET /courses/{id}/rankings `scope, period, cursor, size` | `RankingRepository.getPage(query)` → `httpRankingRepository` | 서버 구현 | scope `ALL · FRIENDS`, period `ALL · WEEKLY · MONTHLY`(한국 시간 월요일 · 1일 0시). 응답 항목: `rank, userId, name, timeSec, paceSecPerKm, relation(self · friend · normal), isPB`. 친구 랭킹은 나 + 친구 안에서 순위(친구가 없으면 나 혼자) |
 | GET /courses/{id}/rankings/me `scope, period` | `getMyStanding(courseId, scope, period)` → `{ total, entry, around }` | 명세 없음 · 서버 구현 | RNK-005. 43장 표에 경로가 없어 정했다. 내 위아래 두 명 |
 | GET /users/me/courses?kind=CREATED·SAVED·FINISHED | `getMine(kind)` | 명세 없음 · 서버 구현 | MY-005. 명세 표에 경로가 없어 정했다. 완주는 공식 기록(tbl_course_record)이 있는 코스 |
 | POST /courses/{id}/reviews · reports | 없음 | 미구현 | REV-001, CREG-005 (P1) |
@@ -86,18 +87,21 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| GET /friends | `LiveRoomRepository.listFriends()` | 변환 | 함께 달리기 초대 목록으로만 쓴다. 친구 repository로 옮기면 된다 |
-| 친구 요청 · 승인 · 거절 · 삭제 | 없음 | 미구현 | SCR-M05 |
+| GET /friends | `FriendRepository.list()`, `LiveRoomRepository.listFriends()` | 서버 구현 · 필드 추가 | `{ userId, nickname, profileImageUrl, since }`. 함께 달리기 친구 고르기도 이 목록 |
+| POST /friends/requests `userId` | `FriendRepository.request(userId)` | 서버 구현 | 응답은 요청 뒤 관계(명세에 응답 없음). 상대가 먼저 요청했으면 바로 친구 |
+| GET /friends/requests | `FriendRepository.requests()` | 서버 구현 | `{ received[], sent[] }` |
+| POST /friends/requests/{id}/accept · reject | `accept(requestId)`, `reject(requestId)` | 서버 구현 | 받은 사람만. 거절은 보낸 사람에게 알리지 않는다 |
+| DELETE /friends/{userId} | `remove(userId)` | 서버 구현 | 친구 끊기 · 보낸 요청 취소 · 받은 요청 거절 |
 | POST /challenges 등 | 없음 | 미구현 | 라이벌 모드는 목표 기록만 넘긴다(Play Mode) |
 
 ## 6. Together (45장)
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| POST /live-runs `mode, targetDistanceM, targetSeconds, courseId, scheduledAt` | `create(input)` → `httpLiveRoomRepository` | 서버 구현 | 45.1장 invariant 검사(레이스 = 거리, 타임 어택 = 시간). 방장은 JOINED로 들어간다. `inviteeIds`는 친구 기능 전이라 보내지 않는다. `courseId` · `scheduledAt`은 명세 요청 필드에 없다 |
-| GET /live-runs/{roomId}?inviteCode= | `get(roomId, inviteCode)` | 서버 구현 · 필드 추가 | 참가자이거나 방 초대 링크 코드가 있어야 본다(없으면 404). 아직 참가하지 않았으면 내 줄이 INVITED. 서버가 읽을 때마다 방 상태를 다시 정한다(모두 준비 → READY + `startsAt` → RUNNING). `serverTime`으로 앱 시계를 맞춘다. 대기실은 WebSocket ROOM_SNAPSHOT 전까지 1초마다 다시 읽는다 |
-| POST /live-runs/{roomId}/invite | 없음 | 미구현 | 친구 기능(WBS 8) 뒤. 지금은 방 초대 링크(POST /shares type LIVE_ROOM)로 부른다 |
-| POST /live-runs/{roomId}/join `inviteCode` | `join(roomId, inviteCode)` | 서버 구현 · 필드 추가 | 초대 링크 코드가 맞아야 참가. 시작한 방 · 취소된 방 · 가득 찬 방(10명)은 409 |
+| POST /live-runs `mode, targetDistanceM, targetSeconds, courseId, scheduledAt` | `create(input)` → `httpLiveRoomRepository` | 서버 구현 | 45.1장 invariant 검사(레이스 = 거리, 타임 어택 = 시간). 방장은 JOINED로 들어간다. `inviteeIds`는 보내지 않고, 방을 만든 뒤 앱이 POST /invite로 부른다(초대가 실패해도 방은 남는다). `courseId` · `scheduledAt`은 명세 요청 필드에 없다 |
+| GET /live-runs/{roomId}?inviteCode= | `get(roomId, inviteCode)` | 서버 구현 · 필드 추가 | 참가자(초대받은 친구 포함)이거나 방 초대 링크 코드가 있어야 본다(없으면 404). 아직 참가하지 않았으면 내 줄이 INVITED. 서버가 읽을 때마다 방 상태를 다시 정한다(모두 준비 → READY + `startsAt` → RUNNING). `serverTime`으로 앱 시계를 맞춘다. 대기실은 WebSocket ROOM_SNAPSHOT 전까지 1초마다 다시 읽는다 |
+| POST /live-runs/{roomId}/invite `userIds` | `invite(roomId, userIds)`, `create(input)` 안 | 서버 구현 | 참가자가 자기 친구만, 출발 전. 대기실 "친구 초대" 시트 · 방 만들기 · 같은 멤버로 다시(친구인 사람만). 초대받은 친구는 함께 달리기 목록에 "초대 받음"으로 방이 뜬다 |
+| POST /live-runs/{roomId}/join `inviteCode?` | `join(roomId, inviteCode)` | 서버 구현 · 필드 추가 | 초대받은 친구는 코드 없이, 링크로 온 사람은 코드가 맞아야 참가. 시작한 방 · 취소된 방 · 가득 찬 방(10명)은 409 |
 | POST /live-runs/{roomId}/ready `ready` | `setReady(roomId, ready)` | 서버 구현 · 명세 없음 | 명세는 READY 전환만 있다. 준비 취소(`ready=false`)도 받는다 |
 | POST /live-runs/{roomId}/leave | `leave(roomId)` | 서버 구현 | 시작 전이면 방에서 빠지고, 달리는 중이면 DNF. 방장은 409(취소를 쓴다) |
 | POST /live-runs/{roomId}/cancel | `cancel(roomId)` | 서버 구현 | 방장만, 시작 전만 |
@@ -165,7 +169,7 @@
 3. 누적 통계(MY-002)를 줄 곳 (UserProfileResponse 필드는 구현됨)
 4. ~~닉네임 중복 확인 API~~ → GET /users/nickname-availability로 구현
 5. 프로필 이미지 업로드 방식
-6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부). 검증 결과 · PB는 `verification`으로 구현
+6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부). 검증 결과 · PB · 주간 순위 · 친구 최고 기록은 `verification`으로 구현
 7. 코스 상세 응답 필드, 경로를 상세에 포함할지 (서버는 상세에 줄인 경로를 넣고 GET /route로 전체를 준다)
 8. 코스 등록 요청의 추천 시간
 9. ~~내 주변 순위 API (RNK-005)~~ → GET /courses/{id}/rankings/me로 구현. 명세 표에 넣어야 한다
@@ -178,3 +182,4 @@
 16. 히스토리 목록 경로 미리보기: GET /runs 항목에 줄인 경로를 넣을지. 지금은 서버 기록 썸네일이 빈칸이다
 17. 코스 지역("대구 수성구") · 러닝 환경 · 추천 시간을 저장할 곳: ERD에 없다. 서버 코스 상세에는 비어 있다
 18. 실시간 메시지 필드: 46장은 `elapsedMs · currentPace · memberSeq · runId`, 서버 · 앱은 `elapsedSeconds · currentPaceSecPerKm · seq`, runId는 POST /runs `liveRoomId`로 잇는다. ROOM_SNAPSHOT 대신 SYNC_STATE. 명세에 맞출지 정한다
+19. 친구 API 모양: 44장은 경로만 있다. 요청 응답(요청 뒤 관계), 요청 목록 `{ received, sent }`, 검색 항목의 `relation · requestId`, 프로필 경로 `GET /users/{userId}`를 서버 · 앱이 정했다. 명세에 넣어야 한다

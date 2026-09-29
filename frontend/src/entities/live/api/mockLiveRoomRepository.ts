@@ -190,6 +190,14 @@ export function createMockLiveRoomRepository(scenario: LiveScenario): LiveRoomRe
       rooms.set(id, { room, createdAt: Date.now(), scenario, simulate: true, meReady: false, meJoined: true, left: false, allReadyAt: null });
       return snapshot(rooms.get(id)!);
     },
+    async invite(roomId, userIds) {
+      await wait(DELAY_MS);
+      const s = find(roomId);
+      const have = new Set(s.room.members.map((m) => m.userId));
+      const fresh = FRIENDS.filter((f) => userIds.includes(f.userId) && !have.has(f.userId));
+      s.room = { ...s.room, members: [...s.room.members, ...fresh.map((f) => member(f, 'INVITED'))] };
+      return snapshot(s);
+    },
     async get(roomId) {
       if (scenario === 'loading') await new Promise(() => {});
       if (scenario === 'error') throw new LiveRoomError('network', '서버에 연결하지 못했어요');

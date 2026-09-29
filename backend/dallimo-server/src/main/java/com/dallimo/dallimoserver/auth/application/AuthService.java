@@ -6,6 +6,7 @@ import com.dallimo.dallimoserver.auth.infrastructure.RefreshSessionRepository;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.security.AuthProperties;
+import com.dallimo.dallimoserver.friend.application.FriendService;
 import com.dallimo.dallimoserver.user.application.UserService;
 import com.dallimo.dallimoserver.user.domain.User;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +24,7 @@ import java.time.Instant;
 public class AuthService {
 
     private final UserService users;
+    private final FriendService friends;
     private final RefreshSessionRepository sessions;
     private final PasswordEncoder passwords;
     private final TokenIssuer tokens;
@@ -31,9 +33,10 @@ public class AuthService {
     // 없는 이메일로 로그인해도 비밀번호 확인 시간이 비슷하게 걸리도록 (가입 여부를 시간으로 알 수 없게)
     private final String dummyHash;
 
-    public AuthService(UserService users, RefreshSessionRepository sessions, PasswordEncoder passwords, TokenIssuer tokens,
+    public AuthService(UserService users, FriendService friends, RefreshSessionRepository sessions, PasswordEncoder passwords, TokenIssuer tokens,
                        AuthProperties props, Clock clock) {
         this.users = users;
+        this.friends = friends;
         this.sessions = sessions;
         this.passwords = passwords;
         this.tokens = tokens;
@@ -99,10 +102,11 @@ public class AuthService {
                 .ifPresent(s -> s.revoke(clock.instant()));
     }
 
-    /** 탈퇴(AUTH-004): 계정 정보를 지우고 모든 기기의 세션을 끊는다 */
+    /** 탈퇴(AUTH-004): 계정 정보를 지우고 모든 기기의 세션을 끊는다. 친구 · 친구 요청도 끝낸다 */
     @Transactional
     public void withdraw(long userId) {
         users.withdraw(userId);
+        friends.endAllOf(userId);
         sessions.revokeAllOfUser(userId, clock.instant());
     }
 
