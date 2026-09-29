@@ -6,7 +6,7 @@ export interface ShareRepository {
   resolve(code: string): Promise<ShareTarget>;
 }
 
-// 공유 URL 앞부분. Web Landing 범위(20.2장, Phase 2~3)가 정해지기 전까지 앱 딥링크(scheme dallimo)를 쓴다.
+// mock 공유 URL 앞부분 (앱 딥링크). 서버가 있으면 서버가 준 http(s) 주소(/s/{code} 공유 페이지)를 쓴다.
 export const SHARE_URL_BASE = 'dallimo://share/';
 
 export class ShareNotFoundError extends Error {}

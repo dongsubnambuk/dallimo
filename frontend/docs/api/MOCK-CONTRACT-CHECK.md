@@ -94,14 +94,15 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| POST /live-runs | `create(input)` | 변환 | 앱은 초대할 친구(`inviteeIds`)를 함께 보낸다. 명세는 생성 뒤 POST /invite. 예약 시각(`scheduledAt`)은 명세 요청 필드에 없다 |
-| GET /live-runs/{roomId} | `get(roomId)` | 일치 | 대기실은 WebSocket ROOM_SNAPSHOT 전까지 1초마다 다시 읽는다 |
-| POST /live-runs/{roomId}/invite | create에 포함 | 변환 | |
-| POST /live-runs/{roomId}/join | `join(roomId)` | 일치 | |
-| POST /live-runs/{roomId}/ready | `setReady(roomId, ready)` | 명세 없음 | 명세는 READY 전환만 있다. 준비 취소(`ready=false`)는 없다 |
-| POST /live-runs/{roomId}/leave | `leave(roomId)` | 일치 | |
-| POST /live-runs/{roomId}/cancel | `cancel(roomId)` | 이번에 고침 | 전에는 방장도 leave를 불렀다. 방장은 cancel, 참가자는 leave |
-| GET /live-runs/{roomId}/result | `getResult(roomId)` | 일치 | |
+| POST /live-runs `mode, targetDistanceM, targetSeconds, courseId, scheduledAt` | `create(input)` → `httpLiveRoomRepository` | 서버 구현 | 45.1장 invariant 검사(레이스 = 거리, 타임 어택 = 시간). 방장은 JOINED로 들어간다. `inviteeIds`는 친구 기능 전이라 보내지 않는다. `courseId` · `scheduledAt`은 명세 요청 필드에 없다 |
+| GET /live-runs/{roomId}?inviteCode= | `get(roomId, inviteCode)` | 서버 구현 · 필드 추가 | 참가자이거나 방 초대 링크 코드가 있어야 본다(없으면 404). 아직 참가하지 않았으면 내 줄이 INVITED. 서버가 읽을 때마다 방 상태를 다시 정한다(모두 준비 → READY + `startsAt` → RUNNING). `serverTime`으로 앱 시계를 맞춘다. 대기실은 WebSocket ROOM_SNAPSHOT 전까지 1초마다 다시 읽는다 |
+| POST /live-runs/{roomId}/invite | 없음 | 미구현 | 친구 기능(WBS 8) 뒤. 지금은 방 초대 링크(POST /shares type LIVE_ROOM)로 부른다 |
+| POST /live-runs/{roomId}/join `inviteCode` | `join(roomId, inviteCode)` | 서버 구현 · 필드 추가 | 초대 링크 코드가 맞아야 참가. 시작한 방 · 취소된 방 · 가득 찬 방(10명)은 409 |
+| POST /live-runs/{roomId}/ready `ready` | `setReady(roomId, ready)` | 서버 구현 · 명세 없음 | 명세는 READY 전환만 있다. 준비 취소(`ready=false`)도 받는다 |
+| POST /live-runs/{roomId}/leave | `leave(roomId)` | 서버 구현 | 시작 전이면 방에서 빠지고, 달리는 중이면 DNF. 방장은 409(취소를 쓴다) |
+| POST /live-runs/{roomId}/cancel | `cancel(roomId)` | 서버 구현 | 방장만, 시작 전만 |
+| GET /live-runs/{roomId}/result | `getResult(roomId)` | 서버 미구현 | 실시간 경쟁 · 결과 확정(WBS 11) 전이라 404. 달리기 · 결과 화면은 지금까지의 흐름(mock 채널)을 그대로 쓴다 |
+| GET /live-runs | `listUpcoming()` | 명세 없음 · 서버 구현 | 내가 참가한 예정 · 진행 중 방(SCR-T01). 45장 표에 경로가 없어 정했다 |
 | (예정 방 · 최근 결과 목록) | `listUpcoming()`, `listRecent()` | 명세 없음 | Together 홈(SCR-T01) 목록 API가 없다 |
 | (같은 멤버로 다시) | `rematch(roomId)` | 명세 없음 | 앱에서 create + invite로 대신할 수 있다 |
 
@@ -123,8 +124,9 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| POST /shares | `ShareRepository.create(type, referenceId, courseId)` | 명세 없음 | 요청 필드가 정해지지 않았다. share_link 컬럼 기준 `type, referenceId`. `courseId`는 앱이 더 보낸다 |
-| GET /shares/{code} | `resolve(code)` → `{ type, referenceId, courseId }` | 명세 없음 | 응답 필드가 정해지지 않았다. 링크를 열 때 코스로 보내려면 `courseId`가 필요하다 |
+| POST /shares `type, referenceId` | `ShareRepository.create(type, referenceId, courseId)` → `httpShareRepository` | 명세 없음 · 서버 구현 | type `RUN · COURSE · LIVE_ROOM`(CHALLENGE는 도전 기능 뒤). 내 끝난 기록 · 볼 수 있는 코스 · 참가한 방만. 같은 대상은 같은 링크. 응답 `{ code, url }`의 url은 서버 공유 페이지 `/s/{code}`(http(s), 메신저에서 눌린다). 기록은 앱 기록 id를 서버 Run id로 바꿔 보낸다. `courseId`는 보내지 않는다(서버가 안다) |
+| GET /shares/{code} | `resolve(code)` → `{ type, referenceId, courseId, preview }` | 명세 없음 · 서버 구현 | 로그인 없이. preview는 공유한 사람 이름과 기록 숫자(거리 · 시간 · 페이스 · 인증 기록) · 코스 이름 · 방 목표. 자유 달리기 경로는 없다 |
+| GET /s/{code} (공유 페이지) | — | 명세 없음 · 서버 구현 | 14.3장 Web Landing의 첫 단계. 미리보기(og) 태그, "달리모 앱에서 열기"(dallimo://share/{code}), 휴대폰이면 바로 앱을 연다. 개발용 "웹에서 열기" |
 
 ## 9. 알림 · Activity
 
@@ -165,8 +167,8 @@
 8. 코스 등록 요청의 추천 시간
 9. ~~내 주변 순위 API (RNK-005)~~ → GET /courses/{id}/rankings/me로 구현. 명세 표에 넣어야 한다
 10. ~~내 코스 목록 API (MY-005)~~ → GET /users/me/courses?kind=로 구현. 명세 표에 넣어야 한다
-11. Together 방 목록(예정 · 최근), 준비 취소, 재대결
-12. 공유 링크 요청 · 응답 필드
+11. Together 방 목록(예정 · 최근), 준비 취소, 재대결 — 예정 목록 · 준비 취소는 서버 구현(명세 표에 넣어야 함), 최근 결과 · 재대결은 결과 확정(WBS 11) 뒤
+12. 공유 링크 요청 · 응답 필드 — 서버 구현(`type, referenceId` → `code, url`, 해석 `type, referenceId, courseId, preview`). 명세에 넣어야 한다
 13. ~~일시정지 · 재개 시각~~ → finish에 `activeSeconds`를 더했다(사용자 결정). 명세 42.4장 요청 필드에 넣어야 한다
 14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 서버 · 앱 모두 200 + `status: FINISHING`으로 구현했다
 15. `RESOURCE_NOT_FOUND`(404): 서버가 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드가 없는 404에 쓴다. 명세 표에 넣을지 정한다

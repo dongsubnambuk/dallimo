@@ -9,6 +9,7 @@ import { RankingRow } from '@/components/RankingRow';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { StateNotice } from '@/components/StateNotice';
 import { getCourseRepository } from '@/entities/course/api';
+import { getShareRepository } from '@/entities/share/api';
 import type { CourseDetail, CourseDifficulty, Level } from '@/entities/course/types';
 import { AppDivider, AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
@@ -334,11 +335,12 @@ function RoundButton({ icon, label, onPress, selected = false }: { icon: IconNam
   );
 }
 
-// CRS-107 코스 공유: 앱 딥링크(scheme dallimo)와 코스 요약. 웹 등 공유 API가 없는 환경에서는 조용히 넘어간다.
+// CRS-107 코스 공유: 공유 링크(서버가 있으면 메신저에서 눌리는 공유 페이지 주소)와 코스 요약. 웹 등 공유 API가 없는 환경에서는 조용히 넘어간다.
 async function shareCourse(course: CourseDetail) {
   try {
+    const link = await getShareRepository().create('COURSE', course.id, course.id);
     await Share.share({
-      message: `${course.name} · ${formatDistanceKm(course.distanceM, 1)}km\n달리모에서 이 코스 같이 달려요\ndallimo://course/${course.id}`,
+      message: `${course.name} · ${formatDistanceKm(course.distanceM, 1)}km\n달리모에서 이 코스 같이 달려요\n${link.url}`,
     });
   } catch {
     // 사용자가 취소했거나 공유를 지원하지 않는 환경

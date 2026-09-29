@@ -5,6 +5,7 @@ import { AppIcon, type IconName } from '@/design/primitives';
 import { darkTheme, useTheme } from '@/design/theme';
 import { fontFamily } from '@/design/tokens';
 import { useRunRecovery } from '@/features/run/useRunRecovery';
+import { useOpenPendingShareLink } from '@/features/share/usePendingShareLink';
 
 // 65장 정보 구조 최종안: 하단 탭 4개 (Explore / Run / Together / My). 탭 구조는 임의로 바꾸지 않는다 (115.1장).
 const TABS: { name: string; title: string; icon: IconName }[] = [
@@ -18,6 +19,8 @@ export default function TabsLayout() {
   const { colors } = useTheme();
   // 로그인한 뒤 탭이 처음 뜰 때, 앱이 꺼지기 전 달리던 기록이 있으면 이어서 기록한다
   useRunRecovery();
+  // 로그인 전에 연 공유 · 초대 링크를 이어서 연다
+  useOpenPendingShareLink();
   return (
     <Tabs
       screenOptions={{

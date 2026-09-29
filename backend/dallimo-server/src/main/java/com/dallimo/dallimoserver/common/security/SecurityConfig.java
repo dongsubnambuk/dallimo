@@ -59,6 +59,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/nickname-availability").permitAll()
                         // 43장 코스 조회는 로그인 없이도 (User/Optional). 토큰이 있으면 내 기록 · 저장 여부를 함께 준다
                         .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
+                        // SHR-004 공유 링크 해석 · 공유 페이지는 로그인 없이
+                        .requestMatchers(HttpMethod.GET, "/api/v1/shares/*", "/s/*").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o

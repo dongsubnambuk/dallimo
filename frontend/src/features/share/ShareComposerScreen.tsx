@@ -13,7 +13,8 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { radius, spacing, touchTarget } from '@/design/tokens';
-import { createMockShareRepository, type ShareScenario } from '@/entities/share/api/mockShareRepository';
+import { getShareRepository } from '@/entities/share/api';
+import { type ShareScenario } from '@/entities/share/api/mockShareRepository';
 
 import { availableTemplates, defaultTemplate, TEMPLATE_LABEL, type ShareCardData, type TemplateKey } from './cardModel';
 import { CARD_BASE_H, CARD_BASE_W, ShareCard } from './components/ShareCard';
@@ -76,7 +77,7 @@ function Composer({
   const templates = availableTemplates(data);
   const [template, setTemplate] = useState<TemplateKey>(() => defaultTemplate(data, live));
   const cardRef = useRef<View>(null);
-  const repo = useMemo(() => createMockShareRepository(scenario), [scenario]);
+  const repo = useMemo(() => getShareRepository(scenario), [scenario]);
   const [imageError, setImageError] = useState<string | null>(null);
 
   // 미리보기는 화면에 맞춰 줄이고, 이미지는 같은 카드를 1080×1920으로 뽑는다
