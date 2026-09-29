@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.running.api;
 
+import com.dallimo.dallimoserver.challenge.api.ChallengeController;
 import com.dallimo.dallimoserver.ranking.application.RankingService;
 import com.dallimo.dallimoserver.running.domain.Run;
 import com.dallimo.dallimoserver.running.domain.RunMetrics;
@@ -26,7 +27,7 @@ public final class RunDtos {
 
     static final String UUID_RULE = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
 
-    /** 42.1장. liveRoomId는 함께 달리기 방 참가 기록에 이 Run을 잇는다. challengeId는 도전(WBS 9) 전이라 받기만 한다 */
+    /** 42.1장. liveRoomId는 함께 달리기 방 참가 기록에, challengeId는 내 도전에 이 Run을 잇는다 */
     public record CreateRunRequest(
             @NotBlank @Pattern(regexp = UUID_RULE) String clientRunUuid,
             @NotNull RunMode mode,
@@ -102,8 +103,8 @@ public final class RunDtos {
                                        Integer weeklyRankBefore, Integer weeklyRankAfter, RankingService.FriendBest friendBest) {
     }
 
-    /** 상세 (GET /runs/{id}): 요약 + 스플릿 + 표시용 경로([위도, 경도]) + 검증(코스 러닝일 때) */
+    /** 상세 (GET /runs/{id}): 요약 + 스플릿 + 표시용 경로([위도, 경도]) + 검증(코스 러닝일 때) + 이 Run으로 한 도전(CHL-003) */
     public record RunDetailResponse(RunSummaryResponse summary, List<RunMetrics.Split> splits, List<double[]> path,
-                                    VerificationResponse verification) {
+                                    VerificationResponse verification, ChallengeController.ChallengeResponse challenge) {
     }
 }

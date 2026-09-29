@@ -61,6 +61,13 @@ public class RankingJdbcRepository {
                 Integer.class, courseId, userId, ts(w.from()), ts(w.to()), excludeRecordId, excludeRecordId);
     }
 
+    /** 이 사용자의 이 기록 시간 공식 기록 id (같은 시간이 여럿이면 먼저 세운 것) */
+    public long recordId(long courseId, long userId, int durationSeconds) {
+        return jdbc.queryForObject(
+                "SELECT id FROM tbl_course_record WHERE course_id = ? AND user_id = ? AND duration_seconds = ? ORDER BY id LIMIT 1",
+                Long.class, courseId, userId, durationSeconds);
+    }
+
     /** bestSec 기록을 가진 userId의 순위 = 나보다 앞선 다른 사용자 수 + 1 */
     public int rank(long courseId, long userId, int bestSec, Window w, List<Long> only) {
         List<Object> args = new ArrayList<>(List.of(courseId, ts(w.from()), ts(w.to()), userId));

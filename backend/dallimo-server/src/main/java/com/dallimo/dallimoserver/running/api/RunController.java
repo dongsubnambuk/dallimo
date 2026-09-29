@@ -1,5 +1,7 @@
 package com.dallimo.dallimoserver.running.api;
 
+import com.dallimo.dallimoserver.challenge.api.ChallengeController;
+import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.ApiResponse;
@@ -47,19 +49,21 @@ public class RunController {
     private final RunService runs;
     private final CourseVerificationService verification;
     private final RankingService ranking;
+    private final ChallengeService challenges;
     private final Clock clock;
 
-    public RunController(RunService runs, CourseVerificationService verification, RankingService ranking, Clock clock) {
+    public RunController(RunService runs, CourseVerificationService verification, RankingService ranking, ChallengeService challenges, Clock clock) {
         this.runs = runs;
         this.verification = verification;
         this.ranking = ranking;
+        this.challenges = challenges;
         this.clock = clock;
     }
 
     /** 42.1장: 새로 만들면 201, 같은 clientRunUuid 재요청이면 200 */
     @PostMapping
     public ResponseEntity<ApiResponse<CreateRunResponse>> create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateRunRequest req) {
-        RunService.Created c = runs.create(userId(jwt), req.clientRunUuid().toLowerCase(), req.mode(), req.courseId(), req.liveRoomId(), req.startedAt().toInstant());
+        RunService.Created c = runs.create(userId(jwt), req.clientRunUuid().toLowerCase(), req.mode(), req.courseId(), req.challengeId(), req.liveRoomId(), req.startedAt().toInstant());
         Run r = c.run();
         return ResponseEntity.status(c.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ApiResponse.ok(new CreateRunResponse(r.getId(), r.getClientRunUuid(), r.getStatus(), clock.instant())));
@@ -112,7 +116,8 @@ public class RunController {
         RunService.Detail d = runs.detail(userId(jwt), runId);
         Run r = d.run();
         return ApiResponse.ok(new RunDetailResponse(RunSummaryResponse.from(r, runs.courseNames(List.of(r)).get(r.getCourseId())),
-                d.metrics().splits(), d.metrics().path(), verificationOf(r)));
+                d.metrics().splits(), d.metrics().path(), verificationOf(r),
+                challenges.forRun(r.getUserId(), r.getId()).map(ChallengeController.ChallengeResponse::from).orElse(null)));
     }
 
     /** 코스 러닝이 아니면 null. 판정 전이면 상태만 */

@@ -152,20 +152,24 @@ public class FriendJdbcRepository {
     }
 
     /** 친구 프로필: 인증된 코스 기록 한 코스에 한 줄(최고 기록), 최근에 세운 순. 볼 수 있는 코스만 */
-    public record CourseBest(long courseId, String courseName, int bestSec, Instant recordedAt) {
+    /** recordId: 그 코스 최고 기록 (도전 목표로 쓴다) */
+    public record CourseBest(long recordId, long courseId, String courseName, int bestSec, Instant recordedAt) {
     }
 
     public List<CourseBest> courseBests(long userId, long viewerId, int limit) {
         return jdbc.query("""
-                SELECT r.course_id, c.name, MIN(r.duration_seconds) AS best, MAX(r.created_at) AS last_at
+                SELECT r.course_id, c.name, MIN(r.duration_seconds) AS best, MAX(r.created_at) AS last_at,
+                       (SELECT b.id FROM tbl_course_record b WHERE b.course_id = r.course_id AND b.user_id = r.user_id
+                        ORDER BY b.duration_seconds, b.id LIMIT 1) AS record_id
                 FROM tbl_course_record r
                 JOIN tbl_course c ON c.id = r.course_id
                 WHERE r.user_id = ? AND c.deleted_at IS NULL AND c.status NOT IN ('HIDDEN', 'BLOCKED')
                   AND (c.visibility = 'PUBLIC' OR c.creator_id = ?)
-                GROUP BY r.course_id, c.name
+                GROUP BY r.course_id, r.user_id, c.name
                 ORDER BY last_at DESC, r.course_id
                 LIMIT ?""",
-                (rs, i) -> new CourseBest(rs.getLong("course_id"), rs.getString("name"), rs.getInt("best"), rs.getTimestamp("last_at").toInstant()),
+                (rs, i) -> new CourseBest(rs.getLong("record_id"), rs.getLong("course_id"), rs.getString("name"), rs.getInt("best"),
+                        rs.getTimestamp("last_at").toInstant()),
                 userId, viewerId, limit);
     }
 

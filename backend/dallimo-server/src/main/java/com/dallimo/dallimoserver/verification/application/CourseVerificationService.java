@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.verification.application;
 
+import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.course.domain.CourseRoute;
 import com.dallimo.dallimoserver.course.infrastructure.CourseJdbcRepository;
 import com.dallimo.dallimoserver.running.domain.Run;
@@ -20,7 +21,7 @@ import java.util.Optional;
 
 /**
  * 코스 러닝 완주 검증 (WBS 5, 26장). Run 행을 잠그고 검증 대기일 때만 판정해 여러 번 불려도 결과가 하나다.
- * VERIFIED면 공식 기록(tbl_course_record)을 만든다. 공식 랭킹 · PB는 이 기록만 쓴다 (20.1장).
+ * VERIFIED면 공식 기록(tbl_course_record)을 만든다. 공식 랭킹 · PB는 이 기록만 쓴다 (20.1장). 이 Run의 도전도 여기서 판정한다.
  */
 @Service
 public class CourseVerificationService {
@@ -29,14 +30,16 @@ public class CourseVerificationService {
     private final RunPointJdbcRepository points;
     private final CourseJdbcRepository courses;
     private final VerificationJdbcRepository store;
+    private final ChallengeService challenges;
     private final Clock clock;
 
     public CourseVerificationService(RunJpaRepository runs, RunPointJdbcRepository points, CourseJdbcRepository courses,
-                                     VerificationJdbcRepository store, Clock clock) {
+                                     VerificationJdbcRepository store, ChallengeService challenges, Clock clock) {
         this.runs = runs;
         this.points = points;
         this.courses = courses;
         this.store = store;
+        this.challenges = challenges;
         this.clock = clock;
     }
 
@@ -58,6 +61,8 @@ public class CourseVerificationService {
             store.insertRecord(courseId, runId, run.getUserId(), result.recordSeconds(), pace, result.matchRate(), now);
         }
         run.completeVerification(result.outcome().name(), now);
+        // 이 Run으로 진행 중인 도전 판정 (CHL-003)
+        challenges.judge(runId, result.outcome() == VerificationOutcome.VERIFIED ? result.recordSeconds() : null, now);
         return Optional.of(result);
     }
 
