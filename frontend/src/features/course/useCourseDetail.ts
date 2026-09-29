@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { CourseRepositoryError } from '@/entities/course/api/courseRepository';
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
 import type { CourseDetail } from '@/entities/course/types';
 
 import type { CourseScenario } from './scenario';
@@ -15,7 +15,7 @@ export type CourseDetailState =
 
 // CRS-101~104 코스 상세 조회. 서버 상태는 TanStack Query로 관리한다 (9.1장).
 export function useCourseDetail(id: string, scenario: CourseScenario): CourseDetailState {
-  const repo = useMemo(() => createMockCourseRepository(scenario), [scenario]);
+  const repo = useMemo(() => getCourseRepository(scenario), [scenario]);
   const query = useQuery({
     queryKey: ['course', 'detail', id, scenario],
     queryFn: () => repo.getDetail(id),

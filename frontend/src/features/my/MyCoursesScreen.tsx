@@ -12,7 +12,8 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { radius, spacing, touchTarget } from '@/design/tokens';
-import { createMockCourseRepository, type MockCourseScenario } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
+import { type MockCourseScenario } from '@/entities/course/api/mockCourseRepository';
 import type { MyCourse, MyCourseKind } from '@/entities/course/types';
 import { formatCount, formatDuration } from '@/shared/format';
 
@@ -35,7 +36,7 @@ export function MyCoursesScreen({ initialTab, scenario }: { initialTab: MyCourse
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<MyCourseKind>(initialTab);
-  const repo = useMemo(() => createMockCourseRepository(scenario), [scenario]);
+  const repo = useMemo(() => getCourseRepository(scenario), [scenario]);
   const list = useQuery({ queryKey: ['course', 'mine', tab, scenario], queryFn: () => repo.getMine(tab), retry: false });
   const back = () => (router.canGoBack() ? router.back() : router.replace('/my'));
 

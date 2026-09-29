@@ -7,3 +7,5 @@ export interface CourseRegistrationRepository {
 
 // 코스 이름 길이는 course.name VARCHAR(100)을 따른다. 명세에 따로 정한 길이 규칙은 없다.
 export const COURSE_NAME_MAX = 100;
+// 설명 길이는 서버 검증과 같게 1000자 (명세에 규칙 없음, backend/README 결정 사항)
+export const COURSE_DESCRIPTION_MAX = 1000;

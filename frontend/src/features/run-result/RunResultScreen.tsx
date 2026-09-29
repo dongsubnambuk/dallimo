@@ -13,7 +13,7 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
 import type { CourseDetail } from '@/entities/course/types';
 import type { RunResult } from '@/entities/run/result';
 import { MODE_TITLE } from '@/features/run-ready/runPlanParams';
@@ -265,7 +265,7 @@ function Actions({ result: r, outcome }: { result: RunResult; outcome: Outcome }
 }
 
 function useCourse(id: string | null): CourseDetail | null {
-  const repo = useMemo(() => createMockCourseRepository('normal'), []);
+  const repo = useMemo(() => getCourseRepository('normal'), []);
   const q = useQuery({
     queryKey: ['course', 'detail', id, 'normal'],
     queryFn: () => repo.getDetail(id as string),

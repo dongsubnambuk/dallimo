@@ -8,7 +8,7 @@ import { PrimaryRunButton } from '@/components/PrimaryRunButton';
 import { RankingRow } from '@/components/RankingRow';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { StateNotice } from '@/components/StateNotice';
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
 import type { CourseDetail, CourseDifficulty, Level } from '@/entities/course/types';
 import { AppDivider, AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
@@ -41,7 +41,7 @@ export function CourseDetailScreen({ id, scenario }: { id: string; scenario: Cou
   const course = state.kind === 'ready' ? state.course : null;
   const [bookmarked, setBookmarked] = useState<boolean | null>(null);
   const saved = bookmarked ?? course?.bookmarked ?? false;
-  const repo = useMemo(() => createMockCourseRepository('normal'), []);
+  const repo = useMemo(() => getCourseRepository('normal'), []);
   const queryClient = useQueryClient();
   // CRS-105 저장 · 저장 해제. 바로 바꿔 보여주고 실패하면 되돌린다
   const toggleBookmark = (c: CourseDetail) => {

@@ -12,7 +12,7 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
 import type { RankingScenario } from '@/entities/ranking/api/mockRankingRepository';
 import type { MyStanding, RankingEntry, RankingPeriod, RankingScope } from '@/entities/ranking/types';
 import { formatCount, formatDuration, formatDurationSpoken } from '@/shared/format';
@@ -234,7 +234,7 @@ function StandingBody({ standing, loading, tab, onRun }: { standing: MyStanding 
 }
 
 function useCourseName(id: string): string | null {
-  const repo = useMemo(() => createMockCourseRepository('normal'), []);
+  const repo = useMemo(() => getCourseRepository('normal'), []);
   const q = useQuery({ queryKey: ['course', 'detail', id, 'normal'], queryFn: () => repo.getDetail(id), retry: false });
   return q.data?.name ?? null;
 }

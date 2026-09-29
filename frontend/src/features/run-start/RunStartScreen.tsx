@@ -8,9 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppText } from '@/design/primitives';
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { fontFamily, motion, spacing } from '@/design/tokens';
+import { getCourseRepository } from '@/entities/course/api';
 import { ActiveRunScreen } from '@/features/active-run/ActiveRunScreen';
 import { beginActiveRun, endActiveRun, type ActiveRunOptions } from '@/features/run/engine/activeRunSession';
 import { MODE_TITLE, parseRunPlan, type RunPlanParams } from '@/features/run-ready/runPlanParams';
@@ -47,7 +47,7 @@ function RunStart({ params, options, recovering }: Props) {
 
   // 코스 러닝이면 기준 코스 경로를 받아 엔진에 넘긴다 (CRUN-001). 코스 상세·러닝 준비에서 이미 받은 값을 다시 쓴다.
   const courseId = plan.kind === 'course' ? plan.plan.courseId : null;
-  const repo = useMemo(() => createMockCourseRepository('normal'), []);
+  const repo = useMemo(() => getCourseRepository('normal'), []);
   const courseQuery = useQuery({
     queryKey: ['course', 'detail', courseId, 'normal'],
     queryFn: () => repo.getDetail(courseId as string),

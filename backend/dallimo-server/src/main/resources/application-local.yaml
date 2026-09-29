@@ -4,6 +4,9 @@ spring:
     url: jdbc:mysql://localhost:3306/dallimo?connectionTimeZone=UTC&characterEncoding=UTF-8
     username: ${DB_USERNAME:dallimo}
     password: ${DB_PASSWORD:dallimo}
+  flyway:
+    # 로컬에만 개발용 코스 3개를 넣는다 (db/seed/local, scripts/gen-local-seed.mts)
+    locations: classpath:db/migration,classpath:db/seed/local
 
 dallimo:
   auth:

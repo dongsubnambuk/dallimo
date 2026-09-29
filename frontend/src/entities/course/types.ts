@@ -62,8 +62,8 @@ export type CourseDetail = {
   name: string;
   status: CourseStatus;
   description: string | null;
-  // 예: "대구 수성구"
-  region: string;
+  // 예: "대구 수성구". 서버 코스에는 아직 없다(null)
+  region: string | null;
   creatorName: string;
   distanceM: number;
   estimatedSec: number;

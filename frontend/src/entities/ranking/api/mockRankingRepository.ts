@@ -76,8 +76,9 @@ export function createMockRankingRepository(scenario: RankingScenario): RankingR
     const key = `${courseId}:${scope}:${period}`;
     const hit = cache.get(key);
     if (hit) return hit;
-    const d = await courses.getDetail(courseId);
-    const b = scenario === 'empty' ? { entries: [], me: null } : buildBoard(d, period, scope, scenario === 'unranked');
+    // mock에 없는 코스(서버 코스)는 아직 랭킹 API(WBS 6)가 없어 빈 랭킹으로 보여준다
+    const d = await courses.getDetail(courseId).catch(() => null);
+    const b = scenario === 'empty' || !d ? { entries: [], me: null } : buildBoard(d, period, scope, scenario === 'unranked');
     cache.set(key, b);
     return b;
   };

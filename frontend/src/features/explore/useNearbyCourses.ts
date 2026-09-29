@@ -5,8 +5,8 @@ import type { CourseSummary } from '@/entities/course/types';
 import { USES_DEVICE_LOCATION } from '@/shared/location/deviceLocation';
 import { createDeviceLocationSource } from '@/shared/location/expoLocation';
 import { createMockLocationSource } from '@/shared/location/mockLocationSource';
-
-import { createMockCourseRepository, DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
+import { DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
 import type { ExploreScenario } from './api/scenario';
 
 export type NearbyState =
@@ -24,7 +24,7 @@ export function useNearbyCourses(scenario: ExploreScenario, radiusM: number) {
     () => ({
       location:
         USES_DEVICE_LOCATION && scenario === 'normal' ? createDeviceLocationSource() : createMockLocationSource(scenario === 'denied' ? 'denied' : 'granted'),
-      courses: createMockCourseRepository(scenario === 'denied' ? 'normal' : scenario),
+      courses: getCourseRepository(scenario === 'denied' ? 'normal' : scenario),
     }),
     [scenario],
   );

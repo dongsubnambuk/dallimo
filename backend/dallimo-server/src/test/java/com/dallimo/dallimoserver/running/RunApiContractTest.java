@@ -210,6 +210,9 @@ abstract class RunApiContractTest {
         // 다른 사용자 목록에는 없다
         assertThat(JsonPath.<List<Object>>read(body(get(signup(), "/api/v1/runs")), "$.data.items")).isEmpty();
         assertThat(get(token, "/api/v1/runs?cursor=@@bad")).hasStatus(400);
+        // size 범위 밖은 400 (전에는 500)
+        assertThat(get(token, "/api/v1/runs?size=51")).hasStatus(400);
+        assertThat(get(token, "/api/v1/runs?size=0")).hasStatus(400);
     }
 
     // ── helpers ──

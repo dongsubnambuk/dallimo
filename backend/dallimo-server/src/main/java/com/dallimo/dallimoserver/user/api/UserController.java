@@ -9,7 +9,6 @@ import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -20,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** 명세 41장 사용자 API (+ 닉네임 확인 · 탈퇴) */
 @RestController
-@Validated
 @RequestMapping("/api/v1/users")
 public class UserController {
 

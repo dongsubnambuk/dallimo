@@ -34,7 +34,7 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
 
 async function report(runUuid: string, out: SyncOutcome) {
   // 기기에만 있던 결과가 서버에서 끝났다
-  if (out.state === 'synced' && out.finish) await runResultRepository.markSynced(runUuid);
+  if (out.state === 'synced' && out.finish) await runResultRepository.markSynced(runUuid, out.finish.runId);
   listeners.forEach((l) => l(runUuid, out));
 }
 

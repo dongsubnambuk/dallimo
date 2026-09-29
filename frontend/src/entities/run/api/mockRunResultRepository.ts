@@ -78,6 +78,10 @@ export function createMockRunResultRepository(history: HistoryScenario = 'normal
         s.verifyFrom = Date.now();
       }
     },
+    // mock 코스 등록은 기록 id를 그대로 쓴다
+    async serverRunId(id) {
+      return id;
+    },
     async get(id) {
       const past = pastRuns().find((r) => r.id === id) ?? (id === LOCAL_ONLY_ID ? localOnlyRun() : null);
       if (past) return past;

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
 import { createMockLiveRoomRepository } from '@/entities/live/api/mockLiveRoomRepository';
 import { runResultRepository } from '@/entities/run/api';
 import type { ShareType } from '@/entities/share/types';
@@ -23,7 +23,7 @@ export function useShareSubject(source: { runId: string | null; roomId: string |
   const me = useMe('normal');
   const nickname = me.data?.profile.nickname ?? '';
   const run = useRunResult(source.runId ?? '');
-  const courseRepo = useMemo(() => createMockCourseRepository('normal'), []);
+  const courseRepo = useMemo(() => getCourseRepository('normal'), []);
   const liveRepo = useMemo(() => createMockLiveRoomRepository('normal'), []);
   const courseId = run.kind === 'ready' ? (run.result.course?.id ?? null) : null;
   const course = useQuery({

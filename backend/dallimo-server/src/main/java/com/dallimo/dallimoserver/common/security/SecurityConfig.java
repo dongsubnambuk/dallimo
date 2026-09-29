@@ -57,6 +57,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/nickname-availability").permitAll()
+                        // 43장 코스 조회는 로그인 없이도 (User/Optional). 토큰이 있으면 내 기록 · 저장 여부를 함께 준다
+                        .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o
