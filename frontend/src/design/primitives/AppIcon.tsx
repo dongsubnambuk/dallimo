@@ -70,6 +70,15 @@ const icons = {
   camera: { ios: 'camera.fill', android: 'photo_camera' },
   document: { ios: 'doc.text', android: 'description' },
   external: { ios: 'arrow.up.right', android: 'open_in_new' },
+  // 인터벌 달리기 (123장): 진입점 · 편집 (구간 추가 · 순서 바꾸기 · 지우기 · 복제 · 고치기) · 다음 구간
+  modeInterval: { ios: 'repeat', android: 'repeat' },
+  add: { ios: 'plus', android: 'add' },
+  moveUp: { ios: 'chevron.up', android: 'keyboard_arrow_up' },
+  moveDown: { ios: 'chevron.down', android: 'keyboard_arrow_down' },
+  remove: { ios: 'trash', android: 'delete' },
+  duplicate: { ios: 'doc.on.doc', android: 'content_copy' },
+  edit: { ios: 'pencil', android: 'edit' },
+  skipNext: { ios: 'forward.end.fill', android: 'skip_next' },
 } satisfies Record<string, { ios: SFSymbol; android: AndroidSymbol }>;
 
 export type IconName = keyof typeof icons;

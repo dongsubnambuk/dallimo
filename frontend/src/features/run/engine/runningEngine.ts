@@ -1,4 +1,5 @@
 import type { RunMode, RunPoint, RunSplit, RunStatus } from '@/entities/run/types';
+import type { FlatStep, StepBoundary } from '@/entities/workout/types';
 import type { GeoPoint } from '@/shared/geo';
 import type { GpsQuality } from '@/shared/location/locationSource';
 
@@ -10,6 +11,8 @@ export type RunPrepareInput = {
   // 코스 러닝(COURSE / PB / CHALLENGE)이면 기준 코스 경로
   course?: { id: string; route: GeoPoint[] };
   targetSec?: number;
+  // 인터벌 달리기(INTERVAL): 반복을 푼 구간 순서. 엔진이 거리 · 시간으로 구간을 넘긴다
+  workout?: FlatStep[];
   // 앱이 꺼졌다 켜져 이어 달릴 때 화면에 다시 보여줄 계획 (RunPlanParams JSON)
   plan?: string;
 };
@@ -47,6 +50,8 @@ export type ActiveRunSnapshot = {
   course: CourseRunState | null;
   // RUN-009: 멈춰 서서 자동으로 일시정지한 상태면 true. 다시 달리면 이어서 기록한다
   autoPaused: boolean;
+  // 인터벌 달리기: 끝난 구간의 경계 (구간이 끝날 때만 바뀐다). 인터벌이 아니면 null
+  interval: { boundaries: StepBoundary[] } | null;
 };
 
 export type RunFinishResult = {
@@ -66,6 +71,8 @@ export type RunFinishResult = {
   courseTimeSec: number | null;
   // 결과 지도용 실제 경로 (줄인 것)
   path: GeoPoint[];
+  // 인터벌 달리기: 구간 경계 (끝낼 때 하던 구간까지). 인터벌이 아니면 null
+  intervalBoundaries: StepBoundary[] | null;
 };
 
 export interface RunningEngine {
@@ -75,6 +82,8 @@ export interface RunningEngine {
   resume(): Promise<void>;
   finish(): Promise<RunFinishResult>;
   recover(): Promise<ActiveRunSnapshot | null>;
+  // 인터벌 달리기: 직접 넘기는 구간을 지금 끝내고 다음 구간으로
+  nextIntervalStep(): void;
   // 화면 구독용 (useSyncExternalStore)
   subscribe(listener: () => void): () => void;
   getSnapshot(): ActiveRunSnapshot;

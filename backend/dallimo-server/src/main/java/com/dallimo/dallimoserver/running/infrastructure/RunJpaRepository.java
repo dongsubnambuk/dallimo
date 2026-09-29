@@ -12,13 +12,15 @@ public interface RunJpaRepository extends JpaRepository<Run, Long> {
 
     Optional<Run> findByClientRunUuid(String clientRunUuid);
 
-    /** 내 기록 목록 (최근 시작 순, 27.3장 cursor). idx_run_user_started를 쓴다 */
+    /** 내 기록 목록 (최근 시작 순, 27.3장 cursor). idx_run_user_started를 쓴다. mode가 있으면 그 모드만 (최근 인터벌 달리기) */
     @Query("""
             select r from Run r
             where r.userId = :userId and r.status = com.dallimo.dallimoserver.running.domain.RunStatus.FINISHED
+              and (:mode is null or r.mode = :mode)
               and (r.startedAt < :beforeStartedAt or (r.startedAt = :beforeStartedAt and r.id < :beforeId))
             order by r.startedAt desc, r.id desc""")
-    java.util.List<Run> findPage(Long userId, java.time.Instant beforeStartedAt, Long beforeId, org.springframework.data.domain.Pageable page);
+    java.util.List<Run> findPage(Long userId, com.dallimo.dallimoserver.running.domain.RunMode mode, java.time.Instant beforeStartedAt, Long beforeId,
+                                 org.springframework.data.domain.Pageable page);
 
     /** point 업로드 · finish를 한 Run 안에서 차례로 처리한다 */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

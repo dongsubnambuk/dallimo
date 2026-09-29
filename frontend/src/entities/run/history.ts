@@ -20,6 +20,8 @@ export type RunSummary = {
   pb: boolean;
   // 목록 썸네일용으로 줄인 경로
   preview: GeoPoint[];
+  // 인터벌 달리기면 인터벌 이름
+  workoutName: string | null;
 };
 
 export type RunHistoryPage = { items: RunSummary[]; nextCursor: string | null };
@@ -43,5 +45,6 @@ export function toRunSummary(r: RunResult): RunSummary {
     verification: r.verification,
     pb: r.verification === 'verified' && !!r.pb?.improved,
     preview,
+    workoutName: r.workout?.name ?? null,
   };
 }

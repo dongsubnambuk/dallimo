@@ -21,7 +21,7 @@ export function createMemoryLocalRunStore(): LocalRunStore {
     async createRun({ clientRunUuid, mode, courseId, plan, startedAt }) {
       if (runs.has(clientRunUuid)) throw new Error('run already exists');
       runs.set(clientRunUuid, {
-        run: { clientRunUuid, mode, courseId, status: 'RUNNING', startedAt, endedAt: null, elapsedMs: 0, lastSeq: 0, plan, serverRunId: null, syncState: 'PENDING' },
+        run: { clientRunUuid, mode, courseId, status: 'RUNNING', startedAt, endedAt: null, elapsedMs: 0, lastSeq: 0, plan, serverRunId: null, syncState: 'PENDING', workoutProgress: null },
         points: [],
         segments: [{ startedAt, endedAt: null }],
       });
@@ -34,6 +34,10 @@ export function createMemoryLocalRunStore(): LocalRunStore {
     async getRun(runUuid) {
       const e = runs.get(runUuid);
       return e ? { ...e.run } : null;
+    },
+    async setWorkoutProgress(runUuid, json) {
+      const e = runs.get(runUuid);
+      if (e) e.run.workoutProgress = json;
     },
     async pauseRun(runUuid, at) {
       const e = runs.get(runUuid);

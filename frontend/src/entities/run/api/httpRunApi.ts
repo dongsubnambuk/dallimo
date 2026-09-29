@@ -2,7 +2,7 @@ import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { ApiErrorCode } from '@/shared/api/contract';
 
 import type { RunStatus } from '../types';
-import { RunApiError, type CreateRunResponse, type FinishRunResponse, type PointBatchResponse, type RunApi } from './runApi';
+import { RunApiError, type CreateRunRequest, type CreateRunResponse, type FinishRunResponse, type PointBatchResponse, type RunApi } from './runApi';
 
 // 42장 Run API 실제 클라이언트 (backend/dallimo-server /api/v1/runs).
 // 서버 id는 숫자라 앱 모델(string)로 바꿔 쓴다. 오류는 RunApiError로 바꿔 기록 동기화가 재시도 여부를 판단하게 한다.
@@ -12,6 +12,13 @@ type ServerId = { runId: number };
 // 서버 코스 id는 숫자다. 아직 서버에 없는 mock 코스(c-suseongmot 등)는 코스 없이 올린다 (서버는 없는 코스면 COURSE_NOT_FOUND)
 function toServerId(id: string | null): number | null {
   return id != null && /^\d+$/.test(id) ? Number(id) : null;
+}
+
+// 서버에 저장한 인터벌이 아니면(mock id) 이름만 보낸다
+function workoutOf(w: CreateRunRequest['workout']) {
+  if (!w) return null;
+  const templateId = toServerId(w.templateId);
+  return { templateId, version: templateId != null ? w.version : null, name: w.name.slice(0, 40) };
 }
 
 async function call<T>(path: string, body: unknown, headers?: Record<string, string>): Promise<T> {
@@ -34,6 +41,7 @@ export function createHttpRunApi(): RunApi {
         challengeId: toServerId(req.challengeId),
         liveRoomId: toServerId(req.liveRoomId),
         startedAt: req.startedAt,
+        workout: workoutOf(req.workout),
       });
       return { ...res, runId: String(res.runId) };
     },

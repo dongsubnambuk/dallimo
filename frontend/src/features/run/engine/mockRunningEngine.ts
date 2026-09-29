@@ -8,6 +8,7 @@ import { distanceM, pointAt, type GeoPoint } from '@/shared/geo';
 import { getPreferences } from '@/shared/preferences';
 import { createUuid } from '@/shared/uuid';
 
+import { createIntervalTracking, type IntervalTracking } from './intervalTracking';
 import { createMemoryRunPointStore } from './memoryRunPointStore';
 import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine, type RunPrepareInput } from './runningEngine';
 
@@ -87,6 +88,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
   const pace = scenario === 'behind' ? 0.9 : 1;
   let autoPause = false;
   let autoPauseState: AutoPauseState = initialAutoPause();
+  let interval: IntervalTracking = createIntervalTracking(null, () => undefined);
   let snap: ActiveRunSnapshot = {
     status: 'PREPARING',
     mode,
@@ -104,6 +106,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     recovered: false,
     course: null,
     autoPaused: false,
+    interval: null,
   };
 
   const emit = (patch: Partial<ActiveRunSnapshot>) => {
@@ -188,6 +191,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
       const at = activeMs(snap, lastTickAt);
       metrics = addPoint(metrics, point, at, policy);
       if (track && point.qualityFlag === 'OK') courseState = advanceCourse(track, courseState, pos, lastTickAt, at, policy);
+      interval.sample({ activeMs: at, distanceM: metrics.distanceM });
       if (point.qualityFlag === 'OK' && acceptedCount++ % PATH_EVERY === 0) patch.path = [...(patch.path ?? snap.path), pos];
       patch.position = pos;
       if (autoPause) {
@@ -240,7 +244,8 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
         pathM = track.lengthM;
         loopPath = distanceM(path[0], path[path.length - 1]) < 60;
       }
-      emit({ mode, gps: 'good', position: positionAt(0), course: courseSnapshot() });
+      interval = createIntervalTracking(input.workout ?? null, (boundaries) => emit({ interval: { boundaries } }));
+      emit({ mode, gps: 'good', position: positionAt(0), course: courseSnapshot(), interval: interval.active ? { boundaries: [] } : null });
     },
     async start() {
       const t = now();
@@ -262,6 +267,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     async finish() {
       const t = now();
       const ms = activeMs(snap, t);
+      interval.close({ activeMs: ms, distanceM: metrics.distanceM });
       emit({ status: 'FINISHING', autoPaused: false, activeMsBase: ms, runningSince: null, currentPaceSec: null });
       if (timer) clearInterval(timer);
       timer = null;
@@ -276,6 +282,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
         synced,
         courseTimeSec: courseState.completedActiveMs != null ? Math.round(courseState.completedActiveMs / 1000) : null,
         path: snap.position ? [...snap.path, snap.position] : snap.path,
+        intervalBoundaries: interval.active ? interval.boundaries() : null,
       });
       // 오프라인: 기록은 휴대폰에 남기고 연결되면 올린다 (local-only 결과)
       if (snap.network === 'offline') return result(false);
@@ -322,6 +329,10 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
         ensureTimer();
       }, 1800);
       return snap;
+    },
+    nextIntervalStep() {
+      if (snap.status !== 'RUNNING' && snap.status !== 'PAUSED') return;
+      interval.next({ activeMs: activeMs(snap, now()), distanceM: metrics.distanceM });
     },
     subscribe(listener) {
       listeners.add(listener);

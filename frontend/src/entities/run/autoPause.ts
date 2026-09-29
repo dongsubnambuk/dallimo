@@ -6,7 +6,8 @@ import type { RunPolicy } from './policy';
 // RUN-009 자동 일시정지. 멈춰 선 것을 감지하면 기록을 멈추고, 다시 달리면 이어서 기록한다.
 // 기준값(속도 · 시간)은 20.2장 "필드 테스트"에서 정할 항목이라 RunPolicy의 시작값을 쓴다 (FOUNDATION-DECISION-LOG 40항).
 
-// 자동 일시정지를 쓰는 모드. 함께 달리기 · 레이스 · 타임 어택은 모두가 같은 시계로 달려서 쓰지 않는다
+// 자동 일시정지를 쓰는 모드. 함께 달리기 · 레이스 · 타임 어택은 모두가 같은 시계로 달려서 쓰지 않는다.
+// 인터벌 달리기는 천천히 걷거나 서서 쉬는 구간의 시간도 세야 해서 쓰지 않는다 (FOUNDATION-DECISION-LOG 45항)
 const AUTO_PAUSE_MODES: readonly RunMode[] = ['FREE', 'COURSE', 'PB', 'CHALLENGE'];
 
 export function autoPauseAvailable(mode: RunMode) {

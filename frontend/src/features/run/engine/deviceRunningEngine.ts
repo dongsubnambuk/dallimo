@@ -8,6 +8,7 @@ import { getNetworkState, onNetworkChange } from '@/shared/network/network';
 import { getPreferences } from '@/shared/preferences';
 import { createUuid } from '@/shared/uuid';
 
+import { createIntervalTracking, parseBoundaries, type IntervalTracking } from './intervalTracking';
 import { activeMsAt, type RunSegment } from './localRunStore';
 import { startLocationFeed, stopLocationFeed } from './locationFeed';
 import { onLocation, setRecording, type LocationEvent } from './recorder';
@@ -56,6 +57,8 @@ export function createDeviceRunningEngine(): RunningEngine {
   // RUN-009: 설정에서 켰고 혼자 달리는 모드일 때만
   let autoPause = false;
   let autoPauseState: AutoPauseState = initialAutoPause();
+  // 인터벌 달리기 구간 (prepare에서 구간을 받는다). 구간이 끝나면 화면에 알리고 기기에 저장한다
+  let interval: IntervalTracking = createIntervalTracking(null, () => undefined);
   let snap: ActiveRunSnapshot = {
     status: 'PREPARING',
     mode,
@@ -73,6 +76,7 @@ export function createDeviceRunningEngine(): RunningEngine {
     recovered: false,
     course: null,
     autoPaused: false,
+    interval: null,
   };
 
   const emit = (patch: Partial<ActiveRunSnapshot>) => {
@@ -102,6 +106,7 @@ export function createDeviceRunningEngine(): RunningEngine {
     metrics = addPoint(metrics, p, at, policy);
     if (p.qualityFlag !== 'OK') return;
     if (track) courseState = advanceCourse(track, courseState, p, p.recordedAt, at, policy);
+    interval.sample({ activeMs: at, distanceM: metrics.distanceM });
     if (acceptedCount++ % PATH_EVERY === 0) path.push({ latitude: p.latitude, longitude: p.longitude });
   };
 
@@ -169,6 +174,8 @@ export function createDeviceRunningEngine(): RunningEngine {
       if (lastFixAt && now() - lastFixAt > GPS_STALE_MS && snap.gps !== 'acquiring' && snap.status !== 'FINISHING' && snap.status !== 'FINISHED') {
         emit({ gps: 'acquiring', currentPaceSec: null });
       }
+      // 시간 구간은 point가 없어도 1초마다 넘긴다
+      if (snap.status === 'RUNNING') interval.sample({ activeMs: activeMs(snap, now()), distanceM: metrics.distanceM });
       // RUN-007: 달리는 동안 모인 point를 주기적으로 올린다
       if ((snap.status === 'RUNNING' || snap.status === 'PAUSED') && now() - lastSyncAt >= SYNC_EVERY_MS) {
         lastSyncAt = now();
@@ -218,7 +225,13 @@ export function createDeviceRunningEngine(): RunningEngine {
       plan = input.plan ?? null;
       autoPause = getPreferences().autoPause && autoPauseAvailable(mode);
       if (input.course && input.course.route.length > 1) track = createCourseTrack(input.course.route);
-      emit({ mode, course: courseSnapshot() });
+      interval = createIntervalTracking(input.workout ?? null, (boundaries) => {
+        emit({ interval: { boundaries } });
+        getRunStore()
+          .then((s) => s.setWorkoutProgress(runUuid, JSON.stringify(boundaries)))
+          .catch((e) => console.warn('[run] interval', e));
+      });
+      emit({ mode, course: courseSnapshot(), interval: interval.active ? { boundaries: [] } : null });
       // 카운트다운 동안 GPS를 미리 켠다. 시작 전 위치는 저장하지 않는다.
       await ensureListening();
     },
@@ -249,9 +262,12 @@ export function createDeviceRunningEngine(): RunningEngine {
       const wasRunning = snap.status === 'RUNNING';
       if (wasRunning) closeSegment(t);
       setRecording(null);
+      // 하던 인터벌 구간을 닫고 서버에 올리기 전에 저장한다 (구간 결과는 finish 요청에 담긴다)
+      interval.close({ activeMs: ms, distanceM: metrics.distanceM });
       emit({ status: 'FINISHING', autoPaused: false, activeMsBase: ms, runningSince: null, currentPaceSec: null });
       stopListening();
       const store = await getRunStore();
+      if (interval.active) await store.setWorkoutProgress(runUuid, JSON.stringify(interval.boundaries()));
       await store.endRun(runUuid, t, 'FINISHED');
       // RUN-010: 남은 point를 올리고 서버 finish까지. 오프라인이거나 오래 걸리면 휴대폰에 저장한 결과(local-only)로 넘어가고
       // 나머지는 기록 동기화가 연결되는 대로 이어서 올린다.
@@ -276,6 +292,7 @@ export function createDeviceRunningEngine(): RunningEngine {
         synced,
         courseTimeSec: courseState.completedActiveMs != null ? Math.round(courseState.completedActiveMs / 1000) : null,
         path: snap.position && snap.path.length ? [...snap.path, snap.position] : snap.path,
+        intervalBoundaries: interval.active ? interval.boundaries() : null,
       } satisfies RunFinishResult;
     },
 
@@ -304,6 +321,8 @@ export function createDeviceRunningEngine(): RunningEngine {
 
       metrics = initialMetrics();
       courseState = initialCourseProgress();
+      // 저장한 구간 경계부터 (직접 넘긴 구간은 point로 다시 알 수 없다)
+      interval.restore(parseBoundaries(open.workoutProgress));
       acceptedCount = 0;
       segmentIndex = -1;
       const path: GeoPoint[] = [];
@@ -324,9 +343,15 @@ export function createDeviceRunningEngine(): RunningEngine {
         ...metricPatch(),
         avgPaceSec: averagePace(metrics, recoveredMs, policy),
         currentPaceSec: null,
+        interval: interval.active ? { boundaries: interval.boundaries() } : null,
       });
       await ensureListening();
       return snap;
+    },
+
+    nextIntervalStep() {
+      if (snap.status !== 'RUNNING' && snap.status !== 'PAUSED') return;
+      interval.next({ activeMs: activeMs(snap, now()), distanceM: metrics.distanceM });
     },
 
     subscribe(listener) {

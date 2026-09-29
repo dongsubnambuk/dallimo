@@ -1,3 +1,4 @@
+import type { StepResult } from '@/entities/workout/types';
 import type { ApiErrorCode } from '@/shared/api/contract';
 
 import type { RunPoint, RunMode, RunStatus } from '../types';
@@ -13,6 +14,8 @@ export type CreateRunRequest = {
   challengeId: string | null;
   liveRoomId: string | null;
   startedAt: string;
+  // 인터벌 달리기: 달린 인터벌 (123.3장 workout_template_id · version). 추천 인터벌이면 이름만
+  workout?: { templateId: string | null; version: number | null; name: string } | null;
 };
 export type CreateRunResponse = { runId: string; clientRunUuid: string; status: RunStatus; serverTime: string };
 
@@ -31,7 +34,13 @@ export type PointBatchResponse = { batchUuid: string; accepted: boolean; lastAcc
 
 // 42.4장 POST /runs/{runId}/finish. 서버에 저장된 마지막 seq가 lastSeq보다 작으면 FINISHING으로 답하고, 앱은 빠진 Batch를 보낸 뒤 다시 요청한다.
 // activeSeconds: 앱이 잰 달린 시간(일시정지 제외). 서버는 시작~종료 시간을 넘지 않는지만 본다 (사용자 결정, FOUNDATION-DECISION-LOG 31항)
-export type FinishRunRequest = { endedAt: string; lastSeq: number; activeSeconds: number };
+// workoutSteps: 인터벌 달리기의 구간별 실제 거리 · 시간 (123.2장). 서버는 끝낼 때 한 번 저장한다
+export type FinishRunRequest = { endedAt: string; lastSeq: number; activeSeconds: number; workoutSteps?: WorkoutStepDto[] };
+export type WorkoutStepDto = Omit<StepResult, 'elapsedSec'> & { elapsedSeconds: number };
+
+export function toWorkoutStepDto({ elapsedSec, ...s }: StepResult): WorkoutStepDto {
+  return { ...s, elapsedSeconds: elapsedSec };
+}
 export type FinishRunResponse = {
   runId: string;
   status: RunStatus;

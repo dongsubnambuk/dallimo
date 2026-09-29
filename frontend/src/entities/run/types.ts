@@ -1,5 +1,5 @@
-// 6.3장 RunMode. POST /api/v1/runs의 mode 값 (7.2장).
-export type RunMode = 'FREE' | 'COURSE' | 'PB' | 'CHALLENGE' | 'LIVE_RACE' | 'TIME_ATTACK' | 'TOGETHER';
+// 6.3장 RunMode. POST /api/v1/runs의 mode 값 (7.2장). INTERVAL: 인터벌 달리기 (125장 TRAINING의 내부 Mode)
+export type RunMode = 'FREE' | 'COURSE' | 'PB' | 'CHALLENGE' | 'LIVE_RACE' | 'TIME_ATTACK' | 'TOGETHER' | 'INTERVAL';
 
 // 코스에서 고르는 플레이 방식 (64장 PICK A PLAY MODE, 125장 COURSE 안의 COURSE_NORMAL / PB_ATTACK / RIVAL + TOGETHER).
 export type PlayModeKey = 'COURSE' | 'PB' | 'CHALLENGE' | 'TOGETHER';

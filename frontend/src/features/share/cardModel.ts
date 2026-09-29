@@ -68,8 +68,8 @@ export function fromRun(r: RunResult, course: CourseDetail | null, nickname: str
   }
 
   return {
-    title: r.course?.name ?? MODE_TITLE[r.mode],
-    context: r.course ? MODE_TITLE[r.mode] : '자유 달리기',
+    title: r.course?.name ?? r.workout?.name ?? MODE_TITLE[r.mode],
+    context: r.course || r.mode === 'INTERVAL' ? MODE_TITLE[r.mode] : '자유 달리기',
     date: dateOf(r.finishedAt),
     nickname,
     headline: o.headline,

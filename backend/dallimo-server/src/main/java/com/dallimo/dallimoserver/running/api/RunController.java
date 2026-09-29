@@ -20,6 +20,8 @@ import com.dallimo.dallimoserver.running.api.RunDtos.VerificationResponse;
 import com.dallimo.dallimoserver.running.application.RunService;
 import com.dallimo.dallimoserver.ranking.application.RankingService;
 import com.dallimo.dallimoserver.running.domain.Run;
+import com.dallimo.dallimoserver.running.domain.RunMode;
+import com.dallimo.dallimoserver.running.domain.RunWorkoutStep;
 import com.dallimo.dallimoserver.verification.application.CourseVerificationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -63,7 +65,10 @@ public class RunController {
     /** 42.1장: 새로 만들면 201, 같은 clientRunUuid 재요청이면 200 */
     @PostMapping
     public ResponseEntity<ApiResponse<CreateRunResponse>> create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateRunRequest req) {
-        RunService.Created c = runs.create(userId(jwt), req.clientRunUuid().toLowerCase(), req.mode(), req.courseId(), req.challengeId(), req.liveRoomId(), req.startedAt().toInstant());
+        RunService.WorkoutLink workout = req.workout() == null ? null
+                : new RunService.WorkoutLink(req.workout().templateId(), req.workout().version(), req.workout().name().strip());
+        RunService.Created c = runs.create(userId(jwt), req.clientRunUuid().toLowerCase(), req.mode(), req.courseId(), req.challengeId(), req.liveRoomId(),
+                workout, req.startedAt().toInstant());
         Run r = c.run();
         return ResponseEntity.status(c.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ApiResponse.ok(new CreateRunResponse(r.getId(), r.getClientRunUuid(), r.getStatus(), clock.instant())));
@@ -97,15 +102,18 @@ public class RunController {
     /** 42.4장: 빠진 point가 있으면 status FINISHING (200), 다 있으면 FINISHED */
     @PostMapping("/{runId}/finish")
     public ApiResponse<FinishRunResponse> finish(@AuthenticationPrincipal Jwt jwt, @PathVariable long runId, @Valid @RequestBody FinishRunRequest req) {
-        Run r = runs.finish(userId(jwt), runId, req.endedAt().toInstant(), req.lastSeq(), req.activeSeconds()).run();
+        List<RunWorkoutStep> steps = req.workoutSteps() == null ? null : req.workoutSteps().stream().map(RunDtos.WorkoutStepDto::toStep).toList();
+        Run r = runs.finish(userId(jwt), runId, req.endedAt().toInstant(), req.lastSeq(), req.activeSeconds(), steps).run();
         return ApiResponse.ok(FinishRunResponse.from(r));
     }
 
+    /** mode: 한 모드만 (예: 최근 인터벌 달리기 INTERVAL) */
     @GetMapping
     public ApiResponse<CursorPage<RunSummaryResponse>> list(@AuthenticationPrincipal Jwt jwt,
                                                             @RequestParam(required = false) String cursor,
+                                                            @RequestParam(required = false) RunMode mode,
                                                             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
-        CursorPage<Run> page = runs.list(userId(jwt), cursor, size);
+        CursorPage<Run> page = runs.list(userId(jwt), mode, cursor, size);
         Map<Long, String> names = runs.courseNames(page.items());
         return ApiResponse.ok(new CursorPage<>(page.items().stream().map(r -> RunSummaryResponse.from(r, names.get(r.getCourseId()))).toList(),
                 page.nextCursor(), page.hasNext()));
@@ -117,7 +125,8 @@ public class RunController {
         Run r = d.run();
         return ApiResponse.ok(new RunDetailResponse(RunSummaryResponse.from(r, runs.courseNames(List.of(r)).get(r.getCourseId())),
                 d.metrics().splits(), d.metrics().path(), verificationOf(r),
-                challenges.forRun(r.getUserId(), r.getId()).map(ChallengeController.ChallengeResponse::from).orElse(null)));
+                challenges.forRun(r.getUserId(), r.getId()).map(ChallengeController.ChallengeResponse::from).orElse(null),
+                RunDtos.WorkoutResultResponse.of(r, d.workoutSteps())));
     }
 
     /** 코스 러닝이 아니면 null. 판정 전이면 상태만 */

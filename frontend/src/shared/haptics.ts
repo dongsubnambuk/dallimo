@@ -24,6 +24,8 @@ export const haptics = {
   runControl: () => run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
   // GPS 약함처럼 기록에 영향을 주는 상태 변화 경고
   warning: () => run(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
+  // 인터벌 구간이 바뀔 때: 강한 햅틱 (화면을 보지 않아도 알게, 123.2장)
+  intervalStep: () => run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)),
   // 69장 Finish: 완주 햅틱
   complete: () => run(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
 };

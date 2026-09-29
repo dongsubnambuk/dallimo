@@ -74,12 +74,12 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 
 | API | 설명 |
 | --- | --- |
-| `POST /api/v1/runs` | `{ clientRunUuid, mode, courseId?, challengeId?, liveRoomId?, startedAt }`. 새로 만들면 201, 같은 `clientRunUuid`면 200과 같은 Run. 다른 사용자의 `clientRunUuid`면 409 `IDEMPOTENCY_CONFLICT` |
+| `POST /api/v1/runs` | `{ clientRunUuid, mode, courseId?, challengeId?, liveRoomId?, startedAt, workout? }`. `workout { templateId?, version?, name }`은 인터벌 달리기(`mode: INTERVAL`)에만. 새로 만들면 201, 같은 `clientRunUuid`면 200과 같은 Run. 다른 사용자의 `clientRunUuid`면 409 `IDEMPOTENCY_CONFLICT` |
 | `POST /api/v1/runs/{id}/points` | `{ batchUuid, fromSeq, toSeq, points[] }` (최대 500개). `Idempotency-Key` 헤더를 보내면 batchUuid와 같아야 한다 |
 | `POST /api/v1/runs/{id}/pause` · `resume` | RUNNING ↔ PAUSED. 상태가 맞지 않으면 409 `RUN_INVALID_STATE` |
-| `POST /api/v1/runs/{id}/finish` | `{ endedAt, lastSeq, activeSeconds? }`. 빠진 seq가 있으면 200 + `status: FINISHING`, 다 있으면 FINISHED와 거리 · 시간 · 페이스. 이미 끝났으면 같은 결과 |
-| `GET /api/v1/runs?cursor=&size=` | 내 FINISHED 기록, `startedAt` 최신순. size 1~50(기본 20) |
-| `GET /api/v1/runs/{id}` | `{ summary, splits, path }`. path는 표시용으로 400개 이하 |
+| `POST /api/v1/runs/{id}/finish` | `{ endedAt, lastSeq, activeSeconds?, workoutSteps? }`. `workoutSteps`는 인터벌 달리기의 구간별 결과(끝낼 때 한 번 저장). 빠진 seq가 있으면 200 + `status: FINISHING`, 다 있으면 FINISHED와 거리 · 시간 · 페이스. 이미 끝났으면 같은 결과 |
+| `GET /api/v1/runs?cursor=&size=&mode=` | 내 FINISHED 기록, `startedAt` 최신순. size 1~50(기본 20). `mode`를 주면 그 모드만(최근 인터벌 달리기). 항목에 `workoutName` |
+| `GET /api/v1/runs/{id}` | `{ summary, splits, path, verification, challenge, workout }`. path는 표시용으로 400개 이하. `workout { templateId, version, name, steps[] }`은 인터벌 달리기일 때 |
 
 - **멱등** (25.2장): Run은 `clientRunUuid` UNIQUE. Batch는 `tbl_run_sync_batch`에 `batchUuid`를 남긴다. 같은 Batch를 다시 보내면 성공(내용이 다르면 409). point는 `(run_id, seq)` UNIQUE + `ON DUPLICATE KEY UPDATE`로 겹쳐 와도 한 번만 저장. 같은 Run 요청은 Run 행을 잠가(`PESSIMISTIC_WRITE`) 차례로 처리한다.
 - **거리 · 시간** (42.3장): 앱이 보낸 누적 거리는 받지 않는다. 서버가 point로 다시 계산한다(`RunMetrics`). 기준은 앱 엔진과 같다: accuracy 20m 초과 제외, 12m/s 초과는 튄 point(3번 연속이면 새 기준점), 제외한 point 다음은 잇지 않음, 15초 넘게 비면 일시정지로 보고 잇지 않음. 달린 시간은 앱이 보낸 `activeSeconds`를 받되 시작~종료 시간을 넘지 않게 자른다. 없으면 시작~종료 시간. 평균 페이스는 50m 이상일 때만.
@@ -293,6 +293,20 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **App Link 설정**: `dallimo.share.app-links.ios-app-ids`(팀ID.번들ID), `android-package`, `android-sha256`. 운영은 `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` · `SHARE_PUBLIC_BASE_URL`. 앱은 `APP_LINK_DOMAIN` · `IOS_BUNDLE_ID` · `ANDROID_PACKAGE`로 빌드한다(frontend `app.config.ts`).
 - **테스트**: `RateLimitApiTest`(로그인 · 검색 사람마다 · 공유 해석), `AppLinksTest`, 확인 파일 없음은 `ShareAndRoomApiContractTest`, 누적 통계는 `CourseApiContractTest`.
 
+## 인터벌 달리기 (명세 123장 Training, 126장 Workout API)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/workouts` | 내 인터벌, 최근에 고치거나 만든 것 먼저. `{ id, name, description, version, blocks[], createdAt, updatedAt, lastRunAt, runCount }` |
+| `POST /api/v1/workouts` | `{ name, description?, blocks[{ type: STEP · REPEAT, repeatCount, steps[{ stepType, endConditionType, endConditionValue, targetType, targetMin, targetMax }] }] }` → 201 (버전 1) |
+| `GET · PUT · DELETE /api/v1/workouts/{id}` | 내 것만(남의 것 403, 없거나 지운 것 404). PUT은 버전을 올리고 옛 버전 구간은 남긴다. DELETE는 지운 표시만(달린 기록은 남는다) 204 |
+| `POST /api/v1/workouts/{id}/duplicate` | 같은 구성으로 새 인터벌 "이름 복사본" (버전 1) 201 |
+
+- **모델** (123.2 · 123.3장): `tbl_workout_template`(버전) → `tbl_workout_block`(`template_version`, STEP · REPEAT + 반복 횟수) → `tbl_workout_step`. 단위는 DISTANCE m, TIME 초, MANUAL 값 없음, TARGET_TIME 초(거리 구간에서만), TARGET_PACE 1km당 초. 목표는 `targetMin = targetMax`면 목표 값, `targetMax`만 있으면 최대.
+- **달린 기록** (123.3장 "Run은 workout_template_id와 workout_version"): `tbl_run.workout_template_id · workout_version · workout_name`(만들 때), `tbl_run_workout_step`(끝낼 때, 그때 구간 정의 + 반복 몇 번째 + 실제 거리 · 시간 · 조건대로 마쳤는지). 인터벌을 고치거나 지워도 지난 기록은 그대로 다시 볼 수 있다. 추천 인터벌처럼 저장하지 않고 달리면 이름만 남는다.
+- **확인**: 인터벌 달리기(INTERVAL)는 인터벌이 있어야 하고 코스가 없어야 한다. 다른 모드에 인터벌 · 구간 결과가 오면 400. 저장한 인터벌이면 내 것(지운 것 포함, 달리는 동안 지웠을 수 있다)이고 그 버전이 있어야 한다(아니면 404).
+- **테스트**: `WorkoutApiContractTest`를 MySQL · MariaDB에서(저장 · 고치기 버전 · 복제 · 지우기 · 남의 것 · 잘못된 구성 11가지 · 50개 제한 · 인터벌 달리기 구간 결과 · 지난 버전 유지 · 추천 인터벌 · mode 목록 · 잘못된 연결).
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -338,6 +352,10 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 친구 랭킹 | 나 + 친구 안에서 순위. 친구가 없으면 나 혼자 | RNK-004. 친구와 겨루는 화면이라 내 자리가 보여야 한다 |
 | 친구 테이블 | 44.1장 DDL 그대로 V7에 추가 + `idx_friend_high_status(user_high_id, status)` | 친구 목록 · 친구 랭킹이 user_high_id 쪽으로도 찾는다 |
 | 친구 검색 | 닉네임 일부 + 친구 코드 정확히, 1~40자, 한 페이지 20명(최대 50) | 사용자 결정. 41장에 `q, cursor, size`만 있다 |
+| 인터벌 범위 | 이름 40자 · 설명 200자, 묶음 20개, 반복 묶음 안 구간 10개, 반복 2~30회, 반복을 풀어 200구간까지. 거리 50m~50km, 시간 10초~3시간, 목표 시간 10초~10시간, 목표 페이스 2'00"~20'00"/km. 한 사람 50개까지 | 명세에 값 없음 (123.2장 "2~N회") |
+| 인터벌 버전 | `tbl_workout_block.template_version`을 더해 버전마다 구간을 따로 남긴다 | 123.3장 "템플릿 수정 이후에도 과거 러닝 결과를 재현". 초안 모델에는 버전별 구간을 둘 곳이 없다 |
+| 인터벌 구간 결과 | 앱이 달리며 잰 구간별 거리 · 시간을 finish에 받는다. 서버는 범위만 본다 | 공식 기록이 아닌 개인 훈련 기록. 직접 넘긴 구간 시점은 앱만 안다 |
+| 인터벌 지우기 | 지운 표시(`deleted_at`)만. 달린 기록의 연결은 남긴다 | 지난 기록을 다시 볼 수 있게 |
 | 친구 프로필 API | `GET /users/{userId}` | FND-005 프로필인데 41 · 44장 표에 경로가 없다 |
 | 친구 요청 응답 | 200 + 요청 뒤 관계, 상대가 먼저 요청했으면 바로 친구 | 44장에 응답이 없다. 다시 보내도 결과가 같게 |
 | 친구 요청 오류 | 나에게 400, 없는 사용자 404, 남의 요청 승인 404, 이미 반대로 처리한 요청 409 | 27.1장에 친구 코드가 없어 기존 코드를 쓴다 |

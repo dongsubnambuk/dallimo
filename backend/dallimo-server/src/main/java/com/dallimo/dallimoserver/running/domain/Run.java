@@ -62,6 +62,16 @@ public class Run {
     @Column(name = "verification_status", nullable = false, length = 20)
     private String verificationStatus;
 
+    // 123.3장: 인터벌 달리기면 달린 인터벌과 그때 버전 (추천 인터벌처럼 저장하지 않은 것이면 id · 버전 없이 이름만)
+    @Column(name = "workout_template_id")
+    private Long workoutTemplateId;
+
+    @Column(name = "workout_version")
+    private Integer workoutVersion;
+
+    @Column(name = "workout_name", length = 40)
+    private String workoutName;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -83,6 +93,13 @@ public class Run {
         r.createdAt = now;
         r.updatedAt = now;
         return r;
+    }
+
+    /** 인터벌 달리기: 만들 때 한 번 */
+    public void linkWorkout(Long templateId, Integer version, String name) {
+        this.workoutTemplateId = templateId;
+        this.workoutVersion = version;
+        this.workoutName = name;
     }
 
     /** 27.2장: RUNNING일 때만 */
@@ -180,5 +197,17 @@ public class Run {
 
     public String getVerificationStatus() {
         return verificationStatus;
+    }
+
+    public Long getWorkoutTemplateId() {
+        return workoutTemplateId;
+    }
+
+    public Integer getWorkoutVersion() {
+        return workoutVersion;
+    }
+
+    public String getWorkoutName() {
+        return workoutName;
     }
 }

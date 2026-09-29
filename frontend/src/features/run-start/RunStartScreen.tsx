@@ -11,6 +11,7 @@ import { AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { fontFamily, motion, spacing } from '@/design/tokens';
 import { getCourseRepository } from '@/entities/course/api';
+import { flattenBlocks } from '@/entities/workout/flatten';
 import { ActiveRunScreen } from '@/features/active-run/ActiveRunScreen';
 import { beginActiveRun, endActiveRun, type ActiveRunOptions } from '@/features/run/engine/activeRunSession';
 import { MODE_TITLE, parseRunPlan, type RunPlanParams } from '@/features/run-ready/runPlanParams';
@@ -60,10 +61,12 @@ function RunStart({ params, options, recovering }: Props) {
     if (!courseReady) return;
     const detail = courseQuery.data;
     const input = {
-      mode: plan.kind === 'free' ? ('FREE' as const) : plan.plan.mode,
+      mode: plan.kind === 'free' ? ('FREE' as const) : plan.kind === 'interval' ? ('INTERVAL' as const) : plan.plan.mode,
       // 코스를 받지 못하면 코스 없이 기록만 한다 (진행률·이탈 안내 없음)
       ...(detail ? { course: { id: detail.id, route: detail.route } } : {}),
       ...(plan.kind === 'course' ? { targetSec: plan.plan.targetSec } : {}),
+      // 인터벌 달리기: 반복을 푼 구간 순서 (엔진이 거리 · 시간으로 넘긴다)
+      ...(plan.kind === 'interval' ? { workout: flattenBlocks(plan.workout.blocks) } : {}),
       // 앱이 꺼졌다 켜지면 이 계획으로 러닝 화면을 다시 연다
       plan: JSON.stringify(params),
     };
@@ -106,7 +109,9 @@ function RunStart({ params, options, recovering }: Props) {
   const summary =
     plan.kind === 'free'
       ? MODE_TITLE.FREE
-      : [
+      : plan.kind === 'interval'
+        ? `${MODE_TITLE.INTERVAL} · ${plan.workout.name}`
+        : [
           params.courseName,
           MODE_TITLE[plan.plan.mode],
           plan.plan.targetSec != null ? `목표 ${formatDuration(plan.plan.targetSec)}` : null,
@@ -123,6 +128,7 @@ function RunStart({ params, options, recovering }: Props) {
           summary={summary}
           course={courseQuery.data ? { id: courseQuery.data.id, name: courseQuery.data.name, route: courseQuery.data.route } : null}
           target={plan.kind === 'course' && plan.plan.targetSec != null ? { sec: plan.plan.targetSec, label: plan.plan.targetLabel ?? '목표' } : null}
+          workout={plan.kind === 'interval' ? plan.workout : null}
         />
       </>
     );

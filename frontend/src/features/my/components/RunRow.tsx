@@ -17,7 +17,7 @@ export function RunRow({ run: r, showDate = true }: { run: RunSummary; showDate?
   const d = startedAt(r);
   const tags = runTags(r);
   const title = runTitle(r);
-  const sub = [showDate ? dayLabel(d) : null, timeLabel(d), r.course ? MODE_TITLE[r.mode] : null].filter(Boolean).join(' · ');
+  const sub = [showDate ? dayLabel(d) : null, timeLabel(d), r.course || r.mode === 'INTERVAL' ? MODE_TITLE[r.mode] : null].filter(Boolean).join(' · ');
   const time = r.course?.timeSec ?? r.activeSec;
 
   return (

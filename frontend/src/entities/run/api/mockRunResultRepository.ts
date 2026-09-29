@@ -4,6 +4,9 @@ import { MOCK_COURSE_ROUTES } from '@/entities/course/api/mockCourseRoutes';
 import { currentMockAccount } from '@/entities/auth/api/mockAccounts';
 import { API_BASE_URL } from '@/shared/api/config';
 import { legRoute, loopRoute, type GeoPoint } from '@/shared/geo';
+import { flattenBlocks } from '@/entities/workout/flatten';
+import { RECOMMENDED_WORKOUTS } from '@/entities/workout/templates';
+import type { RunWorkoutResult } from '@/entities/workout/types';
 import { createUuid } from '@/shared/uuid';
 
 import { toRunSummary, type RunSummary } from '../history';
@@ -48,7 +51,7 @@ export function parseHistoryScenario(value: unknown): HistoryScenario {
 export function createMockRunResultRepository(history: HistoryScenario = 'normal'): RunResultRepository {
   const courses = createMockCourseRepository('normal');
   const repo: RunResultRepository = {
-    async list(cursor, size) {
+    async list(cursor, size, mode) {
       if (history === 'loading') await new Promise(() => {});
       await new Promise((r) => setTimeout(r, 400));
       if (history === 'error') throw new Error('network');
@@ -60,7 +63,9 @@ export function createMockRunResultRepository(history: HistoryScenario = 'normal
         // 처음 가입한 계정에는 지난 기록이 없다
         // 서버 계정(EXPO_PUBLIC_API_URL)에는 mock 지난 기록을 섞지 않는다
         ...(history === 'empty' || API_BASE_URL != null || currentMockAccount()?.hasHistory === false ? [] : pastRuns().map(toRunSummary)),
-      ].sort((a, b) => b.finishedAt - a.finishedAt);
+      ]
+        .filter((r) => !mode || r.mode === mode)
+        .sort((a, b) => b.finishedAt - a.finishedAt);
       const start = cursor ? Number(cursor) : 0;
       const items = all.slice(start, start + size);
       return { items, nextCursor: start + size < all.length ? String(start + size) : null };
@@ -151,12 +156,15 @@ type PastPlan = {
   pb?: { previousSec: number | null; improved: boolean };
   // 코스를 끝까지 달리지 못함
   dnf?: boolean;
+  // 인터벌 달리기 (인터벌 mock "화요일 트랙"과 맞춘다)
+  interval?: boolean;
 };
 
 const COURSE_NAME = { 'c-suseongmot': '수성못 둘레길', 'c-sincheon': '신천 강변 왕복', 'c-deuran': '들안로 왕복' } as const;
 
 const PAST: PastPlan[] = [
   { daysAgo: 1, hour: 20, mode: 'LIVE_RACE', distanceM: 3000, sec: 948 },
+  { daysAgo: 2, hour: 7, mode: 'INTERVAL', distanceM: 5000, sec: 1577, interval: true },
   { daysAgo: 2, hour: 19, mode: 'PB', courseId: 'c-suseongmot', distanceM: 1915, sec: 648, pb: { previousSec: 612, improved: false } },
   { daysAgo: 3, hour: 7, mode: 'TOGETHER', distanceM: 5000, sec: 1690 },
   { daysAgo: 5, hour: 6, mode: 'COURSE', courseId: 'c-sincheon', distanceM: 4659, sec: 1512, pb: { previousSec: 1480, improved: false } },
@@ -237,10 +245,31 @@ function pastRuns(): RunResult[] {
       pb: verification === 'verified' ? (p.pb ?? null) : null,
       weeklyRank: null,
       friendBest: null,
+      workout: p.interval ? pastWorkout() : null,
     };
   });
   pastCache = { day: today.getTime(), runs };
   return runs;
+}
+
+// 400m 인터벌 × 5를 달린 구간 결과. 빠르게는 목표 1:30 앞뒤, 천천히는 최대 1:30 안
+function pastWorkout(): RunWorkoutResult {
+  const flat = flattenBlocks(RECOMMENDED_WORKOUTS[0].blocks);
+  const work = [88, 91, 89, 93, 95];
+  const rest = [72, 76, 78, 80, 84];
+  let w = 0;
+  let r = 0;
+  return {
+    templateId: 'w-1',
+    version: 2,
+    name: '화요일 트랙',
+    steps: flat.map((s) => ({
+      ...s,
+      distanceM: s.endConditionValue ?? 0,
+      elapsedSec: s.stepType === 'WARMUP' ? 362 : s.stepType === 'COOLDOWN' ? 390 : s.stepType === 'WORK' ? work[w++] : rest[r++],
+      completed: true,
+    })),
+  };
 }
 
 // localOnly 상황: 오늘 아침 기록이 아직 기기에만 있다

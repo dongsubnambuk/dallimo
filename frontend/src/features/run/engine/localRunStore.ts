@@ -20,6 +20,8 @@ export type LocalRun = {
   serverRunId: string | null;
   // 서버까지 끝냈는지 (29.4장 Sync Worker). PENDING → SYNCED, 올릴 수 없는 오류면 FAILED
   syncState: LocalRunSyncState;
+  // 인터벌 달리기: 끝난 구간의 경계 (StepBoundary[] JSON). 이어 달리기 · 서버 구간 결과에 쓴다
+  workoutProgress: string | null;
 };
 
 export type LocalRunSyncState = 'PENDING' | 'SYNCED' | 'FAILED';
@@ -60,6 +62,8 @@ export interface LocalRunStore {
   pauseRun(runUuid: string, at: number): Promise<void>;
   resumeRun(runUuid: string, at: number): Promise<void>;
   endRun(runUuid: string, at: number, status: 'FINISHED' | 'CANCELED'): Promise<void>;
+  // 인터벌 달리기: 구간이 끝날 때마다 경계를 저장한다
+  setWorkoutProgress(runUuid: string, json: string): Promise<void>;
   // 50.1장: seq > last_seq 확인 → INSERT → last_seq 갱신을 한 트랜잭션으로. 붙인 seq를 담아 돌려준다.
   appendPoints(runUuid: string, points: NewRunPoint[]): Promise<RunPoint[]>;
   getPoints(runUuid: string): Promise<RunPoint[]>;
