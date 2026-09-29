@@ -192,14 +192,15 @@ abstract class CourseApiContractTest {
         upload(me.token, run, at, 1, 700, false);
         String finished = body(finish(me.token, run, 700));
         assertThat((String) JsonPath.read(finished, "$.data.verificationStatus")).isEqualTo("PENDING");
-        // 검증(WBS 5)이 만들 공식 기록을 직접 넣는다
+        // 커밋 뒤 완주 검증이 공식 기록을 만든다 (코스 897m를 초속 3m → 약 299초)
+        assertThat(awaitVerification(me.token, run)).isEqualTo("VERIFIED");
+        // 라이벌 기록은 직접 넣는다
         long rivalRun = finishedRun(rival.token, at, 700, false);
-        record(courseId, run, me.userId, 700, Instant.now().minusSeconds(60));
-        record(courseId, rivalRun, rival.userId, 650, Instant.now());
+        record(courseId, rivalRun, rival.userId, 250, Instant.now());
         String b = body(get(me.token, "/api/v1/courses/" + courseId));
-        assertThat((Integer) JsonPath.read(b, "$.data.competition.leaderSec")).isEqualTo(650);
+        assertThat((Integer) JsonPath.read(b, "$.data.competition.leaderSec")).isEqualTo(250);
         assertThat((Integer) JsonPath.read(b, "$.data.finisherCount")).isEqualTo(2);
-        assertThat((Integer) JsonPath.read(b, "$.data.myRecord.bestSec")).isEqualTo(700);
+        assertThat((Integer) JsonPath.read(b, "$.data.myRecord.bestSec")).isBetween(297, 301);
         assertThat((Integer) JsonPath.read(b, "$.data.myRecord.finishCount")).isEqualTo(1);
         // 최근 7일 안에 이 코스를 끝까지 달린 사람 (T0 기준 러닝이라 now()와 떨어져 있으면 0)
         int weekly = JsonPath.read(b, "$.data.weeklyRunnerCount");
@@ -275,6 +276,21 @@ abstract class CourseApiContractTest {
     private MvcTestResult finish(String token, long runId, int lastSeq) {
         return post(token, "/api/v1/runs/" + runId + "/finish", """
                 {"endedAt":"%s","lastSeq":%d,"activeSeconds":%d}""".formatted(T0.plusSeconds(lastSeq), lastSeq, lastSeq - 1));
+    }
+
+    /** 검증 대기가 끝날 때까지 (최대 15초) */
+    private String awaitVerification(String token, long runId) {
+        for (int i = 0; i < 150; i++) {
+            String status = JsonPath.read(body(get(token, "/api/v1/runs/" + runId)), "$.data.summary.verificationStatus");
+            if (!"PENDING".equals(status)) return status;
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
+            }
+        }
+        return "PENDING";
     }
 
     private void record(long courseId, long runId, long userId, int sec, Instant at) {

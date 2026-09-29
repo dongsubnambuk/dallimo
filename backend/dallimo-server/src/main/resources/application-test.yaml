@@ -6,3 +6,6 @@ spring:
 dallimo:
   auth:
     jwt-secret: HaSada1RP35IJ1qg77GriqEzZTIFUUajipn/c5Tszjw=
+  # 테스트는 커밋 뒤 검증만 쓴다 (주기 재검사가 다른 테스트의 Run을 건드리지 않게)
+  verification:
+    sweep-interval: 1h

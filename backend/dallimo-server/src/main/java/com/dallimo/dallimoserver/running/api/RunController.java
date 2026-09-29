@@ -14,8 +14,10 @@ import com.dallimo.dallimoserver.running.api.RunDtos.PointDto;
 import com.dallimo.dallimoserver.running.api.RunDtos.RunDetailResponse;
 import com.dallimo.dallimoserver.running.api.RunDtos.RunStatusResponse;
 import com.dallimo.dallimoserver.running.api.RunDtos.RunSummaryResponse;
+import com.dallimo.dallimoserver.running.api.RunDtos.VerificationResponse;
 import com.dallimo.dallimoserver.running.application.RunService;
 import com.dallimo.dallimoserver.running.domain.Run;
+import com.dallimo.dallimoserver.verification.application.CourseVerificationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -33,6 +35,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Clock;
+import java.util.List;
+import java.util.Map;
 
 /** 42장 Run API */
 @RestController
@@ -40,10 +44,12 @@ import java.time.Clock;
 public class RunController {
 
     private final RunService runs;
+    private final CourseVerificationService verification;
     private final Clock clock;
 
-    public RunController(RunService runs, Clock clock) {
+    public RunController(RunService runs, CourseVerificationService verification, Clock clock) {
         this.runs = runs;
+        this.verification = verification;
         this.clock = clock;
     }
 
@@ -93,13 +99,26 @@ public class RunController {
                                                             @RequestParam(required = false) String cursor,
                                                             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
         CursorPage<Run> page = runs.list(userId(jwt), cursor, size);
-        return ApiResponse.ok(new CursorPage<>(page.items().stream().map(RunSummaryResponse::from).toList(), page.nextCursor(), page.hasNext()));
+        Map<Long, String> names = runs.courseNames(page.items());
+        return ApiResponse.ok(new CursorPage<>(page.items().stream().map(r -> RunSummaryResponse.from(r, names.get(r.getCourseId()))).toList(),
+                page.nextCursor(), page.hasNext()));
     }
 
     @GetMapping("/{runId}")
     public ApiResponse<RunDetailResponse> detail(@AuthenticationPrincipal Jwt jwt, @PathVariable long runId) {
         RunService.Detail d = runs.detail(userId(jwt), runId);
-        return ApiResponse.ok(new RunDetailResponse(RunSummaryResponse.from(d.run()), d.metrics().splits(), d.metrics().path()));
+        Run r = d.run();
+        return ApiResponse.ok(new RunDetailResponse(RunSummaryResponse.from(r, runs.courseNames(List.of(r)).get(r.getCourseId())),
+                d.metrics().splits(), d.metrics().path(), verificationOf(r)));
+    }
+
+    /** 코스 러닝이 아니면 null. 판정 전이면 상태만 */
+    private VerificationResponse verificationOf(Run r) {
+        if (Run.VERIFICATION_NONE.equals(r.getVerificationStatus())) return null;
+        return verification.summary(r.getId())
+                .map(v -> new VerificationResponse(r.getVerificationStatus(), v.failureReason(), v.matchRate(), v.recordSeconds(), v.previousBestSec(),
+                        v.recordSeconds() == null ? null : v.previousBestSec() == null || v.recordSeconds() < v.previousBestSec(), v.policyVersion()))
+                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null));
     }
 
     private static long userId(Jwt jwt) {

@@ -113,9 +113,21 @@ public class Run {
         this.elapsedSeconds = elapsedSeconds;
         this.distanceM = distanceM;
         this.avgPaceSecPerKm = avgPaceSecPerKm;
-        // 25.3장: 코스 러닝이면 완주 검증 대기 (검증은 WBS 5)
+        // 25.3장: 코스 러닝이면 완주 검증 대기. 검증은 커밋 뒤 따로 돈다 (verification 패키지)
         this.verificationStatus = mode.usesCourse() && courseId != null ? VERIFICATION_PENDING : VERIFICATION_NONE;
         this.updatedAt = now;
+    }
+
+    /** 26장 검증 결과 (VERIFIED · UNVERIFIED · REJECTED). 검증 대기일 때만 바꾼다 */
+    public boolean completeVerification(String outcome, Instant now) {
+        if (!VERIFICATION_PENDING.equals(verificationStatus)) return false;
+        this.verificationStatus = outcome;
+        this.updatedAt = now;
+        return true;
+    }
+
+    public boolean awaitingVerification() {
+        return status == RunStatus.FINISHED && VERIFICATION_PENDING.equals(verificationStatus);
     }
 
     private static ApiException invalidState() {
