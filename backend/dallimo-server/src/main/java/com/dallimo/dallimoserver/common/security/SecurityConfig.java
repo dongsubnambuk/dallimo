@@ -61,6 +61,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
                         // SHR-004 공유 링크 해석 · 공유 페이지는 로그인 없이
                         .requestMatchers(HttpMethod.GET, "/api/v1/shares/*", "/s/*").permitAll()
+                        // 8장 WebSocket 연결. 인증은 STOMP CONNECT의 Access Token으로 한다 (StompAuthInterceptor)
+                        .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o

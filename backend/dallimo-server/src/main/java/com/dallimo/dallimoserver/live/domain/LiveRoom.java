@@ -125,6 +125,19 @@ public class LiveRoom {
         updatedAt = now;
     }
 
+    /** 모두 끝났거나 마감 시각이 지나 서버가 결과를 확정했다 */
+    public void finish(Instant now) {
+        if (status != LiveRoomStatus.RUNNING) return;
+        status = LiveRoomStatus.FINISHED;
+        endedAt = now;
+        updatedAt = now;
+    }
+
+    /** 목표가 거리인가 (레이스 · 거리 함께). 아니면 시간 (타임 어택 · 시간 함께) */
+    public boolean distanceGoal() {
+        return targetDistanceM != null;
+    }
+
     private static ApiException invalid(String message) {
         return new ApiException(ErrorCode.VALIDATION_ERROR, message);
     }

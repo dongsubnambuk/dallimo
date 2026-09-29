@@ -58,4 +58,36 @@ public class LiveMemberJdbcRepository {
     public String nickname(long userId) {
         return jdbc.queryForList("SELECT nickname FROM tbl_user WHERE id = ?", String.class, userId).stream().findFirst().orElse("");
     }
+
+    /** 최종 결과 한 줄 (tbl_live_run_member 결과 컬럼) */
+    public record Final(long userId, String nickname, LiveMemberStatus status, Integer distanceM, Integer elapsedSeconds, Integer rank, Long runId) {
+    }
+
+    public List<Final> finals(long roomId) {
+        return jdbc.query("""
+                SELECT m.user_id, u.nickname, m.status, m.final_distance_m, m.final_elapsed_seconds, m.rank_no, m.run_id FROM tbl_live_run_member m
+                JOIN tbl_user u ON u.id = m.user_id WHERE m.room_id = ? ORDER BY m.rank_no IS NULL, m.rank_no, m.joined_at""",
+                (rs, i) -> new Final(rs.getLong("user_id"), rs.getString("nickname"), LiveMemberStatus.valueOf(rs.getString("status")),
+                        (Integer) rs.getObject("final_distance_m"), (Integer) rs.getObject("final_elapsed_seconds"), (Integer) rs.getObject("rank_no"),
+                        rs.getObject("run_id") == null ? null : rs.getLong("run_id")), roomId);
+    }
+
+    /** 완주 · DNF · 마감 결과를 적는다 */
+    public void finish(long roomId, long userId, LiveMemberStatus status, int distanceM, int elapsedSeconds, Integer rank, Instant at) {
+        jdbc.update("""
+                UPDATE tbl_live_run_member SET status = ?, final_distance_m = ?, final_elapsed_seconds = ?, rank_no = ?, finished_at = ?
+                WHERE room_id = ? AND user_id = ?""", status.name(), distanceM, elapsedSeconds, rank, Timestamp.from(at), roomId, userId);
+    }
+
+    /** 45.1장 개인 Run: 이 방에서 달린 내 Run (처음 한 번) */
+    public void linkRun(long roomId, long userId, long runId) {
+        jdbc.update("UPDATE tbl_live_run_member SET run_id = ? WHERE room_id = ? AND user_id = ? AND run_id IS NULL", runId, roomId, userId);
+    }
+
+    /** 실시간 확인 대상: 달리는 중인 방, 출발 시각이 지난 준비 완료 방 */
+    public List<Long> activeRoomIds(Instant now) {
+        return jdbc.queryForList("""
+                SELECT id FROM tbl_live_run_room WHERE status = 'RUNNING' OR (status = 'READY' AND starts_at <= ?) ORDER BY id""",
+                Long.class, Timestamp.from(now));
+    }
 }

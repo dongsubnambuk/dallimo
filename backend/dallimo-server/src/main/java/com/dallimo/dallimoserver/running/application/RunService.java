@@ -3,6 +3,7 @@ package com.dallimo.dallimoserver.running.application;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.CursorPage;
+import com.dallimo.dallimoserver.live.infrastructure.LiveMemberJdbcRepository;
 import com.dallimo.dallimoserver.running.domain.Run;
 import com.dallimo.dallimoserver.running.domain.RunFinishedEvent;
 import com.dallimo.dallimoserver.running.domain.RunMetrics;
@@ -46,15 +47,17 @@ public class RunService {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final LiveMemberJdbcRepository liveMembers;
 
     public RunService(RunJpaRepository runs, RunPointJdbcRepository points, RunSyncBatchRepository batches, JdbcTemplate jdbc, Clock clock,
-                      ApplicationEventPublisher events) {
+                      ApplicationEventPublisher events, LiveMemberJdbcRepository liveMembers) {
         this.runs = runs;
         this.points = points;
         this.batches = batches;
         this.jdbc = jdbc;
         this.clock = clock;
         this.events = events;
+        this.liveMembers = liveMembers;
     }
 
     public record Created(Run run, boolean created) {
@@ -72,11 +75,20 @@ public class RunService {
     /** 25.1장: 같은 clientRunUuid면 이미 만든 Run을 돌려준다. 동시 요청은 UNIQUE가 막는다 */
     @Transactional
     public Created create(long userId, String clientRunUuid, RunMode mode, Long courseId, Instant startedAt) {
+        return create(userId, clientRunUuid, mode, courseId, null, startedAt);
+    }
+
+    /** liveRoomId: 함께 달리기 방에서 달린 개인 Run이면 그 방 참가 기록에 이어 둔다 (45.1장 개인 Run은 항상 생성) */
+    @Transactional
+    public Created create(long userId, String clientRunUuid, RunMode mode, Long courseId, Long liveRoomId, Instant startedAt) {
         var existing = runs.findByClientRunUuid(clientRunUuid);
         if (existing.isPresent()) return new Created(owned(existing.get(), userId, ErrorCode.IDEMPOTENCY_CONFLICT), false);
         if (courseId != null && !courseExists(courseId)) throw new ApiException(ErrorCode.COURSE_NOT_FOUND);
         try {
-            return new Created(runs.saveAndFlush(Run.start(userId, clientRunUuid, mode, courseId, startedAt, clock.instant())), true);
+            Run created = runs.saveAndFlush(Run.start(userId, clientRunUuid, mode, courseId, startedAt, clock.instant()));
+            // 참가하지 않은 방이면 아무것도 바뀌지 않는다
+            if (liveRoomId != null) liveMembers.linkRun(liveRoomId, userId, created.getId());
+            return new Created(created, true);
         } catch (DataIntegrityViolationException race) {
             Run r = runs.findByClientRunUuid(clientRunUuid).orElseThrow(() -> race);
             return new Created(owned(r, userId, ErrorCode.IDEMPOTENCY_CONFLICT), false);
