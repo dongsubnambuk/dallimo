@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.course.application;
 
+import com.dallimo.dallimoserver.activity.application.ActivityService;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.CursorPage;
@@ -60,13 +61,16 @@ public class CourseService {
     private final CourseJdbcRepository store;
     private final RunJpaRepository runs;
     private final RunPointJdbcRepository runPoints;
+    private final ActivityService activities;
     private final Clock clock;
 
-    public CourseService(CourseJpaRepository courses, CourseJdbcRepository store, RunJpaRepository runs, RunPointJdbcRepository runPoints, Clock clock) {
+    public CourseService(CourseJpaRepository courses, CourseJdbcRepository store, RunJpaRepository runs, RunPointJdbcRepository runPoints,
+                         ActivityService activities, Clock clock) {
         this.courses = courses;
         this.store = store;
         this.runs = runs;
         this.runPoints = runPoints;
+        this.activities = activities;
         this.clock = clock;
     }
 
@@ -132,6 +136,7 @@ public class CourseService {
         Course course = courses.save(Course.create(userId, name, description, region, recommendedTime, route, clock.instant()));
         store.insertRoute(course.getId(), route.points());
         store.insertTags(course.getId(), tags);
+        activities.onCourseCreated(userId, course.getId(), clock.instant());
         return assemble(List.of(course), userId, Map.of()).get(0);
     }
 

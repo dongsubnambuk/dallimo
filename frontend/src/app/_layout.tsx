@@ -87,6 +87,7 @@ export default function RootLayout() {
             <Stack.Screen name="my/friends/index" options={{ headerShown: false }} />
             <Stack.Screen name="my/friends/[userId]" options={{ headerShown: false }} />
             <Stack.Screen name="my/notifications" options={{ headerShown: false }} />
+            <Stack.Screen name="my/activity" options={{ headerShown: false }} />
             <Stack.Screen name="course/new" options={{ headerShown: false, presentation: 'modal' }} />
             {/* SCR-M07 설정, 프로필 수정 */}
             <Stack.Screen name="settings/index" options={{ headerShown: false }} />

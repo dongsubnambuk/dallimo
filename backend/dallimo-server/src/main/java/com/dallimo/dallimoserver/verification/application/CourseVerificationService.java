@@ -1,6 +1,8 @@
 package com.dallimo.dallimoserver.verification.application;
 
+import com.dallimo.dallimoserver.activity.application.ActivityService;
 import com.dallimo.dallimoserver.challenge.application.ChallengeService;
+import com.dallimo.dallimoserver.ranking.application.RankingService;
 import com.dallimo.dallimoserver.course.domain.CourseRoute;
 import com.dallimo.dallimoserver.course.infrastructure.CourseJdbcRepository;
 import com.dallimo.dallimoserver.running.domain.Run;
@@ -32,16 +34,20 @@ public class CourseVerificationService {
     private final VerificationJdbcRepository store;
     private final ChallengeService challenges;
     private final RecordBeatenNotifier recordBeaten;
+    private final RankingService ranking;
+    private final ActivityService activities;
     private final Clock clock;
 
     public CourseVerificationService(RunJpaRepository runs, RunPointJdbcRepository points, CourseJdbcRepository courses,
-                                     VerificationJdbcRepository store, ChallengeService challenges, RecordBeatenNotifier recordBeaten, Clock clock) {
+                                     VerificationJdbcRepository store, ChallengeService challenges, RecordBeatenNotifier recordBeaten, Clock clock, RankingService ranking, ActivityService activities) {
         this.runs = runs;
         this.points = points;
         this.courses = courses;
         this.store = store;
         this.challenges = challenges;
         this.recordBeaten = recordBeaten;
+        this.ranking = ranking;
+        this.activities = activities;
         this.clock = clock;
     }
 
@@ -62,6 +68,10 @@ public class CourseVerificationService {
             int pace = (int) Math.round(result.recordSeconds() / (Math.max(1, courseDistance) / 1000.0));
             store.insertRecord(courseId, runId, run.getUserId(), result.recordSeconds(), pace, result.matchRate(), now);
             recordBeaten.onRecord(courseId, runId, run.getUserId(), result.recordSeconds());
+            // ACT: 첫 기록 · PB 갱신 · 이번 주 3위 안으로 올라섬
+            long recordId = store.recordIdOfRun(runId);
+            RankingService.RankChange rank = ranking.weeklyChange(courseId, run.getUserId(), recordId, now);
+            activities.onRecord(courseId, recordId, run.getUserId(), result.recordSeconds(), rank.before(), rank.after(), now);
         }
         run.completeVerification(result.outcome().name(), now);
         // 이 Run으로 진행 중인 도전 판정 (CHL-003)

@@ -143,7 +143,7 @@
 
 | API | 프론트 | 상태 |
 | --- | --- | --- |
-| GET /activities | 없음 | 미구현 (SCR-M06). 알림을 줄이는 방향과 함께 따로 한다 |
+| GET /activities | `ActivityRepository.list` → `httpActivityRepository` | 서버 구현 (SCR-M06 마이 › 친구 활동). 응답 필드(`type · nickname · isMine · courseName · timeSec · previousSec · rank · targetNickname · targetIsMe`)는 명세에 없어 서버 · 앱이 정했다 |
 | GET /notifications, POST /notifications/{id}/read | `NotificationRepository.list · read` → `httpNotificationRepository` | 서버 구현. 알림함(마이 › 알림), 누르면 `link`로 이동 |
 | POST /notifications/read-all, GET /notifications/unread-count | `readAll`, `unreadCount` | 명세 없음 · 서버 구현. 마이 알림 배지 |
 | PUT · DELETE /users/me/push-token | `registerToken`, `unregisterToken` | 명세 없음 · 서버 구현. 권한을 허락했을 때 Expo Push 토큰 등록 (EAS projectId가 있어야 토큰이 나온다) |
@@ -195,3 +195,4 @@
 22. 함께 달리기 응원: SCREEN-SPECS에 "응원"만 있고 메시지가 없다. STOMP `/app/live-runs/{id}/cheer { toUserId? }` → 방 topic `CHEER { fromUserId, fromName, toUserId }`로 정했다. 46장 메시지 표에 넣을지 정한다
 23. 도전 공유 미리보기 필드(`challengeStatus · challengerName · challengedName · challengeTargetSec`): 14.3장은 대상만 있다. 명세에 넣어야 한다
 24. 코스 신고 테이블 · 사유(`DANGER · PRIVATE_PROPERTY · WRONG_INFO · OTHER`): ERD에 없다. 신고가 쌓였을 때 숨길지는 20.2장 코스 공개 정책과 함께 정한다
+25. Activity 모양: ERD activity에 `value_int`(PB 이전 기록 · 주간 순위)를 더했고, 종류는 PB · COURSE_CREATED · CHALLENGE_WON · WEEKLY_TOP(이번 주 3위 안). 공개 범위(visibility)는 FRIENDS만 쓴다. 명세에 넣어야 한다
