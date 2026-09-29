@@ -14,7 +14,7 @@ import { ThemeProvider, useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import type { LiveChannel } from '@/entities/live/api/liveChannel';
 import { createMockLiveChannel, type LiveRunScenario } from '@/entities/live/api/mockLiveChannel';
-import { createMockLiveRoomRepository } from '@/entities/live/api/mockLiveRoomRepository';
+import { liveRoomRepositoryFor } from '@/entities/live/api';
 import type { LiveMemberState, LiveRoom } from '@/entities/live/types';
 import { runResultRepository } from '@/entities/run/api';
 import { getRunPolicySync } from '@/entities/run/policy';
@@ -44,7 +44,8 @@ export function TogetherLiveScreen(props: Props) {
 function Live({ roomId, scenario, speed }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const repo = useMemo(() => createMockLiveRoomRepository('normal'), []);
+  // 방 정보는 서버(서버 방) 또는 mock. 달리는 중 상태는 Live 단계(WBS 11) 전이라 mock 채널
+  const repo = useMemo(() => liveRoomRepositoryFor(roomId), [roomId]);
   const room = useQuery({ queryKey: ['live', 'room', roomId, 'live'], queryFn: () => repo.get(roomId), retry: false, staleTime: Infinity });
 
   return (

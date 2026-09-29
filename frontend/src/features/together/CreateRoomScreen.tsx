@@ -11,7 +11,7 @@ import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { getCourseRepository } from '@/entities/course/api';
-import { createMockLiveRoomRepository } from '@/entities/live/api/mockLiveRoomRepository';
+import { getLiveRoomRepository } from '@/entities/live/api';
 import type { LiveMode } from '@/entities/live/types';
 import { formatDistanceKm } from '@/shared/format';
 import { useNow } from '@/shared/useNow';
@@ -34,7 +34,7 @@ const STARTS: { label: string; minutes: number | null }[] = [
 export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const repo = useMemo(() => createMockLiveRoomRepository('normal'), []);
+  const repo = useMemo(() => getLiveRoomRepository('normal'), []);
   const courseRepo = useMemo(() => getCourseRepository('normal'), []);
   const course = useQuery({ queryKey: ['course', 'detail', courseId, 'normal'], queryFn: () => courseRepo.getDetail(courseId as string), enabled: courseId != null });
   const friends = useQuery({ queryKey: ['live', 'friends'], queryFn: () => repo.listFriends() });
@@ -44,6 +44,8 @@ export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
   const [seconds, setSeconds] = useState(1800);
   const [startMin, setStartMin] = useState<number | null>(null);
   const [invitees, setInvitees] = useState<string[]>([]);
+  // 고를 친구가 없으면(친구 기능 전 서버 모드) 방을 먼저 만들고 대기실에서 초대 링크를 보낸다
+  const linkOnly = friends.data != null && friends.data.length === 0;
 
   // 코스로 만든 방은 코스 거리가 목표다. 시간 목표(타임 어택)는 코스와 맞지 않아 잠근다.
   const courseDistance = course.data?.distanceM ?? null;
@@ -127,6 +129,11 @@ export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
         </Field>
 
         <Field title="누구와 달릴까요">
+          {linkOnly ? (
+            <AppText role="body" tone="secondary">
+              방을 만든 뒤 대기실에서 초대 링크를 보내요. 링크를 받은 사람이 누르면 이 방으로 들어와요.
+            </AppText>
+          ) : null}
           {friends.data?.map((f) => {
             const on = invitees.includes(f.userId);
             return (
@@ -164,9 +171,9 @@ export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md, borderTopColor: colors.border.subtle }]}>
         <SecondaryButton
-          label={invitees.length ? `${goalLabel(goal)} · ${invitees.length}명 초대하기` : '함께 달릴 친구를 골라 주세요'}
+          label={linkOnly ? `${goalLabel(goal)} · 방 만들기` : invitees.length ? `${goalLabel(goal)} · ${invitees.length}명 초대하기` : '함께 달릴 친구를 골라 주세요'}
           emphasized
-          disabled={invitees.length === 0 || create.isPending || (courseId != null && !course.data)}
+          disabled={(!linkOnly && invitees.length === 0) || create.isPending || (courseId != null && !course.data)}
           onPress={() => create.mutate()}
         />
         {create.isError ? (

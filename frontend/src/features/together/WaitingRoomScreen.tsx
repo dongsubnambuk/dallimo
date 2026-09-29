@@ -15,7 +15,9 @@ import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { LiveRoomError } from '@/entities/live/api/liveRoomRepository';
-import { createMockLiveRoomRepository, type LiveScenario } from '@/entities/live/api/mockLiveRoomRepository';
+import { liveRoomRepositoryFor } from '@/entities/live/api';
+import type { LiveScenario } from '@/entities/live/api/mockLiveRoomRepository';
+import { getShareRepository } from '@/entities/share/api';
 import type { LiveMember, LiveRoom } from '@/entities/live/types';
 import { haptics } from '@/shared/haptics';
 import type { GpsQuality } from '@/shared/location/locationSource';
@@ -31,30 +33,31 @@ const MEMBER_ORDER: Record<LiveMember['status'], number> = { READY: 0, JOINED: 1
 // SCR-T03 Waiting Room (TGT-003~004): 참가자, READY, GPS/Network, 카운트다운.
 // 89장 Together Lobby "room goal + participant readiness가 핵심, 채팅창 없음, 메신저 room처럼 구성하지 않는다".
 // 출발 직전 화면이라 Run Ready와 같은 dark pre-run canvas를 쓴다.
-export function WaitingRoomScreen({ roomId, scenario }: { roomId: string; scenario: LiveScenario }) {
+// invite: 초대 링크로 들어왔을 때의 share_code. 참가하기 전 방을 보고 참가할 때 쓴다
+export function WaitingRoomScreen({ roomId, scenario, invite }: { roomId: string; scenario: LiveScenario; invite?: string | null }) {
   return (
     <ThemeProvider scheme="dark">
-      <WaitingRoom roomId={roomId} scenario={scenario} />
+      <WaitingRoom roomId={roomId} scenario={scenario} invite={invite ?? null} />
     </ThemeProvider>
   );
 }
 
-function WaitingRoom({ roomId, scenario }: { roomId: string; scenario: LiveScenario }) {
+function WaitingRoom({ roomId, scenario, invite }: { roomId: string; scenario: LiveScenario; invite: string | null }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const repo = useMemo(() => createMockLiveRoomRepository(scenario), [scenario]);
+  const repo = useMemo(() => liveRoomRepositoryFor(roomId, scenario), [roomId, scenario]);
   const key = ['live', 'room', roomId, scenario];
   const room = useQuery({
     queryKey: key,
-    queryFn: () => repo.get(roomId),
+    queryFn: () => repo.get(roomId, invite),
     refetchInterval: (q) => (q.state.data && (q.state.data.status === 'WAITING' || q.state.data.status === 'READY') ? POLL_MS : false),
     retry: (n, e) => !(e instanceof LiveRoomError && e.kind === 'notFound') && n < 30,
     retryDelay: POLL_MS,
   });
   const setRoom = (r: LiveRoom) => qc.setQueryData(key, r);
   const ready = useMutation({ mutationFn: (v: boolean) => repo.setReady(roomId, v), onSuccess: setRoom });
-  const join = useMutation({ mutationFn: () => repo.join(roomId), onSuccess: setRoom });
+  const join = useMutation({ mutationFn: () => repo.join(roomId, invite), onSuccess: setRoom });
   // 방장은 방을 취소(POST /cancel), 참가자는 나가기(POST /leave)
   const leave = useMutation({
     mutationFn: () => (room.data?.members.find((m) => m.isMe)?.isHost ? repo.cancel(roomId) : repo.leave(roomId)),
@@ -366,10 +369,11 @@ function useMyGps(): GpsQuality {
   return q;
 }
 
-// SHR-004 딥링크로 초대 링크를 보낸다
+// 초대 링크를 보낸다. 서버가 있으면 메신저에서 눌리는 공유 페이지 주소(/s/{code}), 받은 사람이 누르면 이 방 대기실이 열린다
 async function shareInvite(room: LiveRoom) {
   try {
-    await Share.share({ message: `달리모에서 ${goalLabel(room)} 같이 달려요\n${startLabel(room.scheduledAt)}\ndallimo://together/${room.id}` });
+    const link = await getShareRepository().create('LIVE_ROOM', room.id, room.course?.id ?? null);
+    await Share.share({ message: `달리모에서 ${goalLabel(room)} 같이 달려요\n${startLabel(room.scheduledAt)}\n${link.url}` });
   } catch {
     // 사용자가 취소했거나 공유를 지원하지 않는 환경
   }

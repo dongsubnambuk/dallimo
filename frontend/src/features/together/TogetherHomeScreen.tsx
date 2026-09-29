@@ -10,7 +10,8 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing } from '@/design/tokens';
-import { createMockLiveRoomRepository, type LiveScenario } from '@/entities/live/api/mockLiveRoomRepository';
+import { getLiveRoomRepository } from '@/entities/live/api';
+import type { LiveScenario } from '@/entities/live/api/mockLiveRoomRepository';
 import type { LiveRoom, LiveRoomSummary } from '@/entities/live/types';
 
 import { agoLabel, goalLabel, MODE_INFO, startLabel } from './labels';
@@ -20,7 +21,7 @@ import { agoLabel, goalLabel, MODE_INFO, startLabel } from './labels';
 export function TogetherHomeScreen({ scenario }: { scenario: LiveScenario }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const repo = useMemo(() => createMockLiveRoomRepository(scenario), [scenario]);
+  const repo = useMemo(() => getLiveRoomRepository(scenario), [scenario]);
   const upcoming = useQuery({ queryKey: ['live', 'upcoming', scenario], queryFn: () => repo.listUpcoming(), retry: false });
   const recent = useQuery({ queryKey: ['live', 'recent', scenario], queryFn: () => repo.listRecent(), retry: false });
   const create = () => router.push('/together/new');

@@ -8,6 +8,7 @@ import { BrandSplash } from '@/components/Brand/BrandSplash';
 import { darkTheme, lightTheme, ThemeProvider } from '@/design/theme';
 import { fontAssets, fontFamily } from '@/design/tokens';
 import { restoreSession, useAuthStatus } from '@/features/auth/session';
+import { usePendingShareLink } from '@/features/share/usePendingShareLink';
 // 백그라운드 위치 task는 앱이 뜰 때 먼저 등록되어 있어야 한다 (OS가 백그라운드에서 앱을 다시 켤 때 포함)
 import '@/tasks/background-location';
 
@@ -26,6 +27,9 @@ export default function RootLayout() {
   useEffect(() => {
     restoreSession();
   }, []);
+
+  // 로그인 전에 연 공유 · 초대 링크는 로그인한 뒤 이어서 연다
+  usePendingShareLink(auth);
 
 
   // 로그아웃 · 탈퇴하면 이전 계정의 서버 데이터 캐시를 비운다
