@@ -27,7 +27,7 @@ type ServerDetail = { summary: ServerSummary; splits: RunSplit[]; path: [number,
 
 const SERVER_PREFIX = 'srv-';
 
-type Local = { id: string; input: NewRunResult; finishedAt: number; synced: boolean };
+type Local = { id: string; input: NewRunResult; finishedAt: number; synced: boolean; serverRunId: string | null };
 
 function toVerification(status: string): RunVerification {
   const v = status.toLowerCase();
@@ -62,6 +62,8 @@ function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number]
 export function createHttpRunResultRepository(): RunResultRepository {
   // 이번 실행에서 끝낸 러닝 (앱을 다시 켜면 서버에 올라간 기록만 남는다)
   const local = new Map<string, Local>();
+  // 동기화가 알려 준 서버 Run id (clientRunUuid → runId). 종료 때는 동기화가 결과 저장보다 먼저 끝나므로 여기 먼저 남는다
+  const serverIds = new Map<string, string>();
   let nextId = 1;
 
   const localResult = (l: Local): RunResult => ({
@@ -80,12 +82,23 @@ export function createHttpRunResultRepository(): RunResultRepository {
   return {
     async saveFinished(input, synced) {
       const id = `run-${nextId++}`;
-      local.set(id, { id, input, finishedAt: Date.now(), synced });
+      local.set(id, { id, input, finishedAt: Date.now(), synced, serverRunId: serverIds.get(input.clientRunUuid) ?? null });
       return id;
     },
 
-    async markSynced(clientRunUuid) {
-      for (const l of local.values()) if (l.input.clientRunUuid === clientRunUuid) l.synced = true;
+    async markSynced(clientRunUuid, serverRunId) {
+      if (serverRunId) serverIds.set(clientRunUuid, serverRunId);
+      for (const l of local.values()) {
+        if (l.input.clientRunUuid !== clientRunUuid) continue;
+        l.synced = true;
+        l.serverRunId = serverRunId ?? l.serverRunId;
+      }
+    },
+
+    async serverRunId(id) {
+      if (id.startsWith(SERVER_PREFIX)) return id.slice(SERVER_PREFIX.length);
+      const l = local.get(id);
+      return l?.synced ? l.serverRunId : null;
     },
 
     async get(id) {

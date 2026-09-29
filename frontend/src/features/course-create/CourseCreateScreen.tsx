@@ -11,9 +11,10 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
+import { getCourseRegistration } from '@/entities/course/api';
 import { CourseRepositoryError } from '@/entities/course/api/courseRepository';
-import { COURSE_NAME_MAX } from '@/entities/course/api/courseRegistration';
-import { createMockCourseRegistration, type RegisterScenario } from '@/entities/course/api/mockCourseRegistration';
+import { COURSE_DESCRIPTION_MAX, COURSE_NAME_MAX } from '@/entities/course/api/courseRegistration';
+import { type RegisterScenario } from '@/entities/course/api/mockCourseRegistration';
 import type { RunResult } from '@/entities/run/result';
 import { RoutePreview } from '@/features/my/components/RoutePreview';
 import { dayLabel, startedAt } from '@/features/my/labels';
@@ -52,7 +53,7 @@ export function CourseCreateScreen({ runId, scenario }: { runId: string; scenari
 function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenario: RegisterScenario; onClose: () => void; bottomInset: number }) {
   const { colors } = useTheme();
   const queryClient = useQueryClient();
-  const repo = useMemo(() => createMockCourseRegistration(scenario), [scenario]);
+  const repo = useMemo(() => getCourseRegistration(scenario), [scenario]);
   const [step, setStep] = useState<'info' | 'route'>('info');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -144,6 +145,7 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
                 placeholder="어떤 길인지, 달릴 때 알아 두면 좋은 점"
                 placeholderTextColor={colors.text.secondary}
                 accessibilityLabel="코스 설명"
+                maxLength={COURSE_DESCRIPTION_MAX}
                 multiline
                 maxFontSizeMultiplier={1.4}
                 style={[styles.input, styles.multiline, { backgroundColor: colors.bg.surface, color: colors.text.primary }]}

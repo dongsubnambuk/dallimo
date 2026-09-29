@@ -8,8 +8,10 @@ export type NewRunResult = Pick<RunResult, 'clientRunUuid' | 'mode' | 'startedAt
 export interface RunResultRepository {
   // synced: 종료 때 서버까지 올렸는지. false면 기기에만 있다(local-only).
   saveFinished(input: NewRunResult, synced: boolean): Promise<string>;
-  // 기기에만 있던 기록을 서버까지 올렸다 (local-only → synced). 기록 동기화가 끝나면 부른다.
-  markSynced(clientRunUuid: string): Promise<void>;
+  // 기기에만 있던 기록을 서버까지 올렸다 (local-only → synced). 기록 동기화가 끝나면 서버 Run id와 함께 부른다.
+  markSynced(clientRunUuid: string, serverRunId?: string): Promise<void>;
+  // 이 기록의 서버 Run id (코스 등록 sourceRunId, 43.1장). 아직 서버에 없으면 null
+  serverRunId(id: string): Promise<string | null>;
   get(id: string): Promise<RunResult>;
   // 내 러닝 히스토리. 최근 기록부터 cursor로 이어 받는다 (GET /runs?cursor=&size=, MY-003)
   list(cursor: string | null, size: number): Promise<RunHistoryPage>;

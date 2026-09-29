@@ -10,7 +10,7 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
 import { createMockLiveRoomRepository } from '@/entities/live/api/mockLiveRoomRepository';
 import type { LiveMode } from '@/entities/live/types';
 import { formatDistanceKm } from '@/shared/format';
@@ -35,7 +35,7 @@ export function CreateRoomScreen({ courseId }: { courseId: string | null }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const repo = useMemo(() => createMockLiveRoomRepository('normal'), []);
-  const courseRepo = useMemo(() => createMockCourseRepository('normal'), []);
+  const courseRepo = useMemo(() => getCourseRepository('normal'), []);
   const course = useQuery({ queryKey: ['course', 'detail', courseId, 'normal'], queryFn: () => courseRepo.getDetail(courseId as string), enabled: courseId != null });
   const friends = useQuery({ queryKey: ['live', 'friends'], queryFn: () => repo.listFriends() });
 

@@ -12,7 +12,7 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
 import type { CourseDetail } from '@/entities/course/types';
 import type { RunResult } from '@/entities/run/result';
 import { RecordState } from '@/features/run-result/components/RecordState';
@@ -146,7 +146,7 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
 
 // 결과 화면과 같은 키로 코스 상세를 읽어 캐시를 함께 쓴다
 function useCourse(id: string | null): CourseDetail | null {
-  const repo = useMemo(() => createMockCourseRepository('normal'), []);
+  const repo = useMemo(() => getCourseRepository('normal'), []);
   const q = useQuery({
     queryKey: ['course', 'detail', id, 'normal'],
     queryFn: () => repo.getDetail(id as string),

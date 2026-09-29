@@ -83,7 +83,8 @@ export function ExploreScreen() {
   }, [all, filters, query, sort]);
 
   const weeklyRunners = all.reduce((n, c) => n + c.weeklyRunnerCount, 0);
-  const topId = all.reduce<CourseSummary | null>((top, c) => (!top || c.weeklyRunnerCount > top.weeklyRunnerCount ? c : top), null)?.id;
+  // 이번 주에 달린 사람이 있을 때만 "이번 주 인기" (아무도 안 달렸는데 인기라고 하지 않는다)
+  const topId = all.reduce<CourseSummary | null>((top, c) => (c.weeklyRunnerCount > 0 && (!top || c.weeklyRunnerCount > top.weeklyRunnerCount) ? c : top), null)?.id;
 
   // 선택이 목록에서 사라지면 첫 코스를 선택한다
   const selected = visible.find((c) => c.id === selectedId) ?? visible[0] ?? null;

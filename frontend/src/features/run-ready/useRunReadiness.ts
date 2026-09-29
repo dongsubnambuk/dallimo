@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
+import { getCourseRepository } from '@/entities/course/api';
 import type { CourseDetail } from '@/entities/course/types';
 import { getRunPolicy } from '@/entities/run/policy';
 import { distanceM, legRoute, type GeoPoint } from '@/shared/geo';
@@ -28,7 +28,7 @@ const POLL_MS = 1000;
 
 // active: 화면이 보이는 동안만 GPS를 켠다 (러닝 화면이 위에 떠 있으면 끈다)
 export function useRunReadiness(courseId: string | null, scenario: RunReadyScenario, active: boolean): { readiness: Readiness; course: CourseLoad } {
-  const repo = useMemo(() => createMockCourseRepository('normal'), []);
+  const repo = useMemo(() => getCourseRepository('normal'), []);
   const courseQuery = useQuery({
     queryKey: ['course', 'detail', courseId, 'normal'],
     queryFn: () => repo.getDetail(courseId as string),
