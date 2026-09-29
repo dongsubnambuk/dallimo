@@ -56,10 +56,10 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| POST /runs `clientRunUuid, mode, courseId, challengeId, liveRoomId, startedAt` | mock 엔진은 부르지 않는다 | 이번에 고침 | `entities/run/api/runApi.ts`에 요청 · 응답 타입과 `RunApi` 경계 추가. 엔진이 시작 때 `clientRunUuid`를 만들고 결과에 담는다. 실제 호출은 WBS 2 |
-| POST /runs/{id}/points `batchUuid, fromSeq, toSeq, points[]` | 메모리 저장소만 | 이번에 고침 | point 이름 · 단위 변환 `toPointDto` 추가(altitude → altitudeM, accuracy → accuracyM, speed → speedMps, ms → ISO). `qualityFlag`는 보내지 않는다 |
-| POST /runs/{id}/pause · resume | 엔진 안에서만 | 미구현 | WBS 2. RUNNING일 때만 pause, PAUSED일 때만 resume |
-| POST /runs/{id}/finish `endedAt, lastSeq` | 엔진 `finish()` | 미구현 | 응답의 `verificationStatus`로 결과 화면 검증 상태를 시작한다. 서버 seq가 모자라면 FINISHING → 빠진 Batch 전송 후 재요청 |
+| POST /runs `clientRunUuid, mode, courseId, challengeId, liveRoomId, startedAt` | 기록 동기화 `syncRun` | 일치 | 서버 id가 없으면 먼저 만든다(`clientRunUuid` 멱등). 백엔드 전까지 `mockRunApi` |
+| POST /runs/{id}/points `batchUuid, fromSeq, toSeq, points[]` | 기록 동기화 `syncRun` | 일치 | SQLite에 Batch UUID를 먼저 기록한 뒤 보낸다(50.2장). 연속 seq 60개씩, 실패하면 같은 batchUuid로 backoff 재전송. 422 · 409 IDEMPOTENCY_CONFLICT · 400 · 403은 FAILED. `toPointDto`로 이름 · 단위 변환, `qualityFlag`는 보내지 않는다 |
+| POST /runs/{id}/pause · resume | 엔진 · SQLite 구간에만 | 부르지 않음 | 요청에 시각이 없어 오프라인에서 한 일시정지를 나중에 올릴 수 없다. 12항 13번 |
+| POST /runs/{id}/finish `endedAt, lastSeq` | 엔진 `finish()` → `syncRunNow` | 일치 | 남은 Batch를 보낸 뒤 요청. 응답 `status`가 FINISHING이면 빠진 Batch를 보내고 다시 요청. 오프라인이거나 20초 안에 못 끝내면 휴대폰에 저장한 결과로 보여주고 연결되면 이어서 올린다 |
 | GET /runs/{id} → run detail | `RunResultRepository.get(id)` | 명세 없음 | 응답 필드가 정해지지 않았다. 앱이 쓰는 필드: `startedAt, finishedAt, distanceM, activeSec, avgPaceSec, splits, path(표시용으로 줄인 것), course{ id, name, timeSec }, target, verification, verificationReason, pb{ previousSec, improved }, weeklyRank{ before, after }, friendBest{ name, timeSec }` |
 | GET /runs?cursor&size | `list(cursor, size)` | 일치 | 항목에 `startedAt` 추가(이번에 고침, 6.4장 정렬 기준). 목록의 `pb`, 경로 미리보기(`preview`)는 명세 없음 |
 | (기기 저장) | `saveFinished(input, synced)` | — | 서버 API가 아니라 기기 저장(11장 SQLite local_run). `clientRunUuid`와 `startedAt`을 함께 저장하도록 고침 |
@@ -164,3 +164,5 @@
 10. 내 코스 목록 API (MY-005)
 11. Together 방 목록(예정 · 최근), 준비 취소, 재대결
 12. 공유 링크 요청 · 응답 필드
+13. 일시정지 · 재개 시각: POST /runs/{id}/pause · resume에 시각이 없다. 오프라인에서 한 일시정지를 나중에 알리려면 `pausedAt` · `resumedAt`을 요청에 넣거나, finish에 달린 구간(또는 active 시간)을 넣어야 서버 `elapsedSeconds`가 맞다
+14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 앱은 200 + `status: FINISHING`으로 가정했다

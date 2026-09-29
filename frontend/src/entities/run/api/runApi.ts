@@ -1,7 +1,9 @@
+import type { ApiErrorCode } from '@/shared/api/contract';
+
 import type { RunPoint, RunMode, RunStatus } from '../types';
 
-// 42장 Run API 계약. 실제 러닝 엔진(WBS 2 Running Core)이 이 경계로 서버와 주고받는다.
-// 지금 mock 엔진은 서버를 부르지 않는다. 요청 · 응답 모양을 먼저 고정해 둔다.
+// 42장 Run API 계약. 기록 동기화(features/run/sync)가 이 경계로 서버와 주고받는다.
+// 백엔드 전까지는 mockRunApi가 서버 역할을 한다.
 
 // 42.1장 POST /runs. clientRunUuid가 멱등 키 (201 생성 / 200 재요청)
 export type CreateRunRequest = {
@@ -37,6 +39,15 @@ export type FinishRunResponse = {
   avgPaceSecPerKm: number;
   verificationStatus: 'NONE' | 'PENDING' | 'VERIFIED' | 'UNVERIFIED' | 'REJECTED';
 };
+
+// 27장 오류 코드, 또는 서버에 닿지 못함(NETWORK: 연결 끊김 · 시간 초과)
+export class RunApiError extends Error {
+  readonly code: ApiErrorCode | 'NETWORK';
+  constructor(code: ApiErrorCode | 'NETWORK', message: string = code) {
+    super(message);
+    this.code = code;
+  }
+}
 
 export interface RunApi {
   create(req: CreateRunRequest): Promise<CreateRunResponse>;

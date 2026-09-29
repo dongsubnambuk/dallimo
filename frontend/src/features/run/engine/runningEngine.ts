@@ -3,7 +3,7 @@ import type { GeoPoint } from '@/shared/geo';
 import type { GpsQuality } from '@/shared/location/locationSource';
 
 // 명세서 49.1장 Run Engine interface. UI는 expo-location·SQLite를 직접 부르지 않고 이 경계만 쓴다.
-// 실제 구현은 deviceRunningEngine(GPS 수신, SQLite 선저장, 백그라운드 기록, 복구). Batch Sync는 WBS 2에서 붙인다.
+// 실제 구현은 deviceRunningEngine(GPS 수신, SQLite 선저장, 백그라운드 기록, 복구). 서버 업로드는 features/run/sync가 한다.
 
 export type RunPrepareInput = {
   mode: RunMode;

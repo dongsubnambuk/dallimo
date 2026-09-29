@@ -1,12 +1,15 @@
 import type { RunPoint } from '@/entities/run/types';
 
-import type { LocalRun, LocalRunStats, LocalRunStore, RunSegment } from './localRunStore';
+import type { LocalRun, LocalRunStats, LocalRunStore, RunSegment, SyncBatch } from './localRunStore';
 
 // 웹(개발 확인용)에서 쓰는 메모리 저장소. SQLite 저장소와 같은 동작을 하지만 새로고침하면 사라진다.
 type Entry = { run: LocalRun; points: (RunPoint & { synced: boolean })[]; segments: RunSegment[] };
 
 export function createMemoryLocalRunStore(): LocalRunStore {
   const runs = new Map<string, Entry>();
+  const batches = new Map<string, SyncBatch>();
+  const batchesOf = (runUuid: string) =>
+    [...batches.values()].filter((b) => b.clientRunUuid === runUuid).sort((a, b) => a.fromSeq - b.fromSeq);
 
   const closeSegment = (e: Entry, at: number) => {
     for (const s of e.segments) if (s.endedAt == null) s.endedAt = Math.max(s.startedAt, at);
@@ -18,7 +21,7 @@ export function createMemoryLocalRunStore(): LocalRunStore {
     async createRun({ clientRunUuid, mode, courseId, plan, startedAt }) {
       if (runs.has(clientRunUuid)) throw new Error('run already exists');
       runs.set(clientRunUuid, {
-        run: { clientRunUuid, mode, courseId, status: 'RUNNING', startedAt, endedAt: null, elapsedMs: 0, lastSeq: 0, plan },
+        run: { clientRunUuid, mode, courseId, status: 'RUNNING', startedAt, endedAt: null, elapsedMs: 0, lastSeq: 0, plan, serverRunId: null, syncState: 'PENDING' },
         points: [],
         segments: [{ startedAt, endedAt: null }],
       });
@@ -96,6 +99,76 @@ export function createMemoryLocalRunStore(): LocalRunStore {
     },
     async deleteRun(runUuid) {
       runs.delete(runUuid);
+      for (const b of batchesOf(runUuid)) batches.delete(b.batchUuid);
+    },
+    async setServerRunId(runUuid, serverRunId) {
+      const e = runs.get(runUuid);
+      if (e) e.run.serverRunId = serverRunId;
+    },
+    async setRunSyncState(runUuid, state) {
+      const e = runs.get(runUuid);
+      if (e) e.run.syncState = state;
+    },
+    async listUnsyncedRuns() {
+      return [...runs.values()]
+        .filter((e) => e.run.syncState === 'PENDING')
+        .sort((a, b) => a.run.startedAt - b.run.startedAt)
+        .map((e) => ({ ...e.run }));
+    },
+    async nextBatchRange(runUuid, limit) {
+      const after = Math.max(0, ...batchesOf(runUuid).map((b) => b.toSeq));
+      const pending = (runs.get(runUuid)?.points ?? []).filter((p) => !p.synced && p.seq > after).slice(0, limit);
+      if (!pending.length) return null;
+      let toSeq = pending[0].seq;
+      for (const p of pending.slice(1)) {
+        if (p.seq !== toSeq + 1) break;
+        toSeq = p.seq;
+      }
+      return { fromSeq: pending[0].seq, toSeq };
+    },
+    async createBatch(b) {
+      batches.set(b.batchUuid, { ...b, status: 'PENDING', retryCount: 0, nextRetryAt: null });
+    },
+    async getOpenBatches(runUuid) {
+      return batchesOf(runUuid)
+        .filter((b) => b.status !== 'ACKED' && b.status !== 'FAILED')
+        .map((b) => ({ ...b }));
+    },
+    async hasFailedBatch(runUuid) {
+      return batchesOf(runUuid).some((b) => b.status === 'FAILED');
+    },
+    async updateBatch(batchUuid, { status, retryCount, nextRetryAt }) {
+      const b = batches.get(batchUuid);
+      if (!b) return;
+      b.status = status;
+      if (retryCount != null) b.retryCount = retryCount;
+      if (nextRetryAt !== undefined) b.nextRetryAt = nextRetryAt;
+    },
+    async ackBatch(batchUuid) {
+      const b = batches.get(batchUuid);
+      if (!b) return;
+      b.status = 'ACKED';
+      b.nextRetryAt = null;
+      for (const p of runs.get(b.clientRunUuid)?.points ?? []) if (p.seq >= b.fromSeq && p.seq <= b.toSeq) p.synced = true;
+    },
+    async getPointRange(runUuid, fromSeq, toSeq) {
+      return (runs.get(runUuid)?.points ?? []).filter((p) => p.seq >= fromSeq && p.seq <= toSeq).map(strip);
+    },
+    async resetSendingBatches() {
+      for (const b of batches.values()) {
+        if (b.status === 'SENDING') {
+          b.status = 'RETRY_WAIT';
+          b.nextRetryAt = null;
+        }
+      }
+    },
+    async resetSync(runUuid) {
+      for (const b of batchesOf(runUuid)) batches.delete(b.batchUuid);
+      const e = runs.get(runUuid);
+      if (!e) return;
+      for (const p of e.points) p.synced = false;
+      e.run.serverRunId = null;
+      e.run.syncState = 'PENDING';
     },
   };
 }

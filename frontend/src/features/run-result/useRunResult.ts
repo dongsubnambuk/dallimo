@@ -7,6 +7,8 @@ export type RunResultState = { kind: 'loading' } | { kind: 'notFound' } | { kind
 
 // 올리는 중이거나 검증 중이면 상태가 바뀔 때까지 다시 읽는다 (CRUN-005 PENDING → VERIFIED/UNVERIFIED)
 const POLL_MS = 1000;
+// 휴대폰에만 있는 기록은 연결되면 뒤에서 올라가므로 가끔 다시 읽는다 (RUN-007)
+const LOCAL_ONLY_POLL_MS = 5000;
 
 export function useRunResult(id: string): RunResultState {
   const query = useQuery({
@@ -15,6 +17,7 @@ export function useRunResult(id: string): RunResultState {
     retry: false,
     refetchInterval: (q) => {
       const r = q.state.data;
+      if (r?.sync === 'localOnly') return LOCAL_ONLY_POLL_MS;
       return r && (r.sync === 'syncing' || (r.sync === 'synced' && r.verification === 'pending')) ? POLL_MS : false;
     },
   });

@@ -16,6 +16,24 @@ export type LocalRun = {
   lastSeq: number;
   // 이어 달릴 때 화면에 보여줄 계획 (RunPlanParams JSON)
   plan: string | null;
+  // 서버 Run id (POST /runs 뒤). 아직 만들지 않았으면 null
+  serverRunId: string | null;
+  // 서버까지 끝냈는지 (29.4장 Sync Worker). PENDING → SYNCED, 올릴 수 없는 오류면 FAILED
+  syncState: LocalRunSyncState;
+};
+
+export type LocalRunSyncState = 'PENDING' | 'SYNCED' | 'FAILED';
+
+// 50.3장 Batch 상태
+export type SyncBatchStatus = 'PENDING' | 'SENDING' | 'ACKED' | 'RETRY_WAIT' | 'FAILED';
+export type SyncBatch = {
+  batchUuid: string;
+  clientRunUuid: string;
+  fromSeq: number;
+  toSeq: number;
+  status: SyncBatchStatus;
+  retryCount: number;
+  nextRetryAt: number | null;
 };
 
 // 달린 구간. 시작 · 재개부터 일시정지 · 종료까지. endedAt이 null이면 지금 달리는 중인 구간.
@@ -51,6 +69,27 @@ export interface LocalRunStore {
   countUnsynced(runUuid: string): Promise<number>;
   listRuns(limit: number): Promise<LocalRunStats[]>;
   deleteRun(runUuid: string): Promise<void>;
+
+  // ── 29.4 · 50장 동기화 ──
+  setServerRunId(runUuid: string, serverRunId: string): Promise<void>;
+  setRunSyncState(runUuid: string, state: LocalRunSyncState): Promise<void>;
+  // 서버까지 끝내지 못한 러닝 (진행 중 포함)
+  listUnsyncedRuns(): Promise<LocalRun[]>;
+  // 50.2장: 아직 어느 Batch에도 들어가지 않은 point 중 앞에서부터 이어지는 seq 범위. 없으면 null
+  nextBatchRange(runUuid: string, limit: number): Promise<{ fromSeq: number; toSeq: number } | null>;
+  // 50.2장: Batch UUID를 먼저 기록한 뒤 보낸다
+  createBatch(batch: { batchUuid: string; clientRunUuid: string; fromSeq: number; toSeq: number }): Promise<void>;
+  // ACKED · FAILED가 아닌 Batch (seq 순)
+  getOpenBatches(runUuid: string): Promise<SyncBatch[]>;
+  hasFailedBatch(runUuid: string): Promise<boolean>;
+  updateBatch(batchUuid: string, patch: { status: SyncBatchStatus; retryCount?: number; nextRetryAt?: number | null }): Promise<void>;
+  // 서버가 받았다: Batch ACKED + 그 범위 point SYNCED를 한 번에
+  ackBatch(batchUuid: string): Promise<void>;
+  getPointRange(runUuid: string, fromSeq: number, toSeq: number): Promise<RunPoint[]>;
+  // 50.3장: 앱이 꺼질 때 SENDING이던 Batch는 다시 켜질 때 RETRY_WAIT로 (같은 batchUuid로 다시 보낸다)
+  resetSendingBatches(): Promise<void>;
+  // 서버가 이 Run을 모른다고 할 때: 서버 id · Batch를 지우고 point를 다시 PENDING으로 (처음부터 다시 올림)
+  resetSync(runUuid: string): Promise<void>;
 }
 
 /** 구간 목록으로 at 시점까지의 active 경과(ms). 일시정지 시간은 빠진다. */

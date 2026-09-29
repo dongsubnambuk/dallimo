@@ -3,24 +3,29 @@ import { addPoint, averagePace, breakSegment, currentPace, initialMetrics, type 
 import { getRunPolicySync, gpsQualityFor } from '@/entities/run/policy';
 import type { RunMode, RunPoint } from '@/entities/run/types';
 import type { GeoPoint } from '@/shared/geo';
+import { getNetworkState, onNetworkChange } from '@/shared/network/network';
 import { createUuid } from '@/shared/uuid';
 
 import { activeMsAt, type RunSegment } from './localRunStore';
 import { startLocationFeed, stopLocationFeed } from './locationFeed';
 import { onLocation, setRecording, type LocationEvent } from './recorder';
+import { onSyncResult, requestSync, syncRunNow } from '../sync/runSyncService';
 import { getRunStore } from './runStore';
 import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine, type RunPrepareInput } from './runningEngine';
 
-// 실제 기기 위치로 기록하는 Running Engine (WBS 1 GPS PoC).
+// 실제 기기 위치로 기록하는 Running Engine (WBS 1 GPS PoC, WBS 2 Running Core).
 // 위치는 백그라운드 task → recorder가 SQLite에 먼저 저장하고(RUN-006 Local First), 엔진은 저장된 point로 지표를 계산한다.
+// 서버로는 기록 동기화(sync)가 따로 올린다(RUN-007). 네트워크가 없어도 기록은 계속한다.
 // 지표 계산(거리 · 페이스 · 스플릿 · 코스 진행)은 mock 엔진과 같은 함수를 쓴다.
 
 // 지도 표시용 경로는 accepted point 5개마다 하나 (77장: 원본 전체를 그리지 않는다)
 const PATH_EVERY = 5;
 // 이 시간 동안 위치가 오지 않으면 GPS를 다시 찾는 중으로 본다
 const GPS_STALE_MS = 10_000;
-// 서버 연동 전 mock 업로드 시간
-const MOCK_UPLOAD_MS = 700;
+// 달리는 동안 서버로 올리는 간격 — 명세에 값이 없어 정한 시작값
+const SYNC_EVERY_MS = 15_000;
+// 종료 때 남은 기록을 이만큼 기다려도 못 올리면 휴대폰에 저장한 결과로 넘어간다(나머지는 뒤에서 계속 올림)
+const FINISH_SYNC_TIMEOUT_MS = 20_000;
 
 const roundPace = (p: number | null) => (p == null ? null : Math.round(p));
 
@@ -43,12 +48,14 @@ export function createDeviceRunningEngine(): RunningEngine {
   let lastFixAt = 0;
   let unsubscribe: (() => void) | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let lastSyncAt = 0;
+  let offNetwork: (() => void) | null = null;
+  let offSync: (() => void) | null = null;
   let snap: ActiveRunSnapshot = {
     status: 'PREPARING',
     mode,
     gps: 'acquiring',
-    // Batch Sync(WBS 2) 전이라 네트워크 상태는 보지 않는다
-    network: 'online',
+    network: getNetworkState(),
     unsyncedPoints: 0,
     distanceM: 0,
     avgPaceSec: null,
@@ -127,9 +134,18 @@ export function createDeviceRunningEngine(): RunningEngine {
 
   const ensureListening = async () => {
     unsubscribe ??= onLocation(handle);
+    offNetwork ??= onNetworkChange((network) => emit({ network }));
+    offSync ??= onSyncResult((uuid, out) => {
+      if (uuid === runUuid && snap.status !== 'FINISHING' && snap.status !== 'FINISHED') emit({ unsyncedPoints: out.unsynced });
+    });
     timer ??= setInterval(() => {
       if (lastFixAt && now() - lastFixAt > GPS_STALE_MS && snap.gps !== 'acquiring' && snap.status !== 'FINISHING' && snap.status !== 'FINISHED') {
         emit({ gps: 'acquiring', currentPaceSec: null });
+      }
+      // RUN-007: 달리는 동안 모인 point를 주기적으로 올린다
+      if ((snap.status === 'RUNNING' || snap.status === 'PAUSED') && now() - lastSyncAt >= SYNC_EVERY_MS) {
+        lastSyncAt = now();
+        requestSync();
       }
     }, 1000);
     try {
@@ -143,6 +159,10 @@ export function createDeviceRunningEngine(): RunningEngine {
   const stopListening = () => {
     unsubscribe?.();
     unsubscribe = null;
+    offNetwork?.();
+    offNetwork = null;
+    offSync?.();
+    offSync = null;
     if (timer) clearInterval(timer);
     timer = null;
     stopLocationFeed().catch(() => undefined);
@@ -211,11 +231,18 @@ export function createDeviceRunningEngine(): RunningEngine {
       stopListening();
       const store = await getRunStore();
       await store.endRun(runUuid, t, 'FINISHED');
-      // 서버 연동(WBS 2 Batch Sync) 전: 결과는 mock 저장소에 올린 것으로 보고 넘어간다.
-      // SQLite point는 PENDING으로 남겨 두어 실제 sync가 붙으면 그때 올린다.
-      emit({ unsyncedPoints: 0 });
-      await new Promise((r) => setTimeout(r, MOCK_UPLOAD_MS));
-      emit({ status: 'FINISHED' });
+      // RUN-010: 남은 point를 올리고 서버 finish까지. 오프라인이거나 오래 걸리면 휴대폰에 저장한 결과(local-only)로 넘어가고
+      // 나머지는 기록 동기화가 연결되는 대로 이어서 올린다.
+      emit({ unsyncedPoints: await store.countUnsynced(runUuid), network: getNetworkState() });
+      let synced = false;
+      if (getNetworkState() === 'online') {
+        const out = await Promise.race([
+          syncRunNow(runUuid, (n) => emit({ unsyncedPoints: n })),
+          new Promise<null>((r) => setTimeout(() => r(null), FINISH_SYNC_TIMEOUT_MS)),
+        ]).catch(() => null);
+        synced = out?.state === 'synced';
+      }
+      if (synced) emit({ status: 'FINISHED', unsyncedPoints: 0 });
       return {
         clientRunUuid: runUuid,
         mode,
@@ -224,7 +251,7 @@ export function createDeviceRunningEngine(): RunningEngine {
         activeSec: Math.round(ms / 1000),
         avgPaceSec: roundPace(averagePace(metrics, ms, policy)),
         splits: metrics.splits,
-        synced: true,
+        synced,
         courseTimeSec: courseState.completedActiveMs != null ? Math.round(courseState.completedActiveMs / 1000) : null,
         path: snap.position && snap.path.length ? [...snap.path, snap.position] : snap.path,
       } satisfies RunFinishResult;

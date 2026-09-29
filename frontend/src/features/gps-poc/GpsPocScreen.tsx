@@ -102,6 +102,7 @@ function RunCard({ run, onDeleted }: { run: LocalRunStats; onDeleted: () => void
 
   const rows: [string, string][] = [
     ['상태', run.status],
+    ['서버 동기화', `${run.syncState}${run.serverRunId ? ` · ${run.serverRunId}` : ''}`],
     ['달린 시간', formatDuration(Math.round(run.elapsedMs / 1000))],
     ['point', `${run.pointCount}개 · 평균 간격 ${interval}`],
     ['평균 정확도', run.avgAccuracyM != null ? `${run.avgAccuracyM.toFixed(1)}m` : '-'],
