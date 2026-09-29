@@ -26,7 +26,8 @@ public final class RunMetrics {
     public record Split(int km, int sec) {
     }
 
-    public record Result(double distanceM, double movingSeconds, List<Split> splits, List<double[]> path) {
+    /** accepted: 거리 계산에 쓴 정상 point (정확도 · 순간 이동 판정을 통과한 것). 코스 등록이 이 point로 경로를 만든다 */
+    public record Result(double distanceM, double movingSeconds, List<Split> splits, List<double[]> path, List<RunPoint> accepted) {
     }
 
     private RunMetrics() {
@@ -77,7 +78,7 @@ public final class RunMetrics {
             last = p;
             accepted.add(p);
         }
-        return new Result(distance, moving, splits, decimate(accepted));
+        return new Result(distance, moving, splits, decimate(accepted), List.copyOf(accepted));
     }
 
     public static Integer avgPace(double distanceM, int elapsedSeconds) {
