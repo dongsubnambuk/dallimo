@@ -21,6 +21,13 @@ export type RunPolicy = {
   gpsMaxSpeedMps: number;
   // run.live_state_interval_sec: Together 러닝 중 내 상태를 보내는 간격(초). 명세 "3~5초 후보".
   liveStateIntervalSec: number;
+  // RUN-009 자동 일시정지. 20.2장 "속도/시간 기준 — 필드 테스트"라 시작값이다 (FOUNDATION-DECISION-LOG 40항).
+  // 이 속도(m/s)보다 느린 상태가 autoPauseStopSec(초) 이어지면 멈춘다
+  autoPauseStopMps: number;
+  autoPauseStopSec: number;
+  // 자동 일시정지 중 이 속도(m/s) 이상이 autoPauseResumeSec(초) 이어지면 이어서 기록한다
+  autoPauseResumeMps: number;
+  autoPauseResumeSec: number;
 };
 
 const MOCK_RUN_POLICY: RunPolicy = {
@@ -33,6 +40,10 @@ const MOCK_RUN_POLICY: RunPolicy = {
   gpsRequiredAccuracyM: 20,
   gpsGoodAccuracyM: 10,
   gpsMaxSpeedMps: 12,
+  autoPauseStopMps: 0.6,
+  autoPauseStopSec: 6,
+  autoPauseResumeMps: 1.5,
+  autoPauseResumeSec: 2,
 };
 
 export async function getRunPolicy(): Promise<RunPolicy> {

@@ -117,7 +117,7 @@ export function SettingsScreen() {
         ) : null}
 
         <SettingSection title="러닝">
-          <SettingRow kind="toggle" label="자동 일시정지" caption="멈춰 서면 기록을 잠시 멈춰요" value={prefs.autoPause} onChange={(v) => setPreference('autoPause', v)} />
+          <SettingRow kind="toggle" label="자동 일시정지" caption="멈춰 서면 기록을 멈추고, 다시 달리면 이어서 기록해요. 함께 달리기에서는 쓰지 않아요" value={prefs.autoPause} onChange={(v) => setPreference('autoPause', v)} />
           <SettingRow kind="toggle" label="음성 안내" caption="구간 기록 · 코스 이탈 · 완주를 소리로 알려요" value={prefs.voice} onChange={(v) => setPreference('voice', v)} />
           {/* AUD-003 구간 안내 빈도 */}
           <SettingChoice

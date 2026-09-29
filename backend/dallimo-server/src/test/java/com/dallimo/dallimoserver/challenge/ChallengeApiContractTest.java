@@ -119,6 +119,42 @@ abstract class ChallengeApiContractTest {
     }
 
     @Test
+    void challengeShareLinkShowsVerdictToAnyone() {
+        User me = signup("공유"), friend = signup("상대"), stranger = signup("남");
+        befriend(me, friend);
+        double[] at = somewhere();
+        long course = course(friend, at);
+        long target = record(course, friend, 260);
+
+        // 달리기 전: 도전 중으로 보인다. 보낸 사람 · 받은 사람만 공유할 수 있다
+        long open = challenge(me, target);
+        String code = JsonPath.read(body(post(friend, "/api/v1/shares", "{\"type\":\"CHALLENGE\",\"referenceId\":%d}".formatted(open))), "$.data.code");
+        String before = body(get(null, "/api/v1/shares/" + code));
+        assertThat((String) JsonPath.read(before, "$.data.preview.challengeStatus")).isEqualTo("OPEN");
+        assertThat((String) JsonPath.read(before, "$.data.preview.sharerName")).isEqualTo(friend.name);
+        assertThat(post(stranger, "/api/v1/shares", "{\"type\":\"CHALLENGE\",\"referenceId\":%d}".formatted(open))).hasStatus(404);
+
+        // 이기면: 받은 사람 누구나 판정 · 기록 · 목표를 본다 (로그인 없이)
+        challengeRun(me, course, open, at, 250, 4.0);
+        String after = body(get(null, "/api/v1/shares/" + code));
+        assertThat((String) JsonPath.read(after, "$.data.type")).isEqualTo("CHALLENGE");
+        assertThat((String) JsonPath.read(after, "$.data.preview.challengeStatus")).isEqualTo("SUCCESS");
+        assertThat((String) JsonPath.read(after, "$.data.preview.challengerName")).isEqualTo(me.name);
+        assertThat((String) JsonPath.read(after, "$.data.preview.challengedName")).isEqualTo(friend.name);
+        assertThat((Integer) JsonPath.read(after, "$.data.preview.challengeTargetSec")).isEqualTo(260);
+        assertThat((Integer) JsonPath.read(after, "$.data.preview.recordSeconds")).isLessThan(260);
+        assertThat((String) JsonPath.read(after, "$.data.preview.courseName")).isEqualTo("도전 코스");
+        assertThat(((Number) JsonPath.read(after, "$.data.courseId")).longValue()).isEqualTo(course);
+        String page = body(get(null, "/s/" + code));
+        assertThat(page).contains(me.name + "님이 " + friend.name + "님의 기록을 넘었어요");
+
+        // 취소한 도전은 공유하지 않는다
+        long canceled = challenge(me, target);
+        assertThat(post(me, "/api/v1/challenges/" + canceled + "/cancel", "")).hasStatusOk();
+        assertThat(post(me, "/api/v1/shares", "{\"type\":\"CHALLENGE\",\"referenceId\":%d}".formatted(canceled))).hasStatus(409);
+    }
+
+    @Test
     void cancelOnlyOpenAndRunOnlyAttachesToMatchingChallenge() {
         User me = signup("취소"), friend = signup("상대");
         befriend(me, friend);

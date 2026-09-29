@@ -72,7 +72,17 @@ public class ShareLandingController {
                 String when = p.scheduledAt() == null ? "모두 준비되면 출발" : WHEN.format(p.scheduledAt()) + " 출발";
                 yield new String[]{p.sharerName() + "님이 함께 달리기에 초대했어요", goal + " " + mode + " · " + when};
             }
-            case CHALLENGE -> new String[]{"달리모", "달리모에서 같이 달려요"};
+            case CHALLENGE -> {
+                String course = p.courseName() != null ? p.courseName() : "코스";
+                String target = duration(p.challengeTargetSec());
+                yield switch (p.challengeStatus()) {
+                    case "SUCCESS" -> new String[]{p.challengerName() + "님이 " + p.challengedName() + "님의 기록을 넘었어요",
+                            course + " · " + duration(p.recordSeconds()) + " (목표 " + target + ")"};
+                    case "FAILED" -> new String[]{p.challengedName() + "님이 도전을 막아냈어요",
+                            course + " · 목표 " + target + (p.recordSeconds() != null ? " · 도전 기록 " + duration(p.recordSeconds()) : "")};
+                    default -> new String[]{p.challengerName() + "님이 " + p.challengedName() + "님의 기록에 도전해요", course + " · 목표 " + target};
+                };
+            }
         };
     }
 

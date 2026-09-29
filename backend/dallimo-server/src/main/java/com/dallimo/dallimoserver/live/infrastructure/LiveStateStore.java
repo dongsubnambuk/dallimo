@@ -123,6 +123,11 @@ public class LiveStateStore {
         return out;
     }
 
+    /** 응원 간격: 이 사람이 cooldown 안에 이미 응원했으면 false (서버가 여러 대여도 같은 값) */
+    public boolean allowCheer(long roomId, long userId, Duration cooldown) {
+        return Boolean.TRUE.equals(redis.opsForValue().setIfAbsent("live:room:" + roomId + ":cheer:" + userId, "1", cooldown));
+    }
+
     /** 끝난 방: 결과는 DB에 있으니 짧게만 남긴다 (47.1장) */
     public void expireRoom(long roomId, Duration ttl) {
         var ids = redis.opsForSet().members(members(roomId));

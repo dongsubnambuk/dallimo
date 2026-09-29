@@ -14,6 +14,8 @@ export type SharePreview = {
   distanceM: number | null;
   elapsedSec: number | null;
   avgPaceSec: number | null;
-  // 인증된 코스 기록(초)
+  // 인증된 코스 기록(초). 도전이면 도전한 기록
   recordSec: number | null;
+  // SHR-003 도전: 판정 · 도전한 사람 · 도전받은 사람 · 목표 기록(초). 도전이 아니면 없다
+  challenge?: { status: 'OPEN' | 'RUNNING' | 'SUCCESS' | 'FAILED'; challengerName: string; challengedName: string; targetSec: number } | null;
 };

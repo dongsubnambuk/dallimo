@@ -147,11 +147,12 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 
 | API | 설명 |
 | --- | --- |
-| `POST /api/v1/shares` | `{ type: RUN\|COURSE\|LIVE_ROOM, referenceId }` → 201 `{ code, url }`. 같은 사람이 같은 대상을 다시 공유하면 같은 링크 |
+| `POST /api/v1/shares` | `{ type: RUN\|COURSE\|CHALLENGE\|LIVE_ROOM, referenceId }` → 201 `{ code, url }`. 같은 사람이 같은 대상을 다시 공유하면 같은 링크. 도전은 보낸 사람 · 받은 사람만, 취소한 도전은 409 |
 | `GET /api/v1/shares/{code}` | 로그인 없이. `{ type, referenceId, courseId, preview }` |
 | `GET /s/{code}` | 로그인 없이. 공유 페이지(HTML): 미리보기 태그, "달리모 앱에서 열기"(dallimo://share/{code}), 휴대폰이면 바로 앱을 연다 |
 | `POST /api/v1/live-runs` | 방 만들기(45.1장 invariant). 방장은 JOINED |
 | `GET /api/v1/live-runs` | 내가 참가한 예정 · 진행 중 방 |
+| `GET /api/v1/live-runs/recent?size=` | 내가 참가한 끝난 방, 최근 끝난 순(기본 10, 최대 30). `[{ roomId, mode, targetDistanceM, targetSeconds, finishedAt, myRank, memberCount, myFinished }]` (SCR-T01 최근 결과) |
 | `GET /api/v1/live-runs/{id}?inviteCode=` | 참가자이거나 초대 코드가 있어야 본다. 아직 참가 전이면 내 줄이 INVITED |
 | `POST /api/v1/live-runs/{id}/invite` | `{ userIds }` (TGT-002). 참가자가 자기 친구만. 초대받은 친구는 INVITED 줄로 들어가 목록에 방이 보인다 |
 | `POST /api/v1/live-runs/{id}/join` | 초대받은 친구는 본문 없이, 링크로 온 사람은 `{ inviteCode }`. 시작 · 취소 · 가득 찬 방은 409 |
@@ -161,6 +162,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **공유 코드** (16장): 헷갈리는 글자를 뺀 31글자 × 10자리 무작위(SecureRandom, 약 2^50). 내부 id를 URL에 쓰지 않는다. 만료는 없다(`expires_at` null).
 - **링크 주소**: `url`은 `dallimo.share.public-base-url`, 없으면 요청이 들어온 서버 주소 + `/s/{code}`. 메신저가 `dallimo://`를 링크로 보여주지 않는 경우가 많아 http(s) 공유 페이지를 거친다(사용자 요청: 링크를 누르면 열려야 한다). 앱 설치 안내 · 스토어 링크 · 도메인 · Universal Link는 배포 단계.
 - **받은 사람이 보는 것** (사용자 결정): 공유한 사람 이름, 기록 숫자(거리 · 시간 · 페이스 · 인증된 코스 기록), 코스 이름, 방 목표 · 예약 시각 · 인원. 자유 달리기 경로는 내보내지 않는다.
+- **도전 공유** (SHR-003): 미리보기에 `challengeStatus`(OPEN · RUNNING · SUCCESS · FAILED) · `challengerName` · `challengedName` · `challengeTargetSec`, 판정이 나면 `recordSeconds`(도전한 공식 기록). 공유 페이지 제목은 "○○님이 △△님의 기록을 넘었어요" · "△△님이 도전을 막아냈어요" · "○○님이 △△님의 기록에 도전해요". 링크를 만든 뒤 도전이 취소되면 404.
 - **방 초대** (사용자 요청: 초대가 실제로 되어야 한다): 방 id만으로는 방을 볼 수 없고, 방 초대 링크(type LIVE_ROOM)의 코드가 있어야 보고 참가한다. 참가자 · 방장만 초대 링크를 만든다.
 - **방 상태 전이** (45.1장 서버가 정한다): 참가자(방장 포함) 2명 이상이 모두 준비되고 예약 시각이 지나면 5초 뒤 출발 시각(`startsAt`)을 잡고 READY, 그 시각이 지나면 RUNNING(준비한 참가자도 RUNNING). 출발 전 누가 준비를 풀면 다시 WAITING. 읽거나 바꿀 때마다 방 행을 잠그고 다시 정한다.
 - **친구 초대** (TGT-002): 참가한 사람이 출발 전에 자기 친구를 부른다(친구가 아니면 403, 초대받기만 한 사람은 409). 초대받은 자리도 인원(10명)에 든다. 초대받은 친구는 코드 없이 방을 보고 참가 · 거절(leave)한다. 준비 판정에는 들어가지 않고, 출발할 때까지 참가하지 않으면 방에서 빠진다(결과에 들어가지 않게).
@@ -175,7 +177,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `SUBSCRIBE /user/queue/live-runs` | 내게만 오는 `SYNC_STATE` · `ERROR { code, message, recoverable }` |
 | `SEND /app/live-runs/{roomId}/state` | `{ seq, distanceM, elapsedSeconds, currentPaceSecPerKm, status: RUNNING\|FINISHED\|DNF, sentAt }` |
 | `SEND /app/live-runs/{roomId}/heartbeat` | 연결 유지 (본문 없음) |
-| 방 topic으로 오는 것 | `ROOM_STARTED`, `MEMBER_STATE { members[] }`, `MEMBER_CONNECTION { userId, connected }`, `MEMBER_FINISHED { userId, finishSec }`, `MEMBER_DNF { userId }`, `ROOM_FINISHED { result }` |
+| `SEND /app/live-runs/{roomId}/cheer` | 응원 `{ toUserId? }` (없으면 모두에게). 함께 달리기(TOGETHER) 달리는 중에만, 한 사람이 10초에 한 번 (넘치면 조용히 버림) |
+| 방 topic으로 오는 것 | `ROOM_STARTED`, `MEMBER_STATE { members[] }`, `MEMBER_CONNECTION { userId, connected }`, `MEMBER_FINISHED { userId, finishSec }`, `MEMBER_DNF { userId }`, `ROOM_FINISHED { result }`, `CHEER { fromUserId, fromName, toUserId }` |
 | `GET /api/v1/live-runs/{id}/result` | `{ roomId, mode, targetDistanceM, targetSeconds, finishedAt, entries[{ userId, name, isMe, rank, status, timeSec, distanceM }], myRunId }` |
 
 - **상태 저장** (47장): 달리는 중 최신 상태는 Redis `live:room:{id}:meta` · `live:room:{id}:member:{userId}` · `live:room:{id}:members`. 결과가 확정되면 DB(`tbl_live_run_member`)에 쓰고 Redis 키는 1시간 뒤 사라진다. 참가자 상태 갱신은 Lua 스크립트 하나로 seq를 비교해 늦게 온 값과 끝난 사람의 값을 버린다(30.3장).
@@ -184,7 +187,9 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **방이 끝나는 때** (사용자 결정): 모두 완주 · 포기하면 바로. 레이스 · 거리 함께 달리기는 첫 완주 + 30분(남은 사람 DNF), 타임 어택 · 시간 함께 달리기는 목표 시간 + 5분(마지막으로 받은 거리로 순위). 어떤 방이든 출발 + 6시간이면 끝낸다(안전장치).
 - **순위**: 레이스 = 완주 시간, 타임 어택 = 거리, 함께 = 순위 없음. DNF는 순위 없음. 같으면 user_id 순.
 - **개인 Run 연결** (45.1장): `POST /runs`의 `liveRoomId`가 내가 참가한 방이면 `tbl_live_run_member.run_id`에 잇는다. 결과의 `myRunId`.
-- **테스트**: `LiveRaceContractTest`를 MySQL · MariaDB(+ Redis)에서(레이스 상태 · 늦은 seq · 완주 · 마감 DNF, 끊김 → 다시 연결 + 함께 달리기 모두 끝나면 바로 종료, 타임 어택 순위 + Run 연결, 참가자만 연결 · 구독).
+- **응원** (SCREEN-SPECS Together "연결 상태, 응원"): 간격은 Redis `live:room:{id}:cheer:{userId}`(10초 NX)로 서버가 여러 대여도 같다. 레이스 · 타임 어택은 `ERROR RUN_INVALID_STATE`, 방에 없는 사람에게는 `VALIDATION_ERROR`.
+- **최근 결과**: `tbl_live_run_member` × `tbl_live_run_room`(FINISHED)을 `ended_at` 최신순으로. 끝난 방의 참가자는 모두 FINISHED · DNF라 `memberCount`는 방 인원 그대로.
+- **테스트**: `LiveRaceContractTest`를 MySQL · MariaDB(+ Redis)에서(레이스 상태 · 늦은 seq · 완주 · 마감 DNF + 최근 결과 · 레이스 응원 거부, 끊김 → 다시 연결 + 응원 · 간격 · 잘못된 대상 + 함께 달리기 모두 끝나면 바로 종료, 타임 어택 순위 + Run 연결, 참가자만 연결 · 구독).
 
 ## 친구 (명세 44장, FND-001~005, WBS 8)
 
@@ -345,6 +350,9 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 활동 공개 범위 | 친구와 나. visibility는 FRIENDS만 쓴다 | 16장 "공개 범위는 정책화". 전체 공개 피드는 만들지 않는다 |
 | 공유 테이블 | `tbl_share_link`를 ERD 그대로 V6에 추가 + `uk_share_target(creator_id, type, reference_id)` | 22.4장 최종 DDL에 빠져 있음. 같은 대상 같은 링크 |
 | 공유 type | `LIVE_ROOM` 추가 (함께 달리기 초대) | 14.3장은 코스 · 기록 · Challenge만 |
+| 도전 공유 | 보낸 사람 · 받은 사람만 만든다. 받은 사람은 로그인 없이 판정 · 목표 · 도전 기록 · 두 사람 닉네임을 본다. 취소한 도전은 만들지 못하고 이미 만든 링크도 404 | SHR-003. 도전은 두 사람 사이 일이라 둘만 공유를 시작한다 |
+| 최근 결과 API | `GET /live-runs/recent` (끝난 방, 최근 10개 기본) | 45장 표에 경로 없음. 함께 달리기 홈 최근 결과(SCR-T01) |
+| 응원 | STOMP `/app/live-runs/{id}/cheer`, 방 topic `CHEER`. 함께 달리기만, 한 사람 10초에 한 번 | SCREEN-SPECS Together 보조 정보 "응원". 메시지 · 간격은 명세에 없다. 승부 모드에서는 방해가 된다 |
 | 공유 URL | 서버 공유 페이지 `/s/{code}`(http(s)) → 앱 `dallimo://share/{code}` | 사용자 요청: 링크를 누르면 열려야 한다 |
 | 방 테이블 | `tbl_live_run_room` · `tbl_live_run_member`를 ERD대로 V6에 추가 + room `course_id` · `starts_at` · `updated_at` | 방 만들기 화면의 코스 선택, 서버가 정한 출발 시각(대기실 카운트다운) |
 | 방 참가 | 초대 링크 코드가 있어야 방을 보고 참가(없으면 404). 최대 10명 | 방 id 추측으로 남의 방에 들어오지 않게. 인원은 명세에 값 없음 |

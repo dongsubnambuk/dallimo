@@ -23,6 +23,7 @@ type ServerEvent =
   | { type: 'MEMBER_STATE'; members: MemberViewDto[] }
   | { type: 'SYNC_STATE'; status: string; members: MemberViewDto[]; result?: ResultDto }
   | { type: 'ROOM_FINISHED'; result: ResultDto }
+  | { type: 'CHEER'; fromUserId: number; fromName: string; toUserId: number | null }
   | { type: 'ERROR'; code: string; message: string }
   | { type: string };
 
@@ -66,6 +67,11 @@ export function createHttpLiveChannel(room: LiveRoom): LiveChannel {
       if (s.result) finish(s.result);
     } else if (e.type === 'ROOM_FINISHED') {
       finish((e as Extract<ServerEvent, { type: 'ROOM_FINISHED' }>).result);
+    } else if (e.type === 'CHEER') {
+      const c = e as Extract<ServerEvent, { type: 'CHEER' }>;
+      // 내가 보낸 응원은 알리지 않는다
+      if (String(c.fromUserId) === myUserId) return;
+      listener?.({ type: 'CHEER', fromUserId: String(c.fromUserId), fromName: c.fromName, toMe: c.toUserId == null || String(c.toUserId) === myUserId });
     } else if (e.type === 'ERROR') {
       const err = e as Extract<ServerEvent, { type: 'ERROR' }>;
       console.warn('[live] server', err.code, err.message);
@@ -125,6 +131,9 @@ export function createHttpLiveChannel(room: LiveRoom): LiveChannel {
     sendState(state) {
       last = state;
       sendState(state);
+    },
+    sendCheer(toUserId) {
+      return publish('cheer', toUserId != null && /^\d+$/.test(toUserId) ? { toUserId: Number(toUserId) } : {});
     },
     close() {
       listener = null;

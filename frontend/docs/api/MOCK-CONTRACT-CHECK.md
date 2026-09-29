@@ -111,7 +111,7 @@
 | POST /live-runs/{roomId}/cancel | `cancel(roomId)` | 서버 구현 | 방장만, 시작 전만 |
 | GET /live-runs/{roomId}/result | `getResult(roomId)` | 서버 구현 | 참가자만, 끝난 방만(아니면 404). `myRunId`는 서버 Run id → 앱 `srv-{id}`. 결과 화면 · 결과 공유가 방 id로 서버 · mock 저장소를 고른다(`liveRoomRepositoryFor`) |
 | GET /live-runs | `listUpcoming()` | 명세 없음 · 서버 구현 | 내가 참가한 예정 · 진행 중 방(SCR-T01). 45장 표에 경로가 없어 정했다 |
-| (예정 방 · 최근 결과 목록) | `listUpcoming()`, `listRecent()` | 명세 없음 | Together 홈(SCR-T01) 목록 API가 없다 |
+| (예정 방 · 최근 결과 목록) | `listUpcoming()`, `listRecent()` | 명세 없음 | 서버 `GET /live-runs` · `GET /live-runs/recent`로 구현. 명세 표에 넣어야 한다 |
 | (같은 멤버로 다시) | `rematch(roomId)` | 명세 없음 | 앱에서 create + invite로 대신할 수 있다 |
 
 ## 7. WebSocket (46장)
@@ -181,7 +181,7 @@
 8. ~~코스 등록 요청의 추천 시간~~ → `recommendedTime` · `region`을 받게 했다. 명세 43장 요청 필드에 넣어야 한다
 9. ~~내 주변 순위 API (RNK-005)~~ → GET /courses/{id}/rankings/me로 구현. 명세 표에 넣어야 한다
 10. ~~내 코스 목록 API (MY-005)~~ → GET /users/me/courses?kind=로 구현. 명세 표에 넣어야 한다
-11. Together 방 목록(예정 · 최근), 준비 취소, 재대결 — 예정 목록 · 준비 취소는 서버 구현(명세 표에 넣어야 함). 최근 결과 목록 API는 아직 없다(Together 홈 최근 결과가 서버 모드에서 비어 있다). 재대결은 앱이 같은 조건으로 새 방을 만든다
+11. Together 방 목록(예정 · 최근), 준비 취소, 재대결 — 예정 목록 · 준비 취소 · 최근 결과(`GET /live-runs/recent`)는 서버 구현(명세 표에 넣어야 함). 재대결은 앱이 같은 조건으로 새 방을 만든다
 12. 공유 링크 요청 · 응답 필드 — 서버 구현(`type, referenceId` → `code, url`, 해석 `type, referenceId, courseId, preview`). 명세에 넣어야 한다
 13. ~~일시정지 · 재개 시각~~ → finish에 `activeSeconds`를 더했다(사용자 결정). 명세 42.4장 요청 필드에 넣어야 한다
 14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 서버 · 앱 모두 200 + `status: FINISHING`으로 구현했다
@@ -192,5 +192,7 @@
 19. 친구 API 모양: 44장은 경로만 있다. 요청 응답(요청 뒤 관계), 요청 목록 `{ received, sent }`, 검색 항목의 `relation · requestId`, 프로필 경로 `GET /users/{userId}`를 서버 · 앱이 정했다. 명세에 넣어야 한다
 20. 도전 API 모양: 44장은 경로만 있다. 응답 필드(`role, targetSec, resultSec, targetBest`), 목록 `GET /challenges`, 러닝 상세의 `challenge`를 서버 · 앱이 정했다. 명세에 넣어야 한다
 21. 알림 API 추가분: 모두 읽음 · 안 읽은 수 · Push 토큰 · 알림 설정 경로와 모양, 알림 종류(14.2장에서 LIVE_START · CHALLENGE를 빼고 LIVE_CANCELED · CHALLENGE_DEFENDED를 더함). 명세에 넣어야 한다
+22. 함께 달리기 응원: SCREEN-SPECS에 "응원"만 있고 메시지가 없다. STOMP `/app/live-runs/{id}/cheer { toUserId? }` → 방 topic `CHEER { fromUserId, fromName, toUserId }`로 정했다. 46장 메시지 표에 넣을지 정한다
+23. 도전 공유 미리보기 필드(`challengeStatus · challengerName · challengedName · challengeTargetSec`): 14.3장은 대상만 있다. 명세에 넣어야 한다
 24. 코스 신고 테이블 · 사유(`DANGER · PRIVATE_PROPERTY · WRONG_INFO · OTHER`): ERD에 없다. 신고가 쌓였을 때 숨길지는 20.2장 코스 공개 정책과 함께 정한다
 25. Activity 모양: ERD activity에 `value_int`(PB 이전 기록 · 주간 순위)를 더했고, 종류는 PB · COURSE_CREATED · CHALLENGE_WON · WEEKLY_TOP(이번 주 3위 안). 공개 범위(visibility)는 FRIENDS만 쓴다. 명세에 넣어야 한다

@@ -38,6 +38,8 @@ export function createMockLiveChannel({ room, scenario, now, speed }: Options): 
   // 끊겼던 동안 마지막으로 받은 상태 (stale)
   let lastMembers: LiveMemberState[] = [];
   const finished = new Map<string, number>();
+  // 함께 달리기: 친구가 한 번 응원한다 (QA)
+  let cheered = false;
 
   const target = room.targetDistanceM;
   const limit = room.targetSeconds;
@@ -97,6 +99,10 @@ export function createMockLiveChannel({ room, scenario, now, speed }: Options): 
     if (!connected) return;
     lastMembers = members;
     listener?.({ type: 'MEMBER_STATE', members });
+    if (room.mode === 'TOGETHER' && !cheered && others.length && elapsed > expected * 0.15) {
+      cheered = true;
+      listener?.({ type: 'CHEER', fromUserId: others[0].userId, fromName: others[0].name, toMe: true });
+    }
 
     if (members.every((m) => m.status === 'FINISHED' || m.status === 'DNF')) {
       done = true;
@@ -116,6 +122,9 @@ export function createMockLiveChannel({ room, scenario, now, speed }: Options): 
       me = state;
       // 내가 끝나면 바로 반영해 방 종료를 빨리 판단한다
       if (state.status !== 'RUNNING') tick();
+    },
+    sendCheer() {
+      return connected && !done;
     },
     close() {
       if (timer) clearInterval(timer);

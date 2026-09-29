@@ -43,6 +43,7 @@ export function ActiveRunScreen({ engine, summary, course, target }: Props) {
   const [finished, setFinished] = useState<{ result: RunFinishResult; id: string } | null>(null);
   const completed = useRunSnapshot(engine, (s) => s.course?.completedActiveMs != null);
   useCourseAlerts(engine, target);
+  useAutoPauseAlerts(engine);
   useSplitAnnouncer(engine);
 
   // 러닝 중 Android 뒤로 가기로 화면을 벗어나지 않게 한다 (종료는 일시정지 → 종료 확인으로만)
@@ -139,6 +140,7 @@ function TopBar({ engine, view, onToggleView }: { engine: RunningEngine; view: '
   const { colors } = useTheme();
   const gps = useRunSnapshot(engine, (s) => s.gps);
   const status = useRunSnapshot(engine, (s) => s.status);
+  const autoPaused = useRunSnapshot(engine, (s) => s.autoPaused);
   const prevGps = useRef(gps);
 
   useEffect(() => {
@@ -148,7 +150,7 @@ function TopBar({ engine, view, onToggleView }: { engine: RunningEngine; view: '
 
   const tag =
     status === 'PAUSED'
-      ? { text: '일시정지', color: colors.status.warning }
+      ? { text: autoPaused ? '자동 일시정지' : '일시정지', color: colors.status.warning }
       : status === 'RECOVERY'
         ? { text: '이어서 기록 준비', color: colors.text.secondary }
         : { text: '기록 중', color: colors.action.primary };
@@ -184,9 +186,11 @@ function RunNotice({ engine }: { engine: RunningEngine }) {
   const network = useRunSnapshot(engine, (s) => s.network);
   const offRouteM = useRunSnapshot(engine, (s) => s.course?.offRouteM ?? null);
   const completedMs = useRunSnapshot(engine, (s) => s.course?.completedActiveMs ?? null);
+  const autoPaused = useRunSnapshot(engine, (s) => s.autoPaused);
 
   let notice: { icon: IconName; text: string; tone: 'warning' | 'neutral' | 'success' } | null = null;
   if (completedMs != null) notice = { icon: 'finished', text: `코스 완주 · ${formatDuration(Math.round(completedMs / 1000))}. 이 기록으로 저장돼요`, tone: 'success' };
+  else if (autoPaused) notice = { icon: 'pause', text: '멈춰 있어서 기록을 잠시 멈췄어요. 다시 달리면 이어서 기록해요', tone: 'neutral' };
   else if (status === 'RECOVERY') notice = { icon: 'gpsAcquiring', text: '앱이 꺼지기 전 기록을 불러왔어요. GPS를 다시 찾는 중이에요', tone: 'neutral' };
   else if (offRouteM != null) notice = { icon: 'warning', text: `코스에서 ${offRouteM}m 벗어났어요. 코스로 돌아가 주세요`, tone: 'warning' };
   else if (gps === 'poor') notice = { icon: 'gpsPoor', text: 'GPS 신호가 약해 거리를 잠시 세지 않아요', tone: 'warning' };
@@ -259,6 +263,23 @@ function useCourseAlerts(engine: RunningEngine, target: RunTarget | null) {
     }
     prevDone.current = completedMs;
   }, [completedMs, target]);
+}
+
+// RUN-009: 자동으로 멈추고 이어 갈 때 햅틱 + 음성. 화면을 보지 않아도 기록 상태를 알 수 있게 한다 (62.2장)
+function useAutoPauseAlerts(engine: RunningEngine) {
+  const autoPaused = useRunSnapshot(engine, (s) => s.autoPaused);
+  const status = useRunSnapshot(engine, (s) => s.status);
+  const prev = useRef(autoPaused);
+  useEffect(() => {
+    if (autoPaused && !prev.current) {
+      haptics.runControl();
+      speak('자동 일시정지');
+    } else if (!autoPaused && prev.current && status === 'RUNNING') {
+      haptics.runControl();
+      speak('다시 기록해요');
+    }
+    prev.current = autoPaused;
+  }, [autoPaused, status]);
 }
 
 // ---- 아래: 조작 ----

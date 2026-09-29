@@ -21,6 +21,8 @@ import { getShareRepository } from '@/entities/share/api';
 import type { LiveMember, LiveRoom } from '@/entities/live/types';
 import { haptics } from '@/shared/haptics';
 import type { GpsQuality } from '@/shared/location/locationSource';
+import { USES_DEVICE_LOCATION } from '@/shared/location/deviceLocation';
+import { createDeviceLocationSource } from '@/shared/location/expoLocation';
 import { createMockLocationSource } from '@/shared/location/mockLocationSource';
 import { useNow } from '@/shared/useNow';
 
@@ -77,7 +79,8 @@ function WaitingRoom({ roomId, scenario, invite }: { roomId: string; scenario: L
   });
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const gps = useMyGps();
+  // 서버 방은 실제 GPS로 준비 상태를 본다. 개발용 mock 방(r-*)은 mock 위치
+  const gps = useMyGps(USES_DEVICE_LOCATION && /^\d+$/.test(roomId));
 
   const goHome = () => router.dismissTo('/together');
 
@@ -336,7 +339,7 @@ function MyAction({
       label="준비 완료"
       loading={busy}
       availability={gpsOk ? 'ready' : 'disabledGPS'}
-      reason={gps === 'acquiring' ? 'GPS를 찾으면 준비할 수 있어요' : undefined}
+      reason={gps === 'acquiring' ? 'GPS를 찾으면 준비할 수 있어요' : gps === 'unavailable' ? '위치 권한과 위치 서비스를 켜면 준비할 수 있어요' : undefined}
       onPress={() => onReady(true)}
     />
   );
@@ -388,18 +391,29 @@ function LeaveSheet({
   );
 }
 
-// 내 GPS 준비 상태. 실제로는 Run Ready와 같은 LocationSource를 쓴다.
-function useMyGps(): GpsQuality {
-  const source = useMemo(() => createMockLocationSource('granted'), []);
+// 내 GPS 준비 상태. Run Ready와 같은 LocationSource를 쓴다 (LOC-001 · LOC-003).
+// 권한이 없으면 unavailable. 화면을 떠나면 위치 수신을 끈다.
+function useMyGps(device: boolean): GpsQuality {
+  const source = useMemo(() => (device ? createDeviceLocationSource() : createMockLocationSource('granted')), [device]);
   const [q, setQ] = useState<GpsQuality>('acquiring');
   useEffect(() => {
     let alive = true;
-    const read = () => source.getCurrentQuality().then((v) => alive && setQ(v));
-    read();
-    const t = setInterval(read, POLL_MS);
+    let t: ReturnType<typeof setInterval> | null = null;
+    (async () => {
+      const permission = await source.requestPermissions().catch(() => 'denied' as const);
+      if (!alive) return;
+      if (permission !== 'granted') {
+        setQ('unavailable');
+        return;
+      }
+      const read = () => source.getCurrentQuality().then((v) => alive && setQ(v), () => alive && setQ('unavailable'));
+      read();
+      t = setInterval(read, POLL_MS);
+    })();
     return () => {
       alive = false;
-      clearInterval(t);
+      if (t) clearInterval(t);
+      void source.stop();
     };
   }, [source]);
   return q;

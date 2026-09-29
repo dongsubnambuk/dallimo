@@ -78,7 +78,8 @@ abstract class ShareAndRoomApiContractTest {
         long mine = finishedRun(me, 300);
         assertThat(post(other, "/api/v1/shares", "{\"type\":\"RUN\",\"referenceId\":%d}".formatted(mine))).hasStatus(403);
         assertThat(post(null, "/api/v1/shares", "{\"type\":\"RUN\",\"referenceId\":%d}".formatted(mine))).hasStatus(401);
-        assertThat(post(me, "/api/v1/shares", "{\"type\":\"CHALLENGE\",\"referenceId\":1}")).hasStatus(400);
+        // 도전 공유는 보낸 사람 · 받은 사람만 (없거나 남의 도전은 404, ChallengeApiContractTest에서 판정까지 확인)
+        assertThat(post(me, "/api/v1/shares", "{\"type\":\"CHALLENGE\",\"referenceId\":99999999}")).hasStatus(404);
         assertThat(post(me, "/api/v1/shares", "{\"type\":\"RUN\",\"referenceId\":99999999}")).hasStatus(404);
         assertThat(post(me, "/api/v1/shares", "{\"type\":\"WHAT\",\"referenceId\":1}")).hasStatus(400);
         // 코스 공유
