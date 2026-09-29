@@ -12,6 +12,8 @@ export type RunPlan = {
   targetSec?: number;
   // 목표 대상 이름. 예: "내 PB", "지수"
   targetLabel?: string;
+  // CHALLENGE: 도전할 친구의 공식 기록 id. 있으면 출발할 때 서버 도전을 만든다 (CHL-001)
+  targetRecordId?: string;
 };
 
 // 6.3장 RunStatus, 9.3장 Run 상태 머신: IDLE → PREPARING → RUNNING ↔ PAUSED → FINISHING → FINISHED, ↘ RECOVERY

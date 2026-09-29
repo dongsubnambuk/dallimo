@@ -34,7 +34,8 @@ const MODES: ModeDef[] = [
 // PB 어택 목표: PB 그대로 / 10초 / 30초 빠르게
 const PB_OFFSETS = [0, 10, 30];
 
-type RivalTarget = { id: string; icon: IconName; label: string; name: string; sec: number };
+// recordId: 친구 공식 기록 (서버 도전을 만든다)
+type RivalTarget = { id: string; icon: IconName; label: string; name: string; sec: number; recordId?: string };
 
 export function PlayModeSheet({ id, scenario }: { id: string; scenario: CourseScenario }) {
   const { colors } = useTheme();
@@ -93,7 +94,7 @@ function SheetBody({ course, onClose }: { course: CourseDetail; onClose: () => v
       mode === 'PB' && me
         ? { mode: 'PB', courseId: course.id, targetSec: me.bestSec - pbOffset, targetLabel: pbOffset ? `내 PB −${pbOffset}초` : '내 PB' }
         : mode === 'CHALLENGE' && rival
-          ? { mode: 'CHALLENGE', courseId: course.id, targetSec: rival.sec, targetLabel: rival.name }
+          ? { mode: 'CHALLENGE', courseId: course.id, targetSec: rival.sec, targetLabel: rival.name, ...(rival.recordId ? { targetRecordId: rival.recordId } : {}) }
           : { mode: 'COURSE', courseId: course.id };
     // Run Ready는 72장 5번 단계. 선택 결과를 달리기 탭으로 넘긴다.
     router.dismissTo({
@@ -103,6 +104,7 @@ function SheetBody({ course, onClose }: { course: CourseDetail; onClose: () => v
         courseId: plan.courseId,
         courseName: course.name,
         ...(plan.targetSec != null ? { targetSec: String(plan.targetSec), targetLabel: plan.targetLabel } : {}),
+        ...(plan.targetRecordId ? { targetRecordId: plan.targetRecordId } : {}),
       },
     });
   };
@@ -318,7 +320,8 @@ function rivalTargets(course: CourseDetail): RivalTarget[] {
   const out: RivalTarget[] = [];
   const leader = comp.weeklyTop[0];
   if (comp.leaderSec != null) out.push({ id: 'leader', icon: 'trophy', label: '코스 1위', name: leader?.name ?? '1위', sec: comp.leaderSec });
-  if (comp.friendBest) out.push({ id: 'friend', icon: 'tabTogether', label: '친구 최고', name: comp.friendBest.name, sec: comp.friendBest.timeSec });
+  // 친구 기록은 서버 도전으로 달린다 (CHL-001, 결과가 친구에게도 보인다). 나머지는 목표로만
+  if (comp.friendBest) out.push({ id: 'friend', icon: 'tabTogether', label: '친구 최고 · 도전', name: comp.friendBest.name, sec: comp.friendBest.timeSec, recordId: comp.friendBest.recordId });
   for (const e of comp.weeklyTop.slice(1)) {
     if (out.length >= 3) break;
     if (!out.some((o) => o.name === e.name)) out.push({ id: `w${e.rank}`, icon: 'rankUp', label: `이번 주 ${e.rank}위`, name: e.name, sec: e.timeSec });

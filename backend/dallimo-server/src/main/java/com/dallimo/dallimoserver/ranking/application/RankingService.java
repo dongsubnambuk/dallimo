@@ -56,8 +56,8 @@ public class RankingService {
     public record WeeklyPreview(List<Entry> top, Entry me, FriendBest friendBest) {
     }
 
-    /** 이 코스 친구 최고 기록 (나를 뺀 친구 중, 전체 기간). RST-004 · CRS-104 */
-    public record FriendBest(long userId, String name, int timeSec) {
+    /** 이 코스 친구 최고 기록 (나를 뺀 친구 중, 전체 기간). RST-004 · CRS-104. recordId: 도전 목표로 쓴다 (CHL-001) */
+    public record FriendBest(long userId, String name, int timeSec, long recordId) {
     }
 
     /** RST-003: 이 기록 전후의 주간 순위. 전에 이번 주 기록이 없었으면 before는 null */
@@ -101,7 +101,7 @@ public class RankingService {
     private FriendBest friendBestIn(long courseId, Circle c) {
         if (c.friends().isEmpty()) return null;
         return store.page(courseId, RankingPeriod.ALL.window(clock.instant()), List.copyOf(c.friends()), 0, 1).stream()
-                .findFirst().map(r -> new FriendBest(r.userId(), r.nickname(), r.bestSec())).orElse(null);
+                .findFirst().map(r -> new FriendBest(r.userId(), r.nickname(), r.bestSec(), store.recordId(courseId, r.userId(), r.bestSec()))).orElse(null);
     }
 
     /** 기록이 만들어진 주의 순위: 이 기록을 빼고 계산한 순위 → 넣고 계산한 순위 */

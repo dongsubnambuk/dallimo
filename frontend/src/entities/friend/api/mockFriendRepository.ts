@@ -49,11 +49,11 @@ function initial(): Link[] {
 
 const RECORDS: Record<string, FriendProfile['records']> = {
   'u-minsu': [
-    { courseId: 'c-suseongmot', courseName: '수성못 둘레길', bestSec: 1491, recordedAt: Date.now() - 2 * DAY },
-    { courseId: 'c-deuran', courseName: '들안로 왕복', bestSec: 1122, recordedAt: Date.now() - 9 * DAY },
+    { recordId: 'rec-minsu-suseongmot', courseId: 'c-suseongmot', courseName: '수성못 둘레길', bestSec: 1491, recordedAt: Date.now() - 2 * DAY },
+    { recordId: 'rec-minsu-deuran', courseId: 'c-deuran', courseName: '들안로 왕복', bestSec: 1122, recordedAt: Date.now() - 9 * DAY },
   ],
-  'u-haneul': [{ courseId: 'c-suseongmot', courseName: '수성못 둘레길', bestSec: 1560, recordedAt: Date.now() - 4 * DAY }],
-  'u-jisu': [{ courseId: 'c-beomeo', courseName: '범어공원 언덕 루프', bestSec: 1305, recordedAt: Date.now() - 6 * DAY }],
+  'u-haneul': [{ recordId: 'rec-haneul-suseongmot', courseId: 'c-suseongmot', courseName: '수성못 둘레길', bestSec: 1560, recordedAt: Date.now() - 4 * DAY }],
+  'u-jisu': [{ recordId: 'rec-jisu-beomeo', courseId: 'c-beomeo', courseName: '범어공원 언덕 루프', bestSec: 1305, recordedAt: Date.now() - 6 * DAY }],
 };
 
 const wait = () => new Promise((r) => setTimeout(r, 350));

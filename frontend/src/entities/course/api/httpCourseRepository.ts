@@ -50,7 +50,7 @@ export type CourseDetailDto = {
     myWeeklyRank: number | null;
     weeklyTop: RankingEntryDto[];
     myEntry: RankingEntryDto | null;
-    friendBest: { userId: number; name: string; timeSec: number } | null;
+    friendBest: { userId: number; name: string; timeSec: number; recordId: number } | null;
   };
   bookmarked: boolean;
 };
@@ -98,7 +98,9 @@ export function toCourseDetail(c: CourseDetailDto): CourseDetail {
     competition: {
       leaderSec: c.competition.leaderSec,
       myWeeklyRank: c.competition.myWeeklyRank,
-      friendBest: c.competition.friendBest ? { name: c.competition.friendBest.name, timeSec: c.competition.friendBest.timeSec } : null,
+      friendBest: c.competition.friendBest
+        ? { name: c.competition.friendBest.name, timeSec: c.competition.friendBest.timeSec, recordId: String(c.competition.friendBest.recordId) }
+        : null,
       weeklyTop: c.competition.weeklyTop.map(toRankingEntry),
       myEntry: c.competition.myEntry ? toRankingEntry(c.competition.myEntry) : null,
     },

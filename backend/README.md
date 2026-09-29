@@ -133,7 +133,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **기간** (사용자 결정): 한국 시간 기준 주간은 월요일 0시, 월간은 1일 0시부터. 기록이 만들어진 시각(`created_at`)으로 거른다(`idx_course_record_period`).
 - **항목**: `rank, userId, name, timeSec, paceSecPerKm(코스 거리 기준), relation(self · friend · normal), isPB(내 줄에서 이 기간 기록이 내 전체 최고인가)`.
 - **친구 랭킹** (RNK-004): 나와 친구의 기록만으로 같은 방식으로 센다. 친구가 없으면 나 혼자, 비회원이면 빈 목록. 어느 랭킹이든 친구 줄은 `relation: friend`.
-- **다른 곳에 붙는 값**: 코스 상세 `competition { leaderSec(전체 기간 1위), myWeeklyRank, weeklyTop(이번 주 1~3위), myEntry, friendBest }`, 러닝 상세 `verification { weeklyRankBefore, weeklyRankAfter, friendBest }`(기록한 주에서 이 기록을 뺀 순위 → 넣은 순위, RST-003). `friendBest { userId, name, timeSec }`는 친구 중 이 코스 최고 기록(전체 기간, CRS-104 · RST-004), 없으면 null.
+- **다른 곳에 붙는 값**: 코스 상세 `competition { leaderSec(전체 기간 1위), myWeeklyRank, weeklyTop(이번 주 1~3위), myEntry, friendBest }`, 러닝 상세 `verification { weeklyRankBefore, weeklyRankAfter, friendBest }`(기록한 주에서 이 기록을 뺀 순위 → 넣은 순위, RST-003). `friendBest { userId, name, timeSec, recordId }`는 친구 중 이 코스 최고 기록(전체 기간, CRS-104 · RST-004), 없으면 null. `recordId`는 도전 목표.
 - **cursor**: 순위 위치의 base64url (23.1장 LIMIT · OFFSET). 기록이 많아져 느려지면 사용자별 최고 기록 projection이나 Redis를 검토한다(23.1장, 측정 뒤).
 - **테스트**: `RankingApiContractTest`를 MySQL · MariaDB에서(RNK-IT-001, 한국 시간 주 · 월 경계, cursor, 내 주변, 친구 랭킹 · 친구 최고 기록, 숨김 코스, 코스 상세 미리보기, 실제 검증을 거친 주간 순위 변화).
 
@@ -190,7 +190,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `POST /api/v1/friends/requests/{id}/accept` · `reject` | 받은 사람만(아니면 404). 다시 해도 결과가 같고, 이미 다른 쪽으로 처리했으면 409 |
 | `DELETE /api/v1/friends/{userId}` | 친구 끊기. 요청 중이면 보낸 요청 취소 · 받은 요청 거절. 관계가 없어도 204 |
 | `GET /api/v1/friends` | 친구 목록(닉네임 순) `{ userId, nickname, profileImageUrl, since }` |
-| `GET /api/v1/users/{userId}` | 프로필 `{ user(검색 항목과 같은 모양), lastRunAt, records[{ courseId, courseName, bestSec, recordedAt }] }`. 기록 · 마지막 러닝은 친구(와 나)에게만 |
+| `GET /api/v1/users/{userId}` | 프로필 `{ user(검색 항목과 같은 모양), lastRunAt, records[{ recordId, courseId, courseName, bestSec, recordedAt }] }`. 기록 · 마지막 러닝은 친구(와 나)에게만. `recordId`는 도전 목표 |
 
 - **저장** (44.1장): `tbl_friendship` 한 줄이 두 사람 사이 관계(`user_low_id, user_high_id` 쌍, `requester_id`가 방향). 거절 · 취소 · 끊은 관계는 새 요청으로 다시 쓴다.
 - **동시 요청** (FRD-IT-001): A→B · B→A가 같은 때 와도 한 줄이다. 먼저 넣은 쪽이 요청, 늦은 쪽은 중복 키를 받고 그 줄을 잠가 승인한다. 없는 줄을 `FOR UPDATE`로 읽으면 gap lock 때문에 서로 막혀(deadlock) 먼저 잠그지 않고 넣는다.
@@ -198,6 +198,23 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **탈퇴**: 탈퇴하면 그 사람의 친구 · 요청을 모두 끝낸다(`CANCELED`). 목록 · 검색 · 프로필에서 빠진다.
 - **프로필** (사용자 결정): 닉네임, 인증된 코스 기록(코스마다 최고 기록, 최근 순 5개, 볼 수 있는 코스만), 마지막으로 끝낸 러닝 시각. 자유 달리기 경로 · 위치는 없다.
 - **테스트**: `FriendApiContractTest`를 MySQL · MariaDB에서(요청 → 승인 → 목록 → 삭제 → 다시 요청, 거절 · 잘못된 요청, 서로 요청하면 친구, 동시 요청 5번 한 줄, 닉네임 · 친구 코드 검색 · escape · 탈퇴 제외, 프로필 공개 범위 · 비공개 코스, 친구 초대 → 코드 없이 참가 → 참가하지 않은 초대는 출발 때 빠짐, 초대 거절).
+
+## 도전 (명세 44장, CHL-001~004, WBS 9)
+
+| API | 설명 |
+| --- | --- |
+| `POST /api/v1/challenges` | `{ targetCourseRecordId }` → 201. 친구의 인증 기록만(아니면 403), 내 기록 400, 없는 기록 404, 볼 수 없는 코스 403 |
+| `GET /api/v1/challenges/{id}` | 보낸 사람 · 받은 사람만(아니면 404) |
+| `POST /api/v1/challenges/{id}/cancel` | 보낸 사람만, 아직 달리지 않은(OPEN) 도전만. 달린 뒤면 409 |
+| `GET /api/v1/challenges?userId=` | 보낸 · 받은 도전 최근 30개(취소 제외). `userId`가 있으면 그 친구와 주고받은 것만 |
+| `POST /api/v1/runs` `challengeId` | 내 OPEN 도전이고 같은 코스면 Run을 잇고 RUNNING |
+| `GET /api/v1/runs/{id}` `challenge` | 이 Run으로 한 도전 (결과 화면 판정) |
+
+- **응답**: `{ id, status: OPEN|RUNNING|SUCCESS|FAILED|CANCELED, role: SENT|RECEIVED, challenger, target{ userId, nickname }, course{ id, name, distanceM }, targetRecordId, targetSec, resultSec, runId(보낸 사람에게만), createdAt, finishedAt, targetBest{ recordId, timeSec } }`.
+- **판정** (사용자 결정, CHL-003): 이어진 Run의 코스 검증이 끝날 때 같은 트랜잭션에서 판정한다. 인증되고 공식 기록이 목표와 같거나 빠르면 SUCCESS, 느리거나 미인증 · 거부면 FAILED.
+- **목표 기록** (사용자 결정): 도전을 만든 때의 친구 기록으로 고정(`target_record_id`). 친구가 기록을 줄이면 `targetBest`가 새 기록을 가리키고, 재도전(CHL-004)은 그 기록으로 새 도전을 만든다.
+- **상대 알림**: Push는 WBS 10. 그 전에는 받은 사람이 도전 목록(`role: RECEIVED`)으로 결과를 본다.
+- **테스트**: `ChallengeApiContractTest`를 MySQL · MariaDB에서(친구 기록만 · 내 기록 · 없는 기록 · 숨긴 코스, 받은 사람 · 남 보기, 실제 코스 검증으로 성공 · 느려서 실패 · 이탈 실패, 취소 규칙, 다른 코스 · 취소된 도전에는 Run이 이어지지 않음, 친구가 기록을 줄이면 재도전 목표, 친구를 끊으면 새 도전 불가).
 
 ## 공통 규칙
 
@@ -222,7 +239,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 무차별 대입 제한 | 아직 없음. 로그인 시도 제한(RATE_LIMITED)은 운영 전에 붙인다 | |
 | Run `activeSeconds` | finish 요청에 앱이 잰 달린 시간을 더했다. 서버는 시작~종료 시간을 넘지 않는지만 본다 | 사용자 결정. pause · resume 요청에 시각이 없어 오프라인 일시정지를 서버가 알 수 없음 |
 | Run 끊김 기준 | point 사이가 15초 넘게 비면 일시정지로 보고 거리를 잇지 않는다 | 앱 엔진과 같은 값. 명세에 값 없음 |
-| Run `courseId` | 있으면 `tbl_course`에 있어야 한다(없으면 404 `COURSE_NOT_FOUND`). `challengeId`는 받기만 한다. `liveRoomId`는 내가 참가한 방이면 방 결과에 잇는다 | 도전 서버 전 |
+| Run `courseId` | 있으면 `tbl_course`에 있어야 한다(없으면 404 `COURSE_NOT_FOUND`). `challengeId`는 내 OPEN 도전이고 같은 코스일 때만 잇고, 아니면 Run만 만든다. `liveRoomId`는 내가 참가한 방이면 방 결과에 잇는다 | 도전 · 방 연결 실패로 기록을 잃지 않게 |
 | Batch 크기 | 한 번에 point 500개까지(넘으면 400) | 명세에 값 없음. 앱은 60개씩 |
 | 끝난 뒤 Batch | 이미 받은 Batch를 다시 보내면 성공, 새 Batch는 409 `RUN_INVALID_STATE` | 응답을 못 받은 재전송이 끝난 뒤 와도 앱이 실패로 보지 않게 |
 | 히스토리 cursor | `"startedAt 밀리초:id"`의 base64url | 6.4장 정렬 기준(started_at), 같은 시각은 id로 |
@@ -249,6 +266,12 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 친구 요청 오류 | 나에게 400, 없는 사용자 404, 남의 요청 승인 404, 이미 반대로 처리한 요청 409 | 27.1장에 친구 코드가 없어 기존 코드를 쓴다 |
 | 친구 초대 | 참가자가 자기 친구만, 출발 전, 인원 10명 안. 참가하지 않은 초대는 출발 때 빠진다 | 45장에 규칙이 없다. 결과에 달리지 않은 사람이 DNF로 남지 않게 |
 | 친구 최고 기록 | 코스 상세 · 러닝 상세에 친구 중 이 코스 최고 기록(전체 기간) | CRS-104 · RST-004. 앱에 자리가 있고 서버 값이 없었다 |
+| 도전 테이블 | ERD `challenge` 컬럼대로 V8에 추가 + `finished_at`(판정 시각), `uk_challenge_run(challenger_run_id)` | 22.4장 최종 DDL에 빠져 있음. 한 Run은 도전 하나 |
+| 도전 대상 | 친구의 인증 기록만 | 사용자 결정. 명세 "친구 기록 도전", 상대 알림 "친구가 기록 도전을 보냈습니다" |
+| 도전 판정 | 인증 + 공식 기록 ≤ 목표면 성공, 그 외 실패. 코스 검증과 같은 트랜잭션 | 사용자 결정. 검증된 기록만 쓴다(980행) |
+| 도전 목록 API | `GET /challenges?userId=` 최근 30개, 취소 제외 | 44장 표에 목록 경로가 없다. 달리기 탭 최근 도전(65장) · 친구 프로필 |
+| 재도전 목표 | 응답 `targetBest`(상대의 지금 최고 기록) | CHL-004. 도전의 목표는 고정이라 새 기록은 새 도전으로 |
+| 달린 뒤 앱에서 버린 도전 | RUNNING으로 남는다 | 앱이 버린 러닝은 서버에 알리지 않는다(Run 취소 API 없음). 앱 목록은 판정 중으로 보여준다 |
 | 내 주변 순위 API | `GET /courses/{id}/rankings/me` | RNK-005인데 43장 표에 경로 없음 |
 | 랭킹 동점 | 같은 기록이면 user_id 순 | 23.1장 쿼리 그대로 |
 | 공유 테이블 | `tbl_share_link`를 ERD 그대로 V6에 추가 + `uk_share_target(creator_id, type, reference_id)` | 22.4장 최종 DDL에 빠져 있음. 같은 대상 같은 링크 |

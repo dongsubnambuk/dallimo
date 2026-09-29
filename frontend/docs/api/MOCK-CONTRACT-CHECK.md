@@ -60,7 +60,7 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| POST /runs `clientRunUuid, mode, courseId, challengeId, liveRoomId, startedAt` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | 서버 id가 없으면 먼저 만든다(`clientRunUuid` 멱등, 새로 만들면 201 · 다시 보내면 200). 함께 달리기 러닝은 기기 계획(plan JSON)의 `liveRoomId`를 보낸다. 서버 id는 숫자라 `httpRunApi`가 문자열로 바꾼다. 숫자가 아닌 mock 코스 id(`c-suseongmot` 등)는 `courseId: null`로 올린다(서버는 없는 코스면 404 COURSE_NOT_FOUND). 서버 주소가 없으면 `mockRunApi` |
+| POST /runs `clientRunUuid, mode, courseId, challengeId, liveRoomId, startedAt` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | 서버 id가 없으면 먼저 만든다(`clientRunUuid` 멱등, 새로 만들면 201 · 다시 보내면 200). 함께 달리기 러닝은 기기 계획(plan JSON)의 `liveRoomId`를, 도전 러닝은 `challengeId`를 보낸다. 서버 id는 숫자라 `httpRunApi`가 문자열로 바꾼다. 숫자가 아닌 mock 코스 id(`c-suseongmot` 등)는 `courseId: null`로 올린다(서버는 없는 코스면 404 COURSE_NOT_FOUND). 서버 주소가 없으면 `mockRunApi` |
 | POST /runs/{id}/points `batchUuid, fromSeq, toSeq, points[]` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | `Idempotency-Key` 헤더에 batchUuid를 함께 보낸다(7.3장). SQLite에 Batch UUID를 먼저 기록한 뒤 보낸다(50.2장). 연속 seq 60개씩, 실패하면 같은 batchUuid로 backoff 재전송. 422 · 409 IDEMPOTENCY_CONFLICT · 400 · 403은 FAILED. `toPointDto`로 이름 · 단위 변환, `qualityFlag`는 보내지 않는다 |
 | POST /runs/{id}/pause · resume | 엔진 · SQLite 구간에만 | 서버 구현 · 앱은 부르지 않음 | 요청에 시각이 없어 오프라인에서 한 일시정지를 나중에 올릴 수 없다. 대신 finish에 `activeSeconds`를 보낸다(12항 13번) |
 | POST /runs/{id}/finish `endedAt, lastSeq, activeSeconds` | 엔진 `finish()` → `syncRunNow` | 서버 구현 · 필드 추가 | `activeSeconds`(앱이 잰 달린 시간, 일시정지 제외)는 명세에 없는 필드다(사용자 결정). 서버는 거리만 point로 다시 계산하고 달린 시간은 이 값을 받되 시작~종료 시간을 넘지 않게 자른다. 남은 Batch를 보낸 뒤 요청. 응답 `status`가 FINISHING이면 빠진 Batch를 보내고 다시 요청. 오프라인이거나 20초 안에 못 끝내면 휴대폰에 저장한 결과로 보여주고 연결되면 이어서 올린다 |
@@ -92,7 +92,11 @@
 | GET /friends/requests | `FriendRepository.requests()` | 서버 구현 | `{ received[], sent[] }` |
 | POST /friends/requests/{id}/accept · reject | `accept(requestId)`, `reject(requestId)` | 서버 구현 | 받은 사람만. 거절은 보낸 사람에게 알리지 않는다 |
 | DELETE /friends/{userId} | `remove(userId)` | 서버 구현 | 친구 끊기 · 보낸 요청 취소 · 받은 요청 거절 |
-| POST /challenges 등 | 없음 | 미구현 | 라이벌 모드는 목표 기록만 넘긴다(Play Mode) |
+| POST /challenges `targetCourseRecordId` | `ChallengeRepository.create(recordId)` → `httpChallengeRepository` | 서버 구현 | 달리기 준비에서 "시작"을 누를 때 만든다(친구 프로필 코스 기록 "도전", 플레이 모드 라이벌 "친구 최고 · 도전", 결과 "다시 도전"). 서버에 닿지 못하면 목표만 두고 달린다. 코스 1위 · 이번 주 상위 기록은 서버 도전 없이 목표로만 |
+| GET /challenges/{id} | `get(id)` | 서버 구현 | |
+| POST /challenges/{id}/cancel | `cancel(id)` | 서버 구현 · 앱 미사용 | 달리기 전 도전은 목록에서 숨긴다(open) |
+| GET /challenges `userId?` | `list(userId)` | 명세 없음 · 서버 구현 | 달리기 탭 "최근 도전"(65장), 친구 프로필 "주고받은 도전". 응답 `role · targetBest`는 명세에 없다 |
+| GET /runs/{id} `challenge` | `RunResult.challenge` | 서버 구현 · 필드 추가 | 결과 화면 도전 판정(성공 · 실패 · 판정 중). 기록 목록에서 다시 열어도 도전 목표와 비교한다 |
 
 ## 6. Together (45장)
 
@@ -183,3 +187,4 @@
 17. 코스 지역("대구 수성구") · 러닝 환경 · 추천 시간을 저장할 곳: ERD에 없다. 서버 코스 상세에는 비어 있다
 18. 실시간 메시지 필드: 46장은 `elapsedMs · currentPace · memberSeq · runId`, 서버 · 앱은 `elapsedSeconds · currentPaceSecPerKm · seq`, runId는 POST /runs `liveRoomId`로 잇는다. ROOM_SNAPSHOT 대신 SYNC_STATE. 명세에 맞출지 정한다
 19. 친구 API 모양: 44장은 경로만 있다. 요청 응답(요청 뒤 관계), 요청 목록 `{ received, sent }`, 검색 항목의 `relation · requestId`, 프로필 경로 `GET /users/{userId}`를 서버 · 앱이 정했다. 명세에 넣어야 한다
+20. 도전 API 모양: 44장은 경로만 있다. 응답 필드(`role, targetSec, resultSec, targetBest`), 목록 `GET /challenges`, 러닝 상세의 `challenge`를 서버 · 앱이 정했다. 명세에 넣어야 한다

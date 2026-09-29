@@ -40,11 +40,11 @@ export type SyncOutcome = {
 
 export const backoffMs = (retryCount: number) => Math.min(SYNC_POLICY.backoffMaxMs, SYNC_POLICY.backoffBaseMs * 2 ** Math.max(0, retryCount - 1));
 
-// 함께 달리기 러닝은 계획(plan JSON)에 방 id가 있다. 서버가 이 Run을 방 결과에 잇는다 (45.1장)
-export function liveRoomIdOf(plan: string | null): string | null {
+// 계획(plan JSON)에 둔 서버 연결 값. 함께 달리기는 방 id(45.1장), 도전은 도전 id(CHL-001). 서버가 이 Run을 잇는다
+export function planValue(plan: string | null, key: 'liveRoomId' | 'challengeId'): string | null {
   try {
     const p: unknown = plan ? JSON.parse(plan) : null;
-    const id = p && typeof p === 'object' ? (p as { liveRoomId?: unknown }).liveRoomId : null;
+    const id = p && typeof p === 'object' ? (p as Record<string, unknown>)[key] : null;
     return typeof id === 'string' ? id : null;
   } catch {
     return null;
@@ -72,8 +72,8 @@ export async function syncRun(runUuid: string, deps: SyncDeps): Promise<SyncOutc
         clientRunUuid: run.clientRunUuid,
         mode: run.mode,
         courseId: run.courseId,
-        challengeId: null,
-        liveRoomId: liveRoomIdOf(run.plan),
+        challengeId: planValue(run.plan, 'challengeId'),
+        liveRoomId: planValue(run.plan, 'liveRoomId'),
         startedAt: new Date(run.startedAt).toISOString(),
       });
       runId = created.runId;

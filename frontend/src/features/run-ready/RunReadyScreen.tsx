@@ -1,5 +1,6 @@
-import { router, useIsFocused } from 'expo-router';
+import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useCallback, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,6 +9,9 @@ import { GpsStatus } from '@/components/GpsStatus';
 import { PrimaryRunButton, type RunAvailability } from '@/components/PrimaryRunButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { StateNotice } from '@/components/StateNotice';
+import { getChallengeRepository } from '@/entities/challenge/api';
+import { ChallengeItem } from '@/features/challenge/ChallengeItem';
+import { useChallenges } from '@/features/challenge/useChallenges';
 import { DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
 import type { CourseDetail } from '@/entities/course/types';
 import type { RunMode } from '@/entities/run/types';
@@ -52,8 +56,20 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
   const button = buttonState(readiness, course);
   const position = 'position' in readiness ? readiness.position : null;
 
-  const start = () => {
-    router.push({ pathname: '/run/active', params: toRunPlanParams(plan, courseName) });
+  // 친구 기록 도전이면 출발할 때 서버 도전을 만든다 (CHL-001). 서버에 닿지 못하면 목표만 두고 달린다 (라이벌 연습)
+  const [creating, setCreating] = useState(false);
+  const start = async () => {
+    const params = toRunPlanParams(plan, courseName);
+    const recordId = plan.kind === 'course' && plan.plan.mode === 'CHALLENGE' ? plan.plan.targetRecordId : undefined;
+    if (recordId) {
+      setCreating(true);
+      const challenge = await getChallengeRepository()
+        .create(recordId)
+        .catch(() => null);
+      setCreating(false);
+      if (challenge) params.challengeId = challenge.id;
+    }
+    router.push({ pathname: '/run/active', params });
   };
 
   return (
@@ -118,7 +134,10 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
         </View>
 
         {plan.kind === 'free' ? (
-          <FreeGoal />
+          <>
+            <FreeGoal />
+            <RecentChallenges />
+          </>
         ) : course.kind === 'error' ? (
           <View style={[styles.goal, { backgroundColor: colors.bg.surface }]}>
             <StateNotice
@@ -136,8 +155,8 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
 
       <View style={[styles.footer, { borderTopColor: colors.border.subtle }]}>
         <PrimaryRunButton
-          label={readiness.kind === 'checking' ? '준비 확인 중' : '시작'}
-          loading={readiness.kind === 'checking'}
+          label={readiness.kind === 'checking' ? '준비 확인 중' : creating ? '도전 만드는 중' : '시작'}
+          loading={readiness.kind === 'checking' || creating}
           availability={button.availability}
           reason={button.reason}
           onPress={start}
@@ -162,6 +181,30 @@ function ModeBadge({ mode }: { mode: RunMode }) {
 }
 
 // RUN-001 빠른 러닝. 125장: Run 탭에서 시작하면 목적 중심 진입점을 보여준다. TRAINING은 roadmap 후속이라 두지 않는다.
+// 65장 Run › Recent Challenge: 최근 주고받은 도전 3개. 없으면 보이지 않는다
+function RecentChallenges() {
+  const list = useChallenges();
+  // 탭은 화면을 계속 들고 있으므로 돌아올 때마다 다시 읽는다 (방금 끝난 도전 판정)
+  const { refetch } = list;
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
+  const items = list.data?.slice(0, 3) ?? [];
+  if (!items.length) return null;
+  return (
+    <View style={styles.challenges}>
+      <AppText role="sectionTitle" accessibilityRole="header">
+        최근 도전
+      </AppText>
+      {items.map((c) => (
+        <ChallengeItem key={c.id} challenge={c} />
+      ))}
+    </View>
+  );
+}
+
 function FreeGoal() {
   const { colors } = useTheme();
   return (
@@ -293,6 +336,9 @@ function buttonState(r: Readiness, course: CourseLoad): { availability: RunAvail
 }
 
 const styles = StyleSheet.create({
+  challenges: {
+    gap: spacing.sm,
+  },
   root: {
     flex: 1,
   },

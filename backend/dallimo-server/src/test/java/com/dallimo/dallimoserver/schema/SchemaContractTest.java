@@ -23,7 +23,7 @@ abstract class SchemaContractTest {
             "tbl_user", "tbl_refresh_token",
             "tbl_course", "tbl_course_route_point",
             "tbl_run", "tbl_run_point", "tbl_run_sync_batch", "tbl_run_verification", "tbl_course_record",
-            "tbl_course_bookmark", "tbl_course_tag", "tbl_share_link", "tbl_live_run_room", "tbl_live_run_member", "tbl_friendship");
+            "tbl_course_bookmark", "tbl_course_tag", "tbl_share_link", "tbl_live_run_room", "tbl_live_run_member", "tbl_friendship", "tbl_challenge");
 
     @Autowired
     JdbcTemplate jdbc;
@@ -32,7 +32,7 @@ abstract class SchemaContractTest {
     void allMigrationsApplied() {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 AND version IS NOT NULL ORDER BY installed_rank", String.class);
-        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7");
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
         List<String> tables = jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()", String.class);
         assertThat(tables).map(String::toLowerCase).containsAll(TABLES);
