@@ -4,6 +4,7 @@ import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.CursorPage;
 import com.dallimo.dallimoserver.running.domain.Run;
+import com.dallimo.dallimoserver.running.domain.RunFinishedEvent;
 import com.dallimo.dallimoserver.running.domain.RunMetrics;
 import com.dallimo.dallimoserver.running.domain.RunMode;
 import com.dallimo.dallimoserver.running.domain.RunPoint;
@@ -11,9 +12,11 @@ import com.dallimo.dallimoserver.running.domain.RunStatus;
 import com.dallimo.dallimoserver.running.infrastructure.RunJpaRepository;
 import com.dallimo.dallimoserver.running.infrastructure.RunPointJdbcRepository;
 import com.dallimo.dallimoserver.running.infrastructure.RunSyncBatchRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,8 +25,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -40,13 +45,16 @@ public class RunService {
     private final RunSyncBatchRepository batches;
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
-    public RunService(RunJpaRepository runs, RunPointJdbcRepository points, RunSyncBatchRepository batches, JdbcTemplate jdbc, Clock clock) {
+    public RunService(RunJpaRepository runs, RunPointJdbcRepository points, RunSyncBatchRepository batches, JdbcTemplate jdbc, Clock clock,
+                      ApplicationEventPublisher events) {
         this.runs = runs;
         this.points = points;
         this.batches = batches;
         this.jdbc = jdbc;
         this.clock = clock;
+        this.events = events;
     }
 
     public record Created(Run run, boolean created) {
@@ -129,6 +137,8 @@ public class RunService {
         RunMetrics.Result m = RunMetrics.compute(points.findAll(runId));
         int distance = (int) Math.round(m.distanceM());
         run.finish(end, elapsed, distance, RunMetrics.avgPace(m.distanceM(), elapsed), clock.instant());
+        // 코스 러닝이면 커밋 뒤 완주 검증 (26장)
+        if (run.awaitingVerification()) events.publishEvent(new RunFinishedEvent(runId));
         return new Finished(run);
     }
 
@@ -162,6 +172,19 @@ public class RunService {
     public Detail detail(long userId, long runId) {
         Run run = owned(runs.findById(runId).orElseThrow(() -> new ApiException(ErrorCode.RUN_NOT_FOUND)), userId, ErrorCode.RESOURCE_FORBIDDEN);
         return new Detail(run, RunMetrics.compute(points.findAll(runId)));
+    }
+
+    /** 코스 러닝의 코스 이름 (courseId → 이름) */
+    @Transactional(readOnly = true)
+    public Map<Long, String> courseNames(List<Run> list) {
+        List<Long> ids = list.stream().map(Run::getCourseId).filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, String> out = new HashMap<>();
+        if (ids.isEmpty()) return out;
+        new NamedParameterJdbcTemplate(jdbc).query("SELECT id, name FROM tbl_course WHERE id IN (:ids)", Map.of("ids", ids),
+                rs -> {
+                    out.put(rs.getLong("id"), rs.getString("name"));
+                });
+        return out;
     }
 
     private Run lockOwned(long userId, long runId) {

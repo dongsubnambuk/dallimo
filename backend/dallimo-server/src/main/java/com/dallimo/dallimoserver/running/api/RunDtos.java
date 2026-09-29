@@ -80,17 +80,26 @@ public final class RunDtos {
     public record RunStatusResponse(long runId, RunStatus status, Instant at) {
     }
 
-    /** 히스토리 한 줄 (GET /runs) */
-    public record RunSummaryResponse(long runId, String clientRunUuid, RunMode mode, RunStatus status, Long courseId,
+    /** 히스토리 한 줄 (GET /runs). courseName은 코스 러닝일 때 */
+    public record RunSummaryResponse(long runId, String clientRunUuid, RunMode mode, RunStatus status, Long courseId, String courseName,
                                      Instant startedAt, Instant endedAt, int distanceM, int elapsedSeconds, Integer avgPaceSecPerKm,
                                      String verificationStatus) {
-        static RunSummaryResponse from(Run r) {
-            return new RunSummaryResponse(r.getId(), r.getClientRunUuid(), r.getMode(), r.getStatus(), r.getCourseId(), r.getStartedAt(),
+        static RunSummaryResponse from(Run r, String courseName) {
+            return new RunSummaryResponse(r.getId(), r.getClientRunUuid(), r.getMode(), r.getStatus(), r.getCourseId(), courseName, r.getStartedAt(),
                     r.getEndedAt(), r.getDistanceM(), r.getElapsedSeconds(), r.getAvgPaceSecPerKm(), r.getVerificationStatus());
         }
     }
 
-    /** 상세 (GET /runs/{id}): 요약 + 스플릿 + 표시용 경로([위도, 경도]) */
-    public record RunDetailResponse(RunSummaryResponse summary, List<RunMetrics.Split> splits, List<double[]> path) {
+    /**
+     * 코스 완주 검증 결과 (CRUN-005, RST-002). 판정 전(PENDING)이면 status만 있다.
+     * recordSeconds: 공식 기록(VERIFIED일 때), previousBestSec: 이 기록 전 내 최고 기록, personalBest: 이 기록이 PB인가
+     */
+    public record VerificationResponse(String status, String failureReason, Double matchRate, Integer recordSeconds,
+                                       Integer previousBestSec, Boolean personalBest, String policyVersion) {
+    }
+
+    /** 상세 (GET /runs/{id}): 요약 + 스플릿 + 표시용 경로([위도, 경도]) + 검증(코스 러닝일 때) */
+    public record RunDetailResponse(RunSummaryResponse summary, List<RunMetrics.Split> splits, List<double[]> path,
+                                    VerificationResponse verification) {
     }
 }
