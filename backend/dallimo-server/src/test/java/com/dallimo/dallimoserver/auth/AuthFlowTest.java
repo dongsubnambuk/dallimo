@@ -224,6 +224,9 @@ class AuthFlowTest {
                 .hasStatusOk().bodyJson().extractingPath("$.data.available").isEqualTo(false);
         assertThat(mvc.get().uri("/api/v1/users/nickname-availability").param("nickname", nick()))
                 .hasStatusOk().bodyJson().extractingPath("$.data.available").isEqualTo(true);
+        // 빈 값 · 너무 긴 값은 400 (전에는 500)
+        assertThat(mvc.get().uri("/api/v1/users/nickname-availability").param("nickname", " ")).hasStatus(400);
+        assertThat(mvc.get().uri("/api/v1/users/nickname-availability").param("nickname", "가".repeat(41))).hasStatus(400);
 
         Tokens t = signup("dev-a");
         assertThat(patchMe(t.access(), taken)).hasStatus(409)
