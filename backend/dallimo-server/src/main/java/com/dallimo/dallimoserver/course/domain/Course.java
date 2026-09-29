@@ -33,6 +33,14 @@ public class Course {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    // 앱이 출발점으로 알아낸 지역 이름. 예: "대구 수성구" (V10)
+    @Column(length = 50)
+    private String region;
+
+    // CREG-002 추천 시간대. 예: "새벽 · 저녁" (V10)
+    @Column(name = "recommended_time", length = 30)
+    private String recommendedTime;
+
     @Column(name = "distance_m", nullable = false)
     private int distanceM;
 
@@ -74,11 +82,14 @@ public class Course {
     protected Course() {
     }
 
-    public static Course create(long creatorId, String name, String description, CourseRoute.Normalized route, Instant now) {
+    public static Course create(long creatorId, String name, String description, String region, String recommendedTime, CourseRoute.Normalized route,
+                                Instant now) {
         Course c = new Course();
         c.creatorId = creatorId;
         c.name = name;
         c.description = description;
+        c.region = region;
+        c.recommendedTime = recommendedTime;
         c.distanceM = route.distanceM();
         CourseRoute.Point start = route.points().get(0);
         CourseRoute.Point end = route.points().get(route.points().size() - 1);
@@ -122,6 +133,14 @@ public class Course {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getRegion() {
+        return region;
+    }
+
+    public String getRecommendedTime() {
+        return recommendedTime;
     }
 
     public int getDistanceM() {

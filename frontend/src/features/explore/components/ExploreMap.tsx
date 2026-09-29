@@ -30,6 +30,8 @@ export type ExploreMapProps = {
   height: number;
   // 지도 위에 겹친 UI(상단 검색, 하단 카드·시트)가 가리는 높이. 선택 코스를 가리지 않게 맞춘다 (8항 Maps).
   obscured: { top: number; bottom: number };
+  // CRS-002 사용자가 지도를 옮기고 멈췄을 때 (중심, 보이는 반경 m). 움직이는 지도(iOS 애플 지도)만 알린다
+  onUserMoved?: (center: GeoPoint, radiusM: number) => void;
 };
 
 const TAP_TOLERANCE_PX = 24;

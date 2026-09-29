@@ -56,13 +56,15 @@ type BrandMapProps = {
   // 겹친 UI가 가리는 영역. 애플 로고 · 법적 고지가 가려지지 않게 한다
   padding?: EdgePadding;
   onPress?: () => void;
+  // 지도가 멈췄을 때. isGesture: 사용자가 직접 옮겼는지 (탐색 "이 지역에서 찾기")
+  onRegionChangeComplete?: (region: Region, isGesture: boolean) => void;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
   children?: ReactNode;
 };
 
 export const BrandMap = forwardRef<MapView, BrandMapProps>(function BrandMap(
-  { dark = false, initialRegion, region, interactive = true, pointsOfInterest = false, padding, onPress, style, accessibilityLabel, children },
+  { dark = false, initialRegion, region, interactive = true, pointsOfInterest = false, padding, onPress, onRegionChangeComplete, style, accessibilityLabel, children },
   ref,
 ) {
   return (
@@ -85,6 +87,7 @@ export const BrandMap = forwardRef<MapView, BrandMapProps>(function BrandMap(
       toolbarEnabled={false}
       mapPadding={padding}
       onPress={onPress}
+      onRegionChangeComplete={onRegionChangeComplete ? (r, details) => onRegionChangeComplete(r, !!details?.isGesture) : undefined}
       accessible={!!accessibilityLabel}
       accessibilityLabel={accessibilityLabel}
     >

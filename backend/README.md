@@ -92,10 +92,14 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | API | 설명 |
 | --- | --- |
 | `GET /api/v1/courses/nearby?lat=&lng=&radius=&cursor=&size=` | 로그인 없이도. 출발점이 반경(m, 100~20000, 기본 5000) 안인 코스를 가까운 순으로 |
-| `GET /api/v1/courses/search?query=&cursor=&size=` | 로그인 없이도. 이름으로 찾기, 최근 등록순 |
+| `GET /api/v1/courses/search?query=&cursor=&size=` | 로그인 없이도. 이름 · 지역 · 태그로 찾기, 최근 등록순 (CRS-003) |
 | `GET /api/v1/courses/{id}` | 로그인 없이도. 상세 + 줄인 경로(1000점 이하) + 고도 그래프. 로그인하면 내 기록 · 저장 여부 |
 | `GET /api/v1/courses/{id}/route` | 로그인 없이도. 정규화한 경로 전체 |
-| `POST /api/v1/courses` | `{ sourceRunId, name, description?, tags? }` → 201 상세 |
+| `POST /api/v1/courses` | `{ sourceRunId, name, description?, tags?, region?, recommendedTime? }` → 201 상세 |
+| `POST /api/v1/courses/{id}/reviews` | 평가 쓰기(REV-001) `{ runId?, rating 1~5, signalScore · nightScore · crowdScore · surfaceScore 1~3?, hasToilet?, hasWater?, content? }`. 이 코스를 인증 완주한 사람만(아니면 403). 한 사람 한 평가, 다시 쓰면 바뀐다 |
+| `GET /api/v1/courses/{id}/reviews?cursor=&size=` | 로그인 없이도. 최근 먼저 `{ id, nickname, isMine, rating, …, content, createdAt }` |
+| `DELETE /api/v1/courses/{id}/reviews/me` | 내 평가 지우기 (204) |
+| `POST /api/v1/courses/{id}/reports` | 신고(CREG-005) `{ reason: DANGER\|PRIVATE_PROPERTY\|WRONG_INFO\|OTHER, content? }` → 204. 한 사람 한 번, 다시 하면 사유가 바뀐다 |
 | `POST · DELETE /api/v1/courses/{id}/bookmarks` | 204. 여러 번 보내도 같다 |
 | `GET /api/v1/users/me/courses?kind=CREATED\|SAVED\|FINISHED` | 내 코스(MY-005): 등록 · 저장 · 완주 |
 
@@ -103,9 +107,11 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **보이는 코스**: 삭제 · `HIDDEN` · `BLOCKED`는 목록에서 빠지고 상세는 403 `RESOURCE_FORBIDDEN`. `PRIVATE`은 만든 사람만 본다.
 - **주변 조회** (23.2장): 위 · 경도 bounding box로 후보를 줄인 뒤 애플리케이션에서 출발점까지 실제 거리를 계산한다. 공간 인덱스는 쓰지 않는다.
 - **숫자**: 코스 1위 · 완주자 수 · 내 기록은 공식 기록(`tbl_course_record`)만 센다. 검증(WBS 5) 전이라 지금은 비어 있다. 주간 러너 수는 최근 7일 이 코스를 끝까지 달린(FINISHED) 사람 수. 예상 시간은 6'00"/km.
-- **아직 없는 것**: 랭킹(WBS 6), 코스 평가 · 신고(WBS 14), 코스 지역 · 러닝 환경 · 추천 시간(저장할 곳이 ERD에 없다).
+- **평가 · 러닝 환경** (REV-001 · CRS-102): ERD `course_review` 그대로 V10 + `has_toilet` · `has_water` · `updated_at`. 상세 `rating { avg, count, canReview, mine }`, `environment { signals · nightLight · crowd: LOW\|MEDIUM\|HIGH, surface: ROUGH\|NORMAL\|SMOOTH, toilet, water }`는 평가 평균(1~3을 1.67 · 2.34로 세 단계, 화장실 · 급수대는 "있다"가 절반 이상). 목록 한 줄에도 `ratingAvg` · `reviewCount` · `region`.
+- **신고** (CREG-005): `tbl_course_report`에 쌓기만 한다. 신고가 쌓였을 때 숨길지(자동 · 운영 검토)는 20.2장 "코스 공개 정책"과 함께 정한다.
+- **지역 · 추천 시간**: 앱이 출발점을 휴대폰 지오코더로 바꾼 지역 이름("대구 수성구")과 추천 시간대를 등록할 때 보낸다(V10 컬럼). 검색이 지역도 찾는다.
 - **로컬 코스 데이터**: local 프로필에서만 `db/seed/local/R__local_seed_courses.sql`(수성못 둘레길 · 신천 강변 왕복 · 들안로 왕복, 만든 사람 "달리모")을 넣는다. 앱 mock 코스와 같은 OpenStreetMap 경로를 10m 간격으로 찍었다. 다시 만들 때: `node --experimental-strip-types scripts/gen-local-seed.mts`.
-- **테스트**: `CourseApiContractTest`를 MySQL · MariaDB에서 모두 돌린다(등록 · 거부 · 주변 · 숨김 · 검색 · 저장 · 내 코스 · 기록 숫자). `CourseRouteTest`는 경로 정규화.
+- **테스트**: `CourseApiContractTest`를 MySQL · MariaDB에서 모두 돌린다(등록 · 거부 · 주변 · 숨김 · 검색 · 지역 · 태그 검색 · 저장 · 내 코스 · 기록 숫자 · 평가 권한 · 다시 쓰기 · 환경 모으기 · 평가 목록 · 신고). `CourseRouteTest`는 경로 정규화.
 
 ## 코스 완주 검증 (명세 26장, WBS 5)
 
@@ -317,6 +323,12 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 달린 뒤 앱에서 버린 도전 | RUNNING으로 남는다 | 앱이 버린 러닝은 서버에 알리지 않는다(Run 취소 API 없음). 앱 목록은 판정 중으로 보여준다 |
 | 내 주변 순위 API | `GET /courses/{id}/rankings/me` | RNK-005인데 43장 표에 경로 없음 |
 | 랭킹 동점 | 같은 기록이면 user_id 순 | 23.1장 쿼리 그대로 |
+| 코스 평가 테이블 | ERD `course_review` + `has_toilet` · `has_water` · `updated_at`, `uk(course_id, user_id)`. 점수는 rating 1~5, 환경 1~3 | CRS-102 화장실 · 급수를 완주자에게 묻는다. 한 사람이 평균을 여러 번 끌어올리지 않게 |
+| 평가 자격 | 그 코스의 공식 기록(`tbl_course_record`)이 있는 사람. runId를 주면 그 기록, 없으면 최근 기록 | REV-001 "완주자 기반". 명세 요청의 runId는 받되 코스 상세에서 바로 쓸 수 있게 생략 가능 |
+| 평가 목록 · 지우기 API | `GET /courses/{id}/reviews`, `DELETE /courses/{id}/reviews/me` | 43장 표에는 쓰기만 있다. 코스 상세에 평가를 보여줘야 한다 |
+| 환경 단계 | 1~3 평균을 1.67 · 2.34로 나눠 세 단계 | 명세에 값 없음 |
+| 신고 테이블 | `tbl_course_report(reason, content)`, `uk(course_id, user_id)`. 쌓기만 | CREG-005인데 ERD에 없다. 숨김 기준은 코스 공개 정책(20.2장)과 함께 |
+| 코스 지역 · 추천 시간 | `tbl_course.region`(50자) · `recommended_time`(30자), 등록 요청에 받는다 | ERD에 없다. 지역은 앱이 휴대폰 지오코더로(외부 지도 API 없이) |
 | 공유 테이블 | `tbl_share_link`를 ERD 그대로 V6에 추가 + `uk_share_target(creator_id, type, reference_id)` | 22.4장 최종 DDL에 빠져 있음. 같은 대상 같은 링크 |
 | 공유 type | `LIVE_ROOM` 추가 (함께 달리기 초대) | 14.3장은 코스 · 기록 · Challenge만 |
 | 공유 URL | 서버 공유 페이지 `/s/{code}`(http(s)) → 앱 `dallimo://share/{code}` | 사용자 요청: 링크를 누르면 열려야 한다 |

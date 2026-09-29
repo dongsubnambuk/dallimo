@@ -24,12 +24,13 @@ public interface CourseJpaRepository extends JpaRepository<Course, Long> {
                            @Param("minLat") java.math.BigDecimal minLat, @Param("maxLat") java.math.BigDecimal maxLat,
                            @Param("minLng") java.math.BigDecimal minLng, @Param("maxLng") java.math.BigDecimal maxLng);
 
-    /** 이름 검색 (CRS-003). 최근 등록순, id cursor */
+    /** 이름 · 지역 · 태그 검색 (CRS-003). tagIds: 태그가 맞는 코스 (없으면 [-1]). 최근 등록순, id cursor */
     @Query("SELECT c FROM Course c WHERE " + VISIBLE + """
-             AND LOWER(c.name) LIKE :pattern ESCAPE '!'
+             AND (LOWER(c.name) LIKE :pattern ESCAPE '!' OR LOWER(c.region) LIKE :pattern ESCAPE '!' OR c.id IN :tagIds)
              AND (:beforeId IS NULL OR c.id < :beforeId)
             ORDER BY c.id DESC""")
-    List<Course> search(@Param("viewerId") Long viewerId, @Param("pattern") String pattern, @Param("beforeId") Long beforeId, Pageable page);
+    List<Course> search(@Param("viewerId") Long viewerId, @Param("pattern") String pattern, @Param("tagIds") List<Long> tagIds,
+                        @Param("beforeId") Long beforeId, Pageable page);
 
     @Query("SELECT c FROM Course c WHERE c.creatorId = :userId AND c.deletedAt IS NULL ORDER BY c.createdAt DESC, c.id DESC")
     List<Course> findCreatedBy(@Param("userId") long userId);

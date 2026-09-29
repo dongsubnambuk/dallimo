@@ -8,6 +8,7 @@ import com.dallimo.dallimoserver.course.domain.CourseRoute;
 import com.dallimo.dallimoserver.course.infrastructure.CourseJdbcRepository;
 import com.dallimo.dallimoserver.course.infrastructure.CourseJpaRepository;
 import com.dallimo.dallimoserver.course.infrastructure.CourseStats;
+import com.dallimo.dallimoserver.course.infrastructure.ReviewSummary;
 import com.dallimo.dallimoserver.running.domain.Run;
 import com.dallimo.dallimoserver.running.domain.RunMetrics;
 import com.dallimo.dallimoserver.running.domain.RunStatus;
@@ -48,7 +49,7 @@ public class CourseService {
 
     /** 화면에 필요한 코스 한 개의 모든 값 */
     public record CourseView(Course course, List<CourseRoute.Point> route, List<String> tags, CourseStats stats,
-                             boolean bookmarked, String creatorName, Double startDistanceM) {
+                             boolean bookmarked, String creatorName, Double startDistanceM, ReviewSummary reviews) {
 
         public int estimatedSec() {
             return (int) Math.round(course.getDistanceM() / 1000.0 * ESTIMATE_SEC_PER_KM);
@@ -87,14 +88,15 @@ public class CourseService {
         return new CursorPage<>(assemble(page, viewerId, distance), hasNext ? encode("o:" + (offset + size)) : null, hasNext);
     }
 
-    /** CRS-003: 이름으로 찾기. 최근 등록순 */
+    /** CRS-003: 이름 · 지역 · 태그로 찾기. 최근 등록순 */
     @Transactional(readOnly = true)
     public CursorPage<CourseView> search(Long viewerId, String query, String cursor, int size) {
         String q = query.trim().toLowerCase(Locale.ROOT);
         if (q.isEmpty()) throw new ApiException(ErrorCode.VALIDATION_ERROR, "검색어를 입력해 주세요.");
         String pattern = "%" + q.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
         Long beforeId = cursor == null ? null : decodeId(cursor);
-        List<Course> found = courses.search(viewerId, pattern, beforeId, PageRequest.of(0, size + 1));
+        List<Long> tagIds = store.idsWithTagLike(pattern);
+        List<Course> found = courses.search(viewerId, pattern, tagIds.isEmpty() ? List.of(-1L) : tagIds, beforeId, PageRequest.of(0, size + 1));
         boolean hasNext = found.size() > size;
         List<Course> page = hasNext ? found.subList(0, size) : found;
         String next = hasNext ? encode("i:" + page.get(page.size() - 1).getId()) : null;
@@ -116,7 +118,7 @@ public class CourseService {
      * CREG-004 · 43.1장: 내 FINISHED Run의 정상 point로 경로를 만든다. 경로는 이때 한 번 만들고 바꾸지 않는다.
      */
     @Transactional
-    public CourseView create(long userId, long sourceRunId, String name, String description, List<String> tags) {
+    public CourseView create(long userId, long sourceRunId, String name, String description, String region, String recommendedTime, List<String> tags) {
         Run run = runs.findById(sourceRunId).orElseThrow(() -> new ApiException(ErrorCode.RUN_NOT_FOUND));
         if (run.getUserId() != userId) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN);
         if (run.getStatus() != RunStatus.FINISHED) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "끝난 러닝만 코스로 만들 수 있어요.");
@@ -127,7 +129,7 @@ public class CourseService {
         CourseRoute.Normalized route = CourseRoute.normalize(accepted);
         if (route == null) throw new ApiException(ErrorCode.RUN_POINT_INVALID, "경로 기록이 부족해서 코스로 만들 수 없어요.");
 
-        Course course = courses.save(Course.create(userId, name, description, route, clock.instant()));
+        Course course = courses.save(Course.create(userId, name, description, region, recommendedTime, route, clock.instant()));
         store.insertRoute(course.getId(), route.points());
         store.insertTags(course.getId(), tags);
         return assemble(List.of(course), userId, Map.of()).get(0);
@@ -181,11 +183,12 @@ public class CourseService {
         Map<Long, CourseStats> stats = store.stats(ids, viewerId, clock.instant().minus(WEEK));
         List<Long> saved = viewerId == null ? List.of() : store.bookmarkedIds(viewerId, ids);
         Map<Long, String> names = store.nicknames(list.stream().map(Course::getCreatorId).distinct().toList());
+        Map<Long, ReviewSummary> reviews = store.reviewSummaries(ids);
         List<CourseView> out = new ArrayList<>(list.size());
         for (Course c : list) {
             out.add(new CourseView(c, routes.getOrDefault(c.getId(), List.of()), tags.getOrDefault(c.getId(), List.of()),
                     stats.getOrDefault(c.getId(), CourseStats.EMPTY), saved.contains(c.getId()), names.getOrDefault(c.getCreatorId(), ""),
-                    distance.get(c.getId())));
+                    distance.get(c.getId()), reviews.getOrDefault(c.getId(), ReviewSummary.EMPTY)));
         }
         return out;
     }
