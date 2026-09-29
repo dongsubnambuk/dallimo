@@ -9,6 +9,8 @@ import com.dallimo.dallimoserver.live.api.LiveRoomDtos.RoomResponse;
 import com.dallimo.dallimoserver.live.application.LiveRaceService;
 import com.dallimo.dallimoserver.live.application.LiveRoomService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -53,6 +55,12 @@ public class LiveRoomController {
     @GetMapping
     public ApiResponse<List<RoomResponse>> mine(@AuthenticationPrincipal Jwt jwt) {
         return ApiResponse.ok(rooms.upcoming(userId(jwt)).stream().map(s -> RoomResponse.from(s, clock.instant())).toList());
+    }
+
+    /** SCR-T01 최근 결과: 내가 참가한 끝난 방. 41~45장 표에 경로가 없어 정했다 */
+    @GetMapping("/recent")
+    public ApiResponse<List<LiveRaceService.RecentResult>> recent(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "10") @Min(1) @Max(30) int size) {
+        return ApiResponse.ok(race.recent(userId(jwt), size));
     }
 
     @GetMapping("/{roomId}")

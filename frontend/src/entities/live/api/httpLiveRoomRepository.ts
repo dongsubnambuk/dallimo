@@ -1,7 +1,7 @@
 import { createHttpFriendRepository } from '@/entities/friend/api/httpFriendRepository';
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 
-import type { LiveMemberStatus, LiveMode, LiveRoom, LiveRoomStatus } from '../types';
+import type { LiveMemberStatus, LiveMode, LiveRoom, LiveRoomStatus, LiveRoomSummary } from '../types';
 import { toLiveResult, type ResultDto } from './liveDto';
 import { LiveRoomError, type LiveRoomRepository } from './liveRoomRepository';
 
@@ -50,13 +50,35 @@ async function call<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+type RecentDto = {
+  roomId: number;
+  mode: LiveMode;
+  targetDistanceM: number | null;
+  targetSeconds: number | null;
+  finishedAt: string;
+  myRank: number | null;
+  memberCount: number;
+  myFinished: boolean;
+};
+
+const toSummary = (r: RecentDto): LiveRoomSummary => ({
+  id: String(r.roomId),
+  mode: r.mode,
+  targetDistanceM: r.targetDistanceM,
+  targetSeconds: r.targetSeconds,
+  finishedAt: Date.parse(r.finishedAt),
+  myRank: r.myRank,
+  memberCount: r.memberCount,
+  myFinished: r.myFinished,
+});
+
 const path = (roomId: string) => `/api/v1/live-runs/${encodeURIComponent(roomId)}`;
 
 export function createHttpLiveRoomRepository(): LiveRoomRepository {
   const repo: LiveRoomRepository = {
     listUpcoming: () => call(async () => (await apiRequest<RoomDto[]>('/api/v1/live-runs')).map(toRoom)),
-    // 끝난 방 목록 API는 아직 없다 (결과는 방 id로 연다)
-    listRecent: async () => [],
+    // SCR-T01 최근 결과: 내가 참가한 끝난 방 (GET /live-runs/recent)
+    listRecent: () => call(async () => (await apiRequest<RecentDto[]>('/api/v1/live-runs/recent', { query: { size: '10' } })).map(toSummary)),
     // 초대할 수 있는 사람 = 내 친구 (GET /friends)
     listFriends: () => call(async () => (await createHttpFriendRepository().list()).map((f) => ({ userId: f.userId, name: f.nickname }))),
     // 방을 만든 뒤 고른 친구를 초대한다 (TGT-002). 초대가 실패해도 방은 남고 대기실에서 링크로 부를 수 있다

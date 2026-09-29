@@ -1,5 +1,7 @@
 package com.dallimo.dallimoserver.share.application;
 
+import com.dallimo.dallimoserver.challenge.application.ChallengeService;
+import com.dallimo.dallimoserver.challenge.domain.ChallengeStatus;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.course.application.CourseService;
@@ -35,15 +37,18 @@ public class ShareService {
     private final RunJpaRepository runs;
     private final CourseService courses;
     private final LiveRoomService rooms;
+    private final ChallengeService challenges;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
-    public ShareService(ShareJdbcRepository store, RunJpaRepository runs, CourseService courses, LiveRoomService rooms, JdbcTemplate jdbc, Clock clock) {
+    public ShareService(ShareJdbcRepository store, RunJpaRepository runs, CourseService courses, LiveRoomService rooms, ChallengeService challenges,
+                        JdbcTemplate jdbc, Clock clock) {
         this.store = store;
         this.runs = runs;
         this.courses = courses;
         this.rooms = rooms;
+        this.challenges = challenges;
         this.jdbc = jdbc;
         this.clock = clock;
     }
@@ -51,10 +56,19 @@ public class ShareService {
     /**
      * 받은 사람이 보는 요약. 대상마다 필요한 값만 채운다.
      * RUN: 기록 숫자(거리 · 시간 · 페이스, 인증된 코스 기록) · 코스 이름. COURSE: 코스 이름 · 거리. LIVE_ROOM: 방 목표 · 예약 시각 · 인원
+     * CHALLENGE: 도전한 사람 · 도전받은 사람 · 코스 · 목표 기록(challengeTargetSec) · 판정(challengeStatus) · 도전 기록(recordSeconds)
      */
     public record Preview(String sharerName, RunMode runMode, Long courseId, String courseName, Integer distanceM, Integer elapsedSeconds,
                           Integer avgPaceSecPerKm, Integer recordSeconds, String liveMode, Integer targetDistanceM, Integer targetSeconds,
-                          Instant scheduledAt, String roomStatus, Integer memberCount) {
+                          Instant scheduledAt, String roomStatus, Integer memberCount, String challengeStatus, String challengerName,
+                          String challengedName, Integer challengeTargetSec) {
+
+        static Preview of(String sharer, RunMode runMode, Long courseId, String courseName, Integer distanceM, Integer elapsedSeconds, Integer avgPace,
+                          Integer recordSeconds, String liveMode, Integer targetDistanceM, Integer targetSeconds, Instant scheduledAt, String roomStatus,
+                          Integer memberCount) {
+            return new Preview(sharer, runMode, courseId, courseName, distanceM, elapsedSeconds, avgPace, recordSeconds, liveMode, targetDistanceM,
+                    targetSeconds, scheduledAt, roomStatus, memberCount, null, null, null, null);
+        }
     }
 
     public record Resolved(ShareType type, long referenceId, Long courseId, Preview preview) {
@@ -73,7 +87,11 @@ public class ShareService {
             case LIVE_ROOM -> {
                 if (!rooms.isMember(userId, referenceId)) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN, "참가한 방만 초대할 수 있어요.");
             }
-            case CHALLENGE -> throw new ApiException(ErrorCode.VALIDATION_ERROR, "도전 공유는 아직 지원하지 않아요.");
+            case CHALLENGE -> {
+                // 보낸 사람 · 받은 사람만, 취소한 도전은 공유하지 않는다
+                var c = challenges.get(userId, referenceId).row();
+                if (c.status() == ChallengeStatus.CANCELED) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "취소한 도전은 공유할 수 없어요.");
+            }
         }
         var existing = store.codeOf(userId, type, referenceId);
         if (existing.isPresent()) return existing.get();
@@ -104,23 +122,33 @@ public class ShareService {
                 Integer record = r.getCourseId() == null ? null : jdbc.queryForList(
                         "SELECT duration_seconds FROM tbl_course_record WHERE run_id = ?", Integer.class, r.getId()).stream().findFirst().orElse(null);
                 Long courseId = courseName == null ? null : r.getCourseId();
-                yield new Resolved(link.type(), link.referenceId(), courseId, new Preview(sharer, r.getMode(), courseId, courseName, r.getDistanceM(),
+                yield new Resolved(link.type(), link.referenceId(), courseId, Preview.of(sharer, r.getMode(), courseId, courseName, r.getDistanceM(),
                         r.getElapsedSeconds(), r.getAvgPaceSecPerKm(), record, null, null, null, null, null, null));
             }
             case COURSE -> {
                 String name = courseName(link.referenceId());
                 Integer distance = name == null ? null : courses.requireViewable(null, link.referenceId()).getDistanceM();
                 yield new Resolved(link.type(), link.referenceId(), link.referenceId(),
-                        new Preview(sharer, null, link.referenceId(), name, distance, null, null, null, null, null, null, null, null, null));
+                        Preview.of(sharer, null, link.referenceId(), name, distance, null, null, null, null, null, null, null, null, null));
             }
             case LIVE_ROOM -> {
                 var s = rooms.preview(link.referenceId());
                 var room = s.room();
-                yield new Resolved(link.type(), link.referenceId(), room.getCourseId(), new Preview(sharer, null, room.getCourseId(), s.courseName(), null, null, null,
+                yield new Resolved(link.type(), link.referenceId(), room.getCourseId(), Preview.of(sharer, null, room.getCourseId(), s.courseName(), null, null, null,
                         null, room.getMode().name(), room.getTargetDistanceM(), room.getTargetSeconds(), room.getScheduledAt(), room.getStatus().name(),
                         s.members().size()));
             }
-            case CHALLENGE -> throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "공유 링크를 찾을 수 없어요.");
+            case CHALLENGE -> {
+                var c = challenges.forShare(link.referenceId()).filter(x -> x.status() != ChallengeStatus.CANCELED)
+                        .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "공유 링크를 찾을 수 없어요."));
+                // 코스가 숨겨졌으면 코스 이름 · id를 내보내지 않는다
+                String name = courseName(c.courseId());
+                Long courseId = name == null ? null : c.courseId();
+                boolean judged = c.status() == ChallengeStatus.SUCCESS || c.status() == ChallengeStatus.FAILED;
+                yield new Resolved(link.type(), link.referenceId(), courseId, new Preview(sharer, null, courseId, name, name == null ? null : c.courseDistanceM(),
+                        null, null, judged ? c.resultSec() : null, null, null, null, null, null, null, c.status().name(), c.challengerName(), c.targetName(),
+                        c.targetSec()));
+            }
         };
     }
 

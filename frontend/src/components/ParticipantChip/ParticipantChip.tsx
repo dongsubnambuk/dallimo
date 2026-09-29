@@ -16,6 +16,8 @@ export type ParticipantChipProps = {
   progress?: number;
   // 진행률 오른쪽에 표시할 값. 예: "+72m"
   trailing?: string;
+  // 이름 아래 한 줄. 예: 실시간 페이스 "5'40\"/km · 나보다 72m 앞"
+  detail?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -30,7 +32,7 @@ const config: Record<ParticipantStatus, { icon: IconName; copy: string; color: (
   dnf: { icon: 'dnf', copy: '중도 포기', color: (c) => c.status.danger },
 };
 
-export function ParticipantChip({ name, status, progress, trailing, style }: ParticipantChipProps) {
+export function ParticipantChip({ name, status, progress, trailing, detail, style }: ParticipantChipProps) {
   const { colors } = useTheme();
   const item = config[status];
   const showProgress = progress != null && (status === 'running' || status === 'finished' || status === 'disconnected');
@@ -40,7 +42,7 @@ export function ParticipantChip({ name, status, progress, trailing, style }: Par
   return (
     <View
       accessible
-      accessibilityLabel={[item.copy, name, pct != null ? `진행률 ${pct}퍼센트` : null, trailing].filter(Boolean).join(', ')}
+      accessibilityLabel={[item.copy, name, pct != null ? `진행률 ${pct}퍼센트` : null, trailing, detail].filter(Boolean).join(', ')}
       style={[styles.root, style]}
     >
       <View style={styles.row}>
@@ -65,6 +67,11 @@ export function ParticipantChip({ name, status, progress, trailing, style }: Par
           </AppText>
         ) : null}
       </View>
+      {detail ? (
+        <AppText role="caption" tone="secondary" tabular numberOfLines={1}>
+          {detail}
+        </AppText>
+      ) : null}
       {pct != null ? (
         <SignalRail progress={pct / 100} showHead={status === 'running'} tone={status === 'disconnected' ? 'muted' : 'signal'} />
       ) : null}

@@ -77,6 +77,12 @@ public class ChallengeService {
         return get(me, id);
     }
 
+    /** SHR-003 공유 링크로 받은 사람이 보는 도전. 링크가 있으면 누구나 (공유한 사람이 고른 대상) */
+    @Transactional(readOnly = true)
+    public Optional<Row> forShare(long id) {
+        return store.find(id);
+    }
+
     /** 보낸 · 받은 도전 (최근 먼저). otherId가 있으면 그 친구와 주고받은 것만 */
     @Transactional(readOnly = true)
     public List<View> list(long me, Long otherId) {

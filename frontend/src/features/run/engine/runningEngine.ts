@@ -45,6 +45,8 @@ export type ActiveRunSnapshot = {
   // 앱이 꺼졌다 켜져 이어서 기록 중이면 true (RECOVERY를 거친 러닝)
   recovered: boolean;
   course: CourseRunState | null;
+  // RUN-009: 멈춰 서서 자동으로 일시정지한 상태면 true. 다시 달리면 이어서 기록한다
+  autoPaused: boolean;
 };
 
 export type RunFinishResult = {

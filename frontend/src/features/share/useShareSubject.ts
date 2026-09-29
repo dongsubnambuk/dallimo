@@ -63,11 +63,17 @@ export function useShareSubject(source: { runId: string | null; roomId: string |
   if (run.kind === 'notFound') return { kind: 'notFound' };
   const r = run.result;
   const synced = r.sync === 'synced';
+  // SHR-003: 도전으로 달린 기록은 도전 링크로 보낸다 (받은 사람이 판정 · 목표 기록을 본다)
+  const challenge = r.mode === 'CHALLENGE' && r.challenge && r.challenge.status !== 'canceled' ? r.challenge : null;
   return {
     kind: 'ready',
     data: fromRun(r, course.data ?? null, nickname),
     live: false,
-    link: synced ? { type: 'RUN', referenceId: r.id, courseId: r.course?.id ?? null } : null,
+    link: !synced
+      ? null
+      : challenge
+        ? { type: 'CHALLENGE', referenceId: challenge.id, courseId: challenge.course.id }
+        : { type: 'RUN', referenceId: r.id, courseId: r.course?.id ?? null },
     linkBlocked: synced ? null : '기록을 올린 뒤에 링크를 만들 수 있어요',
   };
 }

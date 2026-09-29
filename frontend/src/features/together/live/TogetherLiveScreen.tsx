@@ -27,6 +27,7 @@ import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } fr
 import { haptics } from '@/shared/haptics';
 import { showNow } from '@/shared/notifications/notifier';
 import { getPreferences } from '@/shared/preferences';
+import { speak } from '@/shared/voice';
 
 import { goalLabel, participantStatus } from '../labels';
 import { distanceGap, orderMembers } from './liveRank';
@@ -84,6 +85,9 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
   const [connected, setConnected] = useState(true);
   const [mine, setMine] = useState<'RUNNING' | 'FINISHED' | 'DNF'>('RUNNING');
   const [confirmQuit, setConfirmQuit] = useState(false);
+  // 받은 응원 (SCREEN-SPECS Together "응원")
+  const [cheer, setCheer] = useState<string | null>(null);
+  const [cheerSentAt, setCheerSentAt] = useState<number | null>(null);
   const status = useRunSnapshot(engine, (s) => s.status);
   const distanceM = useRunSnapshot(engine, (s) => s.distanceM);
   const avgPace = useRunSnapshot(engine, (s) => s.avgPaceSec);
@@ -136,6 +140,12 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
         setConnected(e.connected);
         if (!e.connected && server) alertDisconnected();
       }
+      else if (e.type === 'CHEER') {
+        if (!e.toMe) return;
+        haptics.runControl();
+        speak(`${e.fromName}님이 응원했어요`);
+        setCheer(`${e.fromName}님이 응원했어요`);
+      }
       else if (e.type === 'ROOM_FINISHED') {
         // 서버 마감(첫 완주 + 30분 · 목표 시간 + 5분)으로 끝나면 달리던 기록도 여기서 끝낸다.
         // 내 기록 저장이 끝난 뒤 결과로 간다 (결과의 내 기록 연결)
@@ -164,6 +174,23 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
     const t = setInterval(send, Math.max(100, (getRunPolicySync().liveStateIntervalSec * 1000) / speed));
     return () => clearInterval(t);
   }, [channel, engine, mine, speed]);
+
+  // 받은 응원은 잠깐만 보여준다
+  useEffect(() => {
+    if (!cheer) return;
+    const t = setTimeout(() => setCheer(null), CHEER_NOTICE_MS);
+    return () => clearTimeout(t);
+  }, [cheer]);
+  useEffect(() => {
+    if (cheerSentAt == null) return;
+    const t = setTimeout(() => setCheerSentAt(null), CHEER_COOLDOWN_MS);
+    return () => clearTimeout(t);
+  }, [cheerSentAt]);
+  const sendCheer = () => {
+    if (cheerSentAt != null) return;
+    haptics.runControl();
+    if (channel.sendCheer(null)) setCheerSentAt(Date.now());
+  };
 
   // 내가 끝나는 조건: 레이스·함께는 목표 거리, 타임 어택은 목표 시간
   const reached = (room.targetDistanceM != null && distanceM >= room.targetDistanceM) || (room.targetSeconds != null && elapsed >= room.targetSeconds);
@@ -209,6 +236,13 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
           <AppIcon name="offline" size={16} color={colors.status.warning} />
           <AppText role="label" style={[styles.bold, styles.flex]}>
             연결이 끊겼어요. 내 기록은 계속되고, 다시 연결되면 순위를 맞춰요
+          </AppText>
+        </View>
+      ) : cheer ? (
+        <View style={[styles.notice, { backgroundColor: colors.action.tint }]} accessibilityLiveRegion="polite">
+          <AppIcon name="modeTogether" size={16} color={colors.text.accent} />
+          <AppText role="label" style={[styles.bold, styles.flex]}>
+            {cheer}
           </AppText>
         </View>
       ) : paused ? (
@@ -260,6 +294,7 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
                 status={participantStatus(m.status)}
                 progress={progressOf(room, m, leader)}
                 trailing={trailingOf(room, m, meNow)}
+                detail={detailOf(room, m, meNow, avgPace)}
               />
             </View>
           ))}
@@ -275,6 +310,15 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
           <AppText role="label" tone="secondary" tabular>
             평균 {formatPace(avgPace)}/km · {formatDuration(elapsed)}
           </AppText>
+          {room.mode === 'TOGETHER' && mine === 'RUNNING' && ordered.some((m) => !m.isMe && (m.status === 'RUNNING' || m.status === 'DISCONNECTED')) ? (
+            <SecondaryButton
+              label={cheerSentAt != null ? '응원을 보냈어요' : '응원 보내기'}
+              size="sm"
+              disabled={cheerSentAt != null || !connected}
+              onPress={sendCheer}
+              style={styles.cheer}
+            />
+          ) : null}
         </View>
       </ScrollView>
 
@@ -375,13 +419,30 @@ function trailingOf(room: LiveRoom, m: LiveMemberState, me: LiveMemberState) {
   if (m.status === 'FINISHED' && m.finishSec != null) return `완주 ${formatDuration(m.finishSec)}`;
   if (m.status === 'DNF') return undefined;
   if (m.isMe) return `${formatDistanceKm(me.distanceM)}km`;
+  // 함께 달리기는 승패가 없어 친구가 지금 몇 km인지를 먼저 보여준다
+  if (room.mode === 'TOGETHER') return `${formatDistanceKm(m.distanceM)}km`;
   return distanceGap(m, me);
+}
+
+// 이름 아래 실시간 한 줄: 지금 페이스, 함께 달리기면 나와의 거리
+function detailOf(room: LiveRoom, m: LiveMemberState, me: LiveMemberState, myPace: number | null) {
+  if (m.status === 'DNF') return `${formatDistanceKm(m.distanceM)}km에서 멈췄어요`;
+  if (m.status === 'FINISHED') return undefined;
+  const pace = m.isMe ? myPace : m.paceSec;
+  const paceText = pace != null ? `${formatPace(pace)}/km` : '페이스 계산 중';
+  if (m.status === 'DISCONNECTED') return `마지막 ${formatDistanceKm(m.distanceM)}km · 다시 연결을 기다려요`;
+  if (m.isMe || room.mode !== 'TOGETHER') return paceText;
+  const d = Math.round(m.distanceM - me.distanceM);
+  const where = d === 0 ? '나와 나란히' : `나보다 ${Math.abs(d)}m ${d > 0 ? '앞' : '뒤'}`;
+  return `${paceText} · ${where}`;
 }
 
 function gapCopy(room: LiveRoom, ordered: LiveMemberState[], me: LiveMemberState, pace: number | null) {
   if (room.mode === 'TOGETHER') {
-    const others = ordered.filter((m) => !m.isMe && m.status !== 'DNF');
-    return others.length ? `함께 ${others.length + 1}명이 달리고 있어요` : '함께 달리고 있어요';
+    const together = ordered.filter((m) => m.status !== 'DNF');
+    // 모두 합친 거리. 내 거리는 기기 값
+    const totalM = together.reduce((sum, m) => sum + (m.isMe ? me.distanceM : m.distanceM), 0);
+    return together.length > 1 ? `${together.length}명이 함께 ${formatDistanceKm(totalM)}km 달렸어요` : '함께 달리고 있어요';
   }
   const i = ordered.findIndex((m) => m.isMe);
   if (i === 0) {
@@ -403,6 +464,10 @@ function heroLabel(room: LiveRoom, rank: number | null, total: number, me: LiveM
 }
 
 const CONTROL_H = 64;
+// 응원을 다시 보낼 수 있을 때까지 (서버 간격과 같다)
+const CHEER_COOLDOWN_MS = 10_000;
+// 받은 응원을 화면에 보여주는 시간
+const CHEER_NOTICE_MS = 4_000;
 
 const styles = StyleSheet.create({
   root: {
@@ -461,6 +526,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     padding: spacing.lg,
     gap: spacing.xs,
+  },
+  cheer: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
   },
   waiting: {
     flexDirection: 'row',

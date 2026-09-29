@@ -18,13 +18,18 @@ type ResolvedDto = {
     elapsedSeconds: number | null;
     avgPaceSecPerKm: number | null;
     recordSeconds: number | null;
+    challengeStatus: 'OPEN' | 'RUNNING' | 'SUCCESS' | 'FAILED' | null;
+    challengerName: string | null;
+    challengedName: string | null;
+    challengeTargetSec: number | null;
   } | null;
 };
 
 export function createHttpShareRepository(): ShareRepository {
   return {
     async create(type, referenceId) {
-      // 기록은 앱 기록 id(run-N · srv-N)를 서버 Run id로 바꾼다. 서버에 올라가기 전이면 링크를 만들 수 없다
+      // 기록은 앱 기록 id(run-N · srv-N)를 서버 Run id로 바꾼다. 서버에 올라가기 전이면 링크를 만들 수 없다.
+      // 도전(CHALLENGE) · 코스 · 방은 서버 id 그대로
       const serverId = type === 'RUN' ? await runResultRepository.serverRunId(referenceId) : referenceId;
       if (!serverId) throw new Error('not-synced');
       return apiRequest<{ code: string; url: string }>('/api/v1/shares', { method: 'POST', body: { type, referenceId: Number(serverId) } });
@@ -44,6 +49,15 @@ export function createHttpShareRepository(): ShareRepository {
             elapsedSec: r.preview.elapsedSeconds,
             avgPaceSec: r.preview.avgPaceSecPerKm,
             recordSec: r.preview.recordSeconds,
+            challenge:
+              r.preview.challengeStatus && r.preview.challengeTargetSec != null
+                ? {
+                    status: r.preview.challengeStatus,
+                    challengerName: r.preview.challengerName ?? '',
+                    challengedName: r.preview.challengedName ?? '',
+                    targetSec: r.preview.challengeTargetSec,
+                  }
+                : null,
           },
         };
         return target;

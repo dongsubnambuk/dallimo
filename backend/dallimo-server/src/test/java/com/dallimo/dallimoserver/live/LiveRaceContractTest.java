@@ -83,6 +83,10 @@ abstract class LiveRaceContractTest {
         Map<String, Object> next = await(g.topic(), e -> "MEMBER_STATE".equals(e.get("type")) && distanceOf(e, host.id) != 300);
         assertThat(distanceOf(next, host.id)).isEqualTo(400);
 
+        // 레이스에서는 응원하지 않는다
+        g.session().send("/app/live-runs/" + room + "/cheer", Map.of("toUserId", host.id));
+        assertThat(await(g.me(), e -> "ERROR".equals(e.get("type")))).containsEntry("code", "RUN_INVALID_STATE");
+
         // 완주: 목표 거리에 닿았다
         send(h, room, 3, 1000, 300, "FINISHED");
         Map<String, Object> finished = await(g.topic(), e -> "MEMBER_FINISHED".equals(e.get("type")));
@@ -102,6 +106,21 @@ abstract class LiveRaceContractTest {
         assertThat((String) JsonPath.read(get(host, "/api/v1/live-runs/" + room), "$.data.status")).isEqualTo("FINISHED");
         assertThat(jdbc.queryForObject("SELECT final_distance_m FROM tbl_live_run_member WHERE room_id = ? AND user_id = ?", Integer.class, room, guest.id))
                 .isEqualTo(500);
+
+        // SCR-T01 최근 결과: 끝난 방이 내 순위 · 완주 여부와 함께 나온다
+        String hostRecent = get(host, "/api/v1/live-runs/recent");
+        assertThat(JsonPath.<List<Integer>>read(hostRecent, "$.data[*].roomId")).containsExactly((int) room);
+        assertThat((Integer) JsonPath.read(hostRecent, "$.data[0].myRank")).isEqualTo(1);
+        assertThat((Boolean) JsonPath.read(hostRecent, "$.data[0].myFinished")).isTrue();
+        assertThat((Integer) JsonPath.read(hostRecent, "$.data[0].memberCount")).isEqualTo(2);
+        assertThat((String) JsonPath.read(hostRecent, "$.data[0].mode")).isEqualTo("LIVE_RACE");
+        String guestRecent = get(guest, "/api/v1/live-runs/recent");
+        assertThat((Object) JsonPath.read(guestRecent, "$.data[0].myRank")).isNull();
+        assertThat((Boolean) JsonPath.read(guestRecent, "$.data[0].myFinished")).isFalse();
+        // 끝나지 않은 방은 최근 결과에 없다
+        User other = signup();
+        runningRoom(other, signup(), "{\"mode\":\"LIVE_RACE\",\"targetDistanceM\":1000}");
+        assertThat(JsonPath.<List<Object>>read(get(other, "/api/v1/live-runs/recent"), "$.data")).isEmpty();
     }
 
     @Test
@@ -125,6 +144,18 @@ abstract class LiveRaceContractTest {
         g.session().send("/app/live-runs/" + room + "/heartbeat", Map.of());
         assertThat(await(h.topic(), e -> "MEMBER_CONNECTION".equals(e.get("type")) && Boolean.TRUE.equals(e.get("connected"))))
                 .containsEntry("userId", (int) guest.id);
+
+        // 응원: 방 전체가 받는다. 10초 안에 다시 보내면 버린다
+        h.session().send("/app/live-runs/" + room + "/cheer", Map.of("toUserId", guest.id));
+        Map<String, Object> cheer = await(g.topic(), e -> "CHEER".equals(e.get("type")));
+        assertThat(cheer).containsEntry("fromUserId", (int) host.id).containsEntry("toUserId", (int) guest.id);
+        assertThat((String) cheer.get("fromName")).isNotBlank();
+        h.session().send("/app/live-runs/" + room + "/cheer", Map.of());
+        Thread.sleep(800);
+        assertThat(g.topic().stream().filter(e -> "CHEER".equals(e.get("type")))).isEmpty();
+        // 참가자가 아닌 사람에게는 응원할 수 없다
+        g.session().send("/app/live-runs/" + room + "/cheer", Map.of("toUserId", 99999999));
+        assertThat(await(g.me(), e -> "ERROR".equals(e.get("type")))).containsEntry("code", "VALIDATION_ERROR");
 
         // 함께 달리기: 한 명 완주 + 한 명 나감(DNF) → 모두 끝나 바로 마감, 순위 없음
         send(h, room, 1, 3000, 1000, "FINISHED");

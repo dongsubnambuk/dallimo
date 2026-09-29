@@ -1,9 +1,11 @@
 import { MOCK_COURSE_ROUTES } from '@/entities/course/api/mockCourseRoutes';
 import { advanceCourse, createCourseTrack, initialCourseProgress, type CourseProgressState, type CourseTrack } from '@/entities/run/courseProgress';
 import { addPoint, averagePace, breakSegment, currentPace, initialMetrics, type MetricsState } from '@/entities/run/metrics';
+import { autoPauseAvailable, initialAutoPause, stepAutoPause, type AutoPauseState } from '@/entities/run/autoPause';
 import { getRunPolicySync } from '@/entities/run/policy';
 import type { RunMode, RunPoint } from '@/entities/run/types';
 import { distanceM, pointAt, type GeoPoint } from '@/shared/geo';
+import { getPreferences } from '@/shared/preferences';
 import { createUuid } from '@/shared/uuid';
 
 import { createMemoryRunPointStore } from './memoryRunPointStore';
@@ -11,7 +13,8 @@ import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEng
 
 // 개발 빌드에서 Active Run 상태를 만들어 QA하기 위한 값 (SCREEN-SPECS: running, paused, GPS poor, offline, recovering, finish pending).
 // 코스 러닝: offRoute(코스를 벗어났다 돌아옴), behind(목표보다 느리게 달림).
-export const ACTIVE_RUN_SCENARIOS = ['normal', 'poorGps', 'offline', 'recovering', 'finishPending', 'offRoute', 'behind'] as const;
+// stopAndGo: 신호등에서 멈췄다 다시 달림 (RUN-009 자동 일시정지 QA. 설정에서 자동 일시정지를 켜야 멈춘다)
+export const ACTIVE_RUN_SCENARIOS = ['normal', 'poorGps', 'offline', 'recovering', 'finishPending', 'offRoute', 'behind', 'stopAndGo'] as const;
 export type ActiveRunScenario = (typeof ACTIVE_RUN_SCENARIOS)[number];
 
 export function parseActiveRunScenario(value: unknown): ActiveRunScenario {
@@ -36,6 +39,9 @@ const POOR_TO_SEC = 45;
 const OFF_FROM_SEC = 30;
 const OFF_TO_SEC = 70;
 const OFF_M = 90;
+// stopAndGo: 멈춰 서 있는 구간(출발 후 초, 엔진 시각)
+const STOP_FROM_SEC = 20;
+const STOP_TO_SEC = 45;
 // Batch Sync 간격(초). 명세에 값이 없어 mock에서만 쓴다.
 const SYNC_EVERY_SEC = 5;
 const PATH_EVERY = 5;
@@ -79,6 +85,8 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
   let track: CourseTrack | null = null;
   let courseState: CourseProgressState = initialCourseProgress();
   const pace = scenario === 'behind' ? 0.9 : 1;
+  let autoPause = false;
+  let autoPauseState: AutoPauseState = initialAutoPause();
   let snap: ActiveRunSnapshot = {
     status: 'PREPARING',
     mode,
@@ -95,6 +103,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     runningSince: null,
     recovered: false,
     course: null,
+    autoPaused: false,
   };
 
   const emit = (patch: Partial<ActiveRunSnapshot>) => {
@@ -111,9 +120,45 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     return { latitude: p.latitude + Math.sin(m / 37) * j, longitude: p.longitude + Math.cos(m / 53) * j };
   };
 
+  // stopAndGo 구간이면 멈춰 있다
+  const stoppedAt = (t: number) => scenario === 'stopAndGo' && (t - startedAt) / 1000 >= STOP_FROM_SEC && (t - startedAt) / 1000 < STOP_TO_SEC;
+
+  // 자동 일시정지 중에는 기록하지 않고 움직이는지만 본다
+  const watchWhilePaused = (t: number): boolean => {
+    while (lastTickAt + 1000 <= t) {
+      lastTickAt += 1000;
+      const v = stoppedAt(lastTickAt) ? 0 : BASE_MPS * pace;
+      travelledM += v;
+      const pos = positionAt(travelledM);
+      const out = stepAutoPause(autoPauseState, { ...pos, speed: v, accuracy: 5, timestamp: lastTickAt }, true, policy);
+      autoPauseState = out.state;
+      if (out.action?.kind === 'resume') {
+        resumeAt(lastTickAt);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const resumeAt = (t: number) => {
+    lastTickAt = t;
+    autoPauseState = initialAutoPause();
+    emit({ status: 'RUNNING', autoPaused: false, runningSince: t });
+  };
+
+  const pauseAt = (t: number, auto: boolean) => {
+    metrics = breakSegment(metrics);
+    autoPauseState = initialAutoPause();
+    const ms = activeMs(snap, t);
+    emit({ status: 'PAUSED', autoPaused: auto, activeMsBase: ms, runningSince: null, currentPaceSec: null, avgPaceSec: averagePace(metrics, ms, policy) });
+  };
+
   const tick = () => {
     const t = now();
-    if (snap.status !== 'RUNNING') {
+    if (snap.status === 'PAUSED' && snap.autoPaused) {
+      // 다시 달리기 시작했으면 이어서 기록한다
+      if (!watchWhilePaused(t)) return;
+    } else if (snap.status !== 'RUNNING') {
       lastTickAt = t;
       return;
     }
@@ -123,7 +168,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     // 1초마다 point 하나 (배속이면 한 번에 여러 개)
     while (lastTickAt + 1000 <= t) {
       lastTickAt += 1000;
-      const v = BASE_MPS * pace * (1 + 0.06 * Math.sin(lastTickAt / 1000 / 40));
+      const v = stoppedAt(lastTickAt) ? 0 : BASE_MPS * pace * (1 + 0.06 * Math.sin(lastTickAt / 1000 / 40));
       travelledM += v;
       const off = scenario === 'offRoute' && track && sinceStart >= OFF_FROM_SEC && sinceStart < OFF_TO_SEC;
       const onRoute = positionAt(travelledM);
@@ -145,6 +190,16 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
       if (track && point.qualityFlag === 'OK') courseState = advanceCourse(track, courseState, pos, lastTickAt, at, policy);
       if (point.qualityFlag === 'OK' && acceptedCount++ % PATH_EVERY === 0) patch.path = [...(patch.path ?? snap.path), pos];
       patch.position = pos;
+      if (autoPause) {
+        const out = stepAutoPause(autoPauseState, { ...pos, speed: v, accuracy: point.accuracy, timestamp: lastTickAt }, false, policy);
+        autoPauseState = out.state;
+        if (out.action?.kind === 'pause') {
+          emit({ ...patch, distanceM: metrics.distanceM, splits: metrics.splits });
+          pauseAt(out.action.at, true);
+          lastTickAt = t;
+          return;
+        }
+      }
     }
     if (snap.network === 'online' && t - lastSyncAt >= SYNC_EVERY_SEC * 1000) {
       lastSyncAt = t;
@@ -178,6 +233,7 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
   return {
     async prepare(input: RunPrepareInput) {
       mode = input.mode;
+      autoPause = getPreferences().autoPause && autoPauseAvailable(mode);
       if (input.course && input.course.route.length > 1) {
         track = createCourseTrack(input.course.route);
         path = input.course.route;
@@ -197,20 +253,16 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
     },
     async pause() {
       if (snap.status !== 'RUNNING') return;
-      const t = now();
-      metrics = breakSegment(metrics);
-      emit({ status: 'PAUSED', activeMsBase: activeMs(snap, t), runningSince: null, currentPaceSec: null });
+      pauseAt(now(), false);
     },
     async resume() {
       if (snap.status !== 'PAUSED') return;
-      const t = now();
-      lastTickAt = t;
-      emit({ status: 'RUNNING', runningSince: t });
+      resumeAt(now());
     },
     async finish() {
       const t = now();
       const ms = activeMs(snap, t);
-      emit({ status: 'FINISHING', activeMsBase: ms, runningSince: null, currentPaceSec: null });
+      emit({ status: 'FINISHING', autoPaused: false, activeMsBase: ms, runningSince: null, currentPaceSec: null });
       if (timer) clearInterval(timer);
       timer = null;
       const result = (synced: boolean): RunFinishResult => ({

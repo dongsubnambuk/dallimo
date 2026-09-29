@@ -83,6 +83,23 @@ public class LiveMemberJdbcRepository {
                 WHERE room_id = ? AND user_id = ?""", status.name(), distanceM, elapsedSeconds, rank, Timestamp.from(at), roomId, userId);
     }
 
+    /** SCR-T01 최근 결과 한 줄: 내가 끝까지 있었던(완주 · 중도 포기) 끝난 방 */
+    public record Recent(long roomId, String mode, Integer targetDistanceM, Integer targetSeconds, Instant endedAt, Integer myRank, LiveMemberStatus myStatus,
+                         int memberCount) {
+    }
+
+    public List<Recent> recentFinished(long userId, int limit) {
+        return jdbc.query("""
+                SELECT r.id, r.mode, r.target_distance_m, r.target_seconds, r.ended_at, me.rank_no, me.status,
+                       (SELECT COUNT(*) FROM tbl_live_run_member x WHERE x.room_id = r.id) AS member_count
+                FROM tbl_live_run_member me JOIN tbl_live_run_room r ON r.id = me.room_id
+                WHERE me.user_id = ? AND r.status = 'FINISHED'
+                ORDER BY r.ended_at DESC, r.id DESC LIMIT ?""",
+                (rs, i) -> new Recent(rs.getLong(1), rs.getString(2), (Integer) rs.getObject(3, Integer.class), (Integer) rs.getObject(4, Integer.class),
+                        rs.getTimestamp(5).toInstant(), (Integer) rs.getObject(6, Integer.class), LiveMemberStatus.valueOf(rs.getString(7)), rs.getInt(8)),
+                userId, limit);
+    }
+
     /** 45.1장 개인 Run: 이 방에서 달린 내 Run (처음 한 번) */
     public void linkRun(long roomId, long userId, long runId) {
         jdbc.update("UPDATE tbl_live_run_member SET run_id = ? WHERE room_id = ? AND user_id = ? AND run_id IS NULL", runId, roomId, userId);

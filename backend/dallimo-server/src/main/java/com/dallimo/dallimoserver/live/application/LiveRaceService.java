@@ -50,6 +50,8 @@ public class LiveRaceService {
     public static final String USER_QUEUE = "/queue/live-runs";
     // 사람이 낼 수 없는 평균 속도(m/s). 이보다 빠른 상태는 받지 않는다 (RunMetrics 순간 이동 기준과 같은 값)
     static final double MAX_AVG_SPEED_MPS = 12;
+    // 응원 간격 — 명세에 값이 없어 정한 시작값
+    static final Duration CHEER_COOLDOWN = Duration.ofSeconds(10);
     // 목표 거리 판정 GPS 여유(m)
     static final int FINISH_TOLERANCE_M = 20;
 
@@ -78,6 +80,10 @@ public class LiveRaceService {
 
     /** 8.2장 RUN_STATE (C→S) */
     public record StateMessage(Long seq, Integer distanceM, Integer elapsedSeconds, Integer currentPaceSecPerKm, String status, String sentAt) {
+    }
+
+    /** 응원 (SCREEN-SPECS Together 보조 정보 "응원"). toUserId가 없으면 방 전체에 */
+    public record CheerMessage(Long toUserId) {
     }
 
     // ── 받기 ──
@@ -121,6 +127,31 @@ public class LiveRaceService {
         }
         broadcastState(room);
         tryFinish(room, now);
+    }
+
+    /**
+     * 함께 달리기 응원: 달리는 중인 방에서 참가자끼리. 한 사람이 CHEER_COOLDOWN에 한 번까지 (알림이 쏟아지지 않게).
+     * 레이스 · 타임 어택은 승부라 쓰지 않는다 (FOUNDATION-DECISION-LOG 40항).
+     */
+    @Transactional(readOnly = true)
+    public void onCheer(long userId, long roomId, CheerMessage m) {
+        LiveRoom room = rooms.findById(roomId).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "방을 찾을 수 없어요."));
+        Member me = requireMember(room, userId);
+        if (room.getMode() != LiveMode.TOGETHER || room.getStatus() != LiveRoomStatus.RUNNING) {
+            error(userId, "RUN_INVALID_STATE", "함께 달리는 중에만 응원할 수 있어요.", true);
+            return;
+        }
+        Long to = m == null ? null : m.toUserId();
+        if (to != null && (to == userId || members.list(roomId).stream().noneMatch(x -> x.userId() == to))) {
+            error(userId, "VALIDATION_ERROR", "응원할 참가자를 확인해 주세요.", true);
+            return;
+        }
+        if (!state.allowCheer(roomId, userId, CHEER_COOLDOWN)) return;
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("fromUserId", userId);
+        fields.put("fromName", me.nickname());
+        fields.put("toUserId", to);
+        broadcast(roomId, event("CHEER", roomId, fields));
     }
 
     /** heartbeat: 연결 유지. 끊겼다 돌아왔으면 알린다 */
@@ -291,6 +322,20 @@ public class LiveRaceService {
                 .toList();
         Long myRunId = viewerId == null ? null : finals.stream().filter(f -> f.userId() == viewerId).findFirst().map(Final::runId).orElse(null);
         return new Result(room.getId(), room.getMode(), room.getTargetDistanceM(), room.getTargetSeconds(), room.getEndedAt(), entries, myRunId);
+    }
+
+    /** SCR-T01 최근 결과 한 줄 */
+    public record RecentResult(long roomId, LiveMode mode, Integer targetDistanceM, Integer targetSeconds, Instant finishedAt, Integer myRank, int memberCount,
+                               boolean myFinished) {
+    }
+
+    /** 내가 참가한 끝난 방, 최근 끝난 순 */
+    @Transactional(readOnly = true)
+    public List<RecentResult> recent(long userId, int size) {
+        return members.recentFinished(userId, size).stream()
+                .map(r -> new RecentResult(r.roomId(), LiveMode.valueOf(r.mode()), r.targetDistanceM(), r.targetSeconds(), r.endedAt(), r.myRank(), r.memberCount(),
+                        r.myStatus() == LiveMemberStatus.FINISHED))
+                .toList();
     }
 
     // ── 보내기 ──

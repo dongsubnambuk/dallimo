@@ -1,9 +1,11 @@
 import { advanceCourse, createCourseTrack, initialCourseProgress, type CourseProgressState, type CourseTrack } from '@/entities/run/courseProgress';
 import { addPoint, averagePace, breakSegment, currentPace, initialMetrics, type MetricsState } from '@/entities/run/metrics';
+import { autoPauseAvailable, initialAutoPause, stepAutoPause, type AutoPauseState } from '@/entities/run/autoPause';
 import { getRunPolicySync, gpsQualityFor } from '@/entities/run/policy';
 import type { RunMode, RunPoint } from '@/entities/run/types';
 import type { GeoPoint } from '@/shared/geo';
 import { getNetworkState, onNetworkChange } from '@/shared/network/network';
+import { getPreferences } from '@/shared/preferences';
 import { createUuid } from '@/shared/uuid';
 
 import { activeMsAt, type RunSegment } from './localRunStore';
@@ -51,6 +53,9 @@ export function createDeviceRunningEngine(): RunningEngine {
   let lastSyncAt = 0;
   let offNetwork: (() => void) | null = null;
   let offSync: (() => void) | null = null;
+  // RUN-009: 설정에서 켰고 혼자 달리는 모드일 때만
+  let autoPause = false;
+  let autoPauseState: AutoPauseState = initialAutoPause();
   let snap: ActiveRunSnapshot = {
     status: 'PREPARING',
     mode,
@@ -67,6 +72,7 @@ export function createDeviceRunningEngine(): RunningEngine {
     runningSince: null,
     recovered: false,
     course: null,
+    autoPaused: false,
   };
 
   const emit = (patch: Partial<ActiveRunSnapshot>) => {
@@ -130,6 +136,27 @@ export function createDeviceRunningEngine(): RunningEngine {
       unsyncedPoints: snap.unsyncedPoints + saved.length,
       ...metricPatch(),
     });
+    detectAutoPause(latest);
+  };
+
+  // 사용자가 직접 멈춘 동안에는 보지 않는다 (직접 멈추면 직접 이어 간다)
+  const detectAutoPause = (l: LocationEvent['latest']) => {
+    if (!autoPause || !(snap.status === 'RUNNING' || (snap.status === 'PAUSED' && snap.autoPaused))) return;
+    const out = stepAutoPause(autoPauseState, { latitude: l.latitude, longitude: l.longitude, speed: l.speed, accuracy: l.accuracy, timestamp: l.timestamp }, snap.status === 'PAUSED', policy);
+    autoPauseState = out.state;
+    if (out.action?.kind === 'pause') void pauseAt(Math.min(now(), Math.max(out.action.at, snap.runningSince ?? 0)), true);
+    else if (out.action?.kind === 'resume') resumeRunning();
+  };
+
+  const pauseAt = async (t: number, auto: boolean) => {
+    if (snap.status !== 'RUNNING') return;
+    const ms = activeMs(snap, t);
+    closeSegment(t);
+    metrics = breakSegment(metrics);
+    setRecording({ runUuid, running: false, since: t });
+    autoPauseState = initialAutoPause();
+    emit({ status: 'PAUSED', autoPaused: auto, activeMsBase: ms, runningSince: null, currentPaceSec: null, avgPaceSec: averagePace(metrics, ms, policy) });
+    await (await getRunStore()).pauseRun(runUuid, t);
   };
 
   const ensureListening = async () => {
@@ -173,7 +200,8 @@ export function createDeviceRunningEngine(): RunningEngine {
     segments = [...segments, { startedAt: t, endedAt: null }];
     metrics = breakSegment(metrics);
     setRecording({ runUuid, running: true, since: t });
-    emit({ status: 'RUNNING', runningSince: t });
+    autoPauseState = initialAutoPause();
+    emit({ status: 'RUNNING', autoPaused: false, runningSince: t });
     getRunStore()
       .then((s) => s.resumeRun(runUuid, t))
       .catch((e) => console.warn('[run] resume', e));
@@ -188,6 +216,7 @@ export function createDeviceRunningEngine(): RunningEngine {
       mode = input.mode;
       courseId = input.course?.id ?? null;
       plan = input.plan ?? null;
+      autoPause = getPreferences().autoPause && autoPauseAvailable(mode);
       if (input.course && input.course.route.length > 1) track = createCourseTrack(input.course.route);
       emit({ mode, course: courseSnapshot() });
       // 카운트다운 동안 GPS를 미리 켠다. 시작 전 위치는 저장하지 않는다.
@@ -206,14 +235,7 @@ export function createDeviceRunningEngine(): RunningEngine {
     },
 
     async pause() {
-      if (snap.status !== 'RUNNING') return;
-      const t = now();
-      const ms = activeMs(snap, t);
-      closeSegment(t);
-      metrics = breakSegment(metrics);
-      setRecording({ runUuid, running: false, since: t });
-      emit({ status: 'PAUSED', activeMsBase: ms, runningSince: null, currentPaceSec: null });
-      await (await getRunStore()).pauseRun(runUuid, t);
+      await pauseAt(now(), false);
     },
 
     async resume() {
@@ -227,7 +249,7 @@ export function createDeviceRunningEngine(): RunningEngine {
       const wasRunning = snap.status === 'RUNNING';
       if (wasRunning) closeSegment(t);
       setRecording(null);
-      emit({ status: 'FINISHING', activeMsBase: ms, runningSince: null, currentPaceSec: null });
+      emit({ status: 'FINISHING', autoPaused: false, activeMsBase: ms, runningSince: null, currentPaceSec: null });
       stopListening();
       const store = await getRunStore();
       await store.endRun(runUuid, t, 'FINISHED');
@@ -268,6 +290,7 @@ export function createDeviceRunningEngine(): RunningEngine {
       startedAt = open.startedAt;
       courseId = open.courseId;
       plan = open.plan;
+      autoPause = getPreferences().autoPause && autoPauseAvailable(mode);
       const points = await store.getPoints(runUuid);
       const wasRunning = open.status === 'RUNNING';
       if (wasRunning) {

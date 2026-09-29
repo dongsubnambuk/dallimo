@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** 8.1장 SEND /app/live-runs/{roomId}/state · heartbeat, 구독하면 SYNC_STATE (30.4장 재접속 snapshot) */
+/** 8.1장 SEND /app/live-runs/{roomId}/state · heartbeat · cheer, 구독하면 SYNC_STATE (30.4장 재접속 snapshot) */
 @Controller
 public class LiveRaceMessageController {
 
@@ -32,6 +32,12 @@ public class LiveRaceMessageController {
     @MessageMapping("/live-runs/{roomId}/state")
     public void state(@DestinationVariable long roomId, @Payload LiveRaceService.StateMessage message, Principal user) {
         race.onState(Long.parseLong(user.getName()), roomId, message);
+    }
+
+    /** 함께 달리기 응원 (SCREEN-SPECS Together). 방 전체에 CHEER로 보낸다 */
+    @MessageMapping("/live-runs/{roomId}/cheer")
+    public void cheer(@DestinationVariable long roomId, @Payload(required = false) LiveRaceService.CheerMessage message, Principal user) {
+        race.onCheer(Long.parseLong(user.getName()), roomId, message);
     }
 
     @MessageMapping("/live-runs/{roomId}/heartbeat")
