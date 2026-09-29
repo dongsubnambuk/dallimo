@@ -10,12 +10,12 @@ let pendingCode: string | null = null;
 // 로그인 화면을 거쳤는가. 이미 로그인된 채로 링크를 열면 라우터가 바로 그 화면을 연다
 let sawSignedOut = false;
 
-/** dallimo://share/{code} · https://…/share/{code} 에서 code */
+/** dallimo://share/{code} · https://…/share/{code} · App Link https://{공유 도메인}/s/{code} 에서 code */
 export function shareCodeOf(url: string | null): string | null {
   if (!url) return null;
   const { hostname, path } = Linking.parse(url);
   const full = [hostname, path].filter(Boolean).join('/');
-  const m = /(?:^|\/)share\/([a-z0-9]{4,32})\/?$/.exec(full);
+  const m = /(?:^|\/)(?:share|s)\/([a-z0-9]{4,32})\/?$/.exec(full);
   return m ? m[1] : null;
 }
 

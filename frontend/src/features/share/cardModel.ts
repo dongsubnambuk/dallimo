@@ -9,6 +9,8 @@ import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } fr
 import type { GeoPoint } from '@/shared/geo';
 import { withWaGwa } from '@/shared/korean';
 
+import { maskEnds } from './privacyZone';
+
 // SCR-R05 공유 카드 템플릿 (SHR-001, 67.1장 ShareTemplateCard: map, record, ranking, battle)
 export type TemplateKey = 'map' | 'record' | 'ranking' | 'battle';
 
@@ -31,7 +33,7 @@ export type ShareCardData = {
   verified: boolean;
   path: GeoPoint[];
   course: GeoPoint[] | null;
-  // 코스 없는 기록: 지도에 출발 지점이 그대로 보인다 (16장 privacy zone 검토 전)
+  // 코스 없는 기록: 출발 · 도착 근처를 지도에서 가렸다 (16장 Privacy Zone)
   freePath: boolean;
   ranking: { label: string; before: number | null; after: number } | null;
   battle: { rows: { name: string; value: string; me: boolean; rank: number | null }[]; caption: string } | null;
@@ -75,7 +77,8 @@ export function fromRun(r: RunResult, course: CourseDetail | null, nickname: str
     primary: courseTime != null ? time : distance,
     stats: courseTime != null ? [distance, pace] : [time, pace],
     verified,
-    path: r.path,
+    // 16장 Privacy Zone: 코스 없는 기록은 출발 · 도착 근처를 뺀 경로만
+    path: r.course ? r.path : maskEnds(r.path),
     course: course?.route ?? null,
     freePath: !r.course,
     ranking: verified && r.weeklyRank ? { label: '이번 주 순위', before: r.weeklyRank.before, after: r.weeklyRank.after } : null,
@@ -99,7 +102,7 @@ export function fromLive(r: LiveResult, myRun: RunResult | null, nickname: strin
     primary,
     stats: myRun ? [{ label: '평균 페이스', value: formatPace(myRun.avgPaceSec), unit: '/km' }, { label: '참가', value: `${r.entries.length}명` }] : [{ label: '참가', value: `${r.entries.length}명` }],
     verified: false,
-    path: myRun?.path ?? [],
+    path: maskEnds(myRun?.path ?? []),
     course: null,
     freePath: true,
     ranking: null,

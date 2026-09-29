@@ -1,6 +1,7 @@
 package com.dallimo.dallimoserver.live.api;
 
 import com.dallimo.dallimoserver.live.application.LiveRaceService;
+import com.dallimo.dallimoserver.common.ratelimit.RateLimiter;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageDeliveryException;
@@ -29,10 +30,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
     private final JwtDecoder jwt;
     private final LiveRaceService race;
+    private final RateLimiter limiter;
 
-    public StompAuthInterceptor(JwtDecoder jwt, @org.springframework.context.annotation.Lazy LiveRaceService race) {
+    public StompAuthInterceptor(JwtDecoder jwt, @org.springframework.context.annotation.Lazy LiveRaceService race, RateLimiter limiter) {
         this.jwt = jwt;
         this.race = race;
+        this.limiter = limiter;
     }
 
     @Override
@@ -46,6 +49,8 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             if (token == null || token.isBlank()) throw new MessageDeliveryException("AUTH_REQUIRED");
             try {
                 String userId = jwt.decode(token).getSubject();
+                // 27장 RATE_LIMITED: 연결을 너무 자주 다시 맺으면 막는다 (사람마다)
+                if (!limiter.tryAcquire(RateLimiter.Rule.WS_CONNECT, "u:" + userId)) throw new MessageDeliveryException("RATE_LIMITED");
                 a.setUser(new UsernamePasswordAuthenticationToken(userId, null, List.of()));
             } catch (JwtException e) {
                 throw new MessageDeliveryException("AUTH_REQUIRED");

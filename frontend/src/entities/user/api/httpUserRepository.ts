@@ -9,7 +9,7 @@ import type { UserRepository } from './userRepository';
 
 // 서버 사용자 API: GET · PATCH /api/v1/users/me, GET /api/v1/users/nickname-availability.
 // 프로필 사진 업로드는 서버 저장소(S3) 결정 전이라 이 기기에만 둔다.
-// 누적 통계는 서버 집계 API가 아직 없어 이 기기의 러닝 기록으로 더한다.
+// 누적 통계(MY-002)는 서버가 끝난 러닝을 모은 값(GET /users/me stats)에, 아직 서버에 올리지 못한 이 기기 기록을 더한다.
 const photoKey = (userId: string) => `dallimo.profilePhoto.${userId}`;
 
 async function withLocalPhoto(p: MyProfile): Promise<MyProfile> {
@@ -19,20 +19,16 @@ async function withLocalPhoto(p: MyProfile): Promise<MyProfile> {
 export function createHttpUserRepository(): UserRepository {
   return {
     async getMe(): Promise<Me> {
-      const profile = await withLocalPhoto(toProfile(await apiRequest<UserDto>('/api/v1/users/me')));
-      const items = [];
-      let cursor: string | null = null;
-      do {
-        const page = await runResultRepository.list(cursor, 50);
-        items.push(...page.items);
-        cursor = page.nextCursor;
-      } while (cursor);
+      const dto = await apiRequest<UserDto & { stats: { runCount: number; totalDistanceM: number; totalActiveSec: number } }>('/api/v1/users/me');
+      const profile = await withLocalPhoto(toProfile(dto));
+      // 첫 페이지에 이 기기에만 있는(올리는 중 · 오프라인) 기록이 모두 들어 있다
+      const pending = (await runResultRepository.list(null, 20).catch(() => ({ items: [] }))).items.filter((r) => r.sync !== 'synced');
       return {
         profile,
         stats: {
-          totalDistanceM: items.reduce((s, r) => s + r.distanceM, 0),
-          totalActiveSec: items.reduce((s, r) => s + r.activeSec, 0),
-          runCount: items.length,
+          totalDistanceM: dto.stats.totalDistanceM + pending.reduce((s, r) => s + r.distanceM, 0),
+          totalActiveSec: dto.stats.totalActiveSec + pending.reduce((s, r) => s + r.activeSec, 0),
+          runCount: dto.stats.runCount + pending.length,
         },
       };
     },
