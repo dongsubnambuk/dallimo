@@ -12,7 +12,7 @@ type Props = {
   caption?: string;
   tone?: 'primary' | 'danger';
 } & (
-  | { kind: 'toggle'; value: boolean; onChange: (v: boolean) => void }
+  | { kind: 'toggle'; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }
   | { kind: 'link'; value?: string; external?: boolean; onPress: () => void }
   | { kind: 'value'; value: string; trailing?: ReactNode }
 );
@@ -35,10 +35,11 @@ export function SettingRow(props: Props) {
 
   if (props.kind === 'toggle') {
     return (
-      <View style={styles.row}>
+      <View style={[styles.row, props.disabled && styles.disabled]}>
         {text}
         <Switch
           value={props.value}
+          disabled={props.disabled}
           onValueChange={props.onChange}
           accessibilityLabel={props.label}
           accessibilityHint={props.caption}

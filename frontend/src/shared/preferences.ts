@@ -12,6 +12,8 @@ export type Preferences = {
   voice: boolean;
   // AUD-003 구간 안내 빈도(km). 0이면 끔
   voiceSplitKm: 0 | 1 | 2;
+  // AUD-002 경쟁 안내: 목표보다 앞섬 · 뒤처짐, 순위 변화, 남은 시간, 친구 완주
+  voiceCompetition: boolean;
   // ACCESSIBILITY: 햅틱은 끌 수 있어야 한다
   haptics: boolean;
   // 14.2장 Push 이벤트 묶음. 서버 알림 설정과 맞춘다 (함께 달리기는 시작 10분 전 로컬 알림도 포함)
@@ -22,7 +24,7 @@ export type Preferences = {
   runAlerts: boolean;
 };
 
-const DEFAULTS: Preferences = { autoPause: false, voice: true, voiceSplitKm: 1, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true };
+const DEFAULTS: Preferences = { autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true };
 const KEY = 'dallimo.preferences';
 
 let current: Preferences = DEFAULTS;
