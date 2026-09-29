@@ -3,7 +3,7 @@ import type { ApiErrorCode } from '@/shared/api/contract';
 import type { RunPoint, RunMode, RunStatus } from '../types';
 
 // 42장 Run API 계약. 기록 동기화(features/run/sync)가 이 경계로 서버와 주고받는다.
-// 백엔드 전까지는 mockRunApi가 서버 역할을 한다.
+// 서버 주소가 있으면 httpRunApi, 없으면 mockRunApi가 서버 역할을 한다.
 
 // 42.1장 POST /runs. clientRunUuid가 멱등 키 (201 생성 / 200 재요청)
 export type CreateRunRequest = {
@@ -30,13 +30,15 @@ export type PointBatchRequest = { batchUuid: string; fromSeq: number; toSeq: num
 export type PointBatchResponse = { batchUuid: string; accepted: boolean; lastAcceptedSeq: number };
 
 // 42.4장 POST /runs/{runId}/finish. 서버에 저장된 마지막 seq가 lastSeq보다 작으면 FINISHING으로 답하고, 앱은 빠진 Batch를 보낸 뒤 다시 요청한다.
-export type FinishRunRequest = { endedAt: string; lastSeq: number };
+// activeSeconds: 앱이 잰 달린 시간(일시정지 제외). 서버는 시작~종료 시간을 넘지 않는지만 본다 (사용자 결정, FOUNDATION-DECISION-LOG 31항)
+export type FinishRunRequest = { endedAt: string; lastSeq: number; activeSeconds: number };
 export type FinishRunResponse = {
   runId: string;
   status: RunStatus;
   distanceM: number;
   elapsedSeconds: number;
-  avgPaceSecPerKm: number;
+  // 50m 미만이면 null
+  avgPaceSecPerKm: number | null;
   verificationStatus: 'NONE' | 'PENDING' | 'VERIFIED' | 'UNVERIFIED' | 'REJECTED';
 };
 
