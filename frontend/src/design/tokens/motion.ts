@@ -7,6 +7,9 @@ export const motion = {
   routeWarning: 250,
   finishReveal: 400,
   countdownStep: 1000,
+  // 앱 시작: 출발점이 "모" 루프를 한 바퀴 돈 뒤 사라진다 (FOUNDATION-DECISION-LOG 29항)
+  splashLap: 900,
+  splashFade: 280,
 } as const;
 
 // pressed 상태 피드백 불투명도

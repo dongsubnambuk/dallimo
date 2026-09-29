@@ -41,16 +41,9 @@ export function BrandLoader({
       );
   }, [reduced, t]);
 
-  const { loop, dot } = MO;
+  const { dot } = MO;
   const animatedProps = useAnimatedProps(() => {
-    const [x, y] = pointOnLoop(
-      t.value,
-      loop.x,
-      loop.y,
-      loop.width,
-      loop.height,
-      dot.x,
-    );
+    const [x, y] = pointOnTrack(t.value);
     return { cx: x, cy: y };
   });
 
@@ -87,23 +80,40 @@ export function BrandLoader({
   );
 }
 
-// 루프(사각형 중심선) 둘레를 출발점부터 시계 방향으로 진행 비율 p만큼 간 지점
-function pointOnLoop(
-  p: number,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  startX: number,
-): [number, number] {
+// 루프 획 가운데(둥근 사각형) 둘레를 출발점부터 시계 방향으로 진행 비율 p만큼 간 지점.
+// 스플래시 애니메이션도 같은 길을 쓴다.
+export function pointOnTrack(p: number): [number, number] {
   "worklet";
-  const per = 2 * (w + h);
-  let d = (((startX - x + p * per) % per) + per) % per;
-  if (d < w) return [x + d, y];
-  d -= w;
-  if (d < h) return [x + w, y + d];
-  d -= h;
-  if (d < w) return [x + w - d, y + h];
-  d -= w;
-  return [x, y + h - d];
+  const { x, y, width: w, height: h, radius: r } = MO.track;
+  const sw = w - 2 * r;
+  const sh = h - 2 * r;
+  const arc = (Math.PI * r) / 2;
+  const per = 2 * (sw + sh) + 4 * arc;
+  // 위 변 위의 출발점에서 시작
+  let d = ((((MO.dot.x - (x + r)) + p * per) % per) + per) % per;
+  if (d < sw) return [x + r + d, y];
+  d -= sw;
+  if (d < arc) {
+    const a = -Math.PI / 2 + d / r;
+    return [x + w - r + r * Math.cos(a), y + r + r * Math.sin(a)];
+  }
+  d -= arc;
+  if (d < sh) return [x + w, y + r + d];
+  d -= sh;
+  if (d < arc) {
+    const a = d / r;
+    return [x + w - r + r * Math.cos(a), y + h - r + r * Math.sin(a)];
+  }
+  d -= arc;
+  if (d < sw) return [x + w - r - d, y + h];
+  d -= sw;
+  if (d < arc) {
+    const a = Math.PI / 2 + d / r;
+    return [x + r + r * Math.cos(a), y + h - r + r * Math.sin(a)];
+  }
+  d -= arc;
+  if (d < sh) return [x, y + h - r - d];
+  d -= sh;
+  const a = Math.PI + d / r;
+  return [x + r + r * Math.cos(a), y + r + r * Math.sin(a)];
 }

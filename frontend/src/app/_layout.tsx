@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 
+import { BrandSplash } from '@/components/Brand/BrandSplash';
 import { darkTheme, lightTheme, ThemeProvider } from '@/design/theme';
 import { fontAssets, fontFamily } from '@/design/tokens';
 import { restoreSession, useAuthStatus } from '@/features/auth/session';
@@ -18,15 +19,14 @@ export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
   const auth = useAuthStatus();
   const ready = (fontsLoaded || !!fontError) && auth !== 'restoring';
+  // 네이티브 스플래시 뒤를 이어 받는 앱 안 스플래시 (한 번만)
+  const [splashDone, setSplashDone] = useState(false);
 
   // AUTH-003: 앱을 켜면 저장된 세션부터 확인한다
   useEffect(() => {
     restoreSession();
   }, []);
 
-  useEffect(() => {
-    if (ready) SplashScreen.hideAsync();
-  }, [ready]);
 
   // 로그아웃 · 탈퇴하면 이전 계정의 서버 데이터 캐시를 비운다
   useEffect(() => {
@@ -34,6 +34,7 @@ export default function RootLayout() {
   }, [auth, queryClient]);
 
   // 폰트와 세션 확인이 끝날 때까지 splash를 유지한다. 폰트 로드에 실패하면 시스템 폰트로 계속 진행한다.
+  // 준비되면 앱 안 스플래시가 같은 모양으로 그려진 뒤 네이티브 스플래시를 내리고, 출발점이 한 바퀴 돈 뒤 사라진다.
   if (!ready) return null;
 
   return (
@@ -95,6 +96,7 @@ export default function RootLayout() {
           {/* 약관 · 개인정보 처리방침은 로그인 전에도 본다 */}
           <Stack.Screen name="legal/[kind]" options={{ headerShown: false }} />
         </Stack>
+        {splashDone ? null : <BrandSplash onShown={() => SplashScreen.hideAsync()} onDone={() => setSplashDone(true)} />}
       </ThemeProvider>
     </QueryClientProvider>
   );
