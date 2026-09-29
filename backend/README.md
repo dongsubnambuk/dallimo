@@ -281,6 +281,18 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **보이는 것**: 친구와 나의 활동만. 숨김 · 차단 · 삭제 · 남의 비공개 코스에 딸린 활동은 뺀다(한 쪽을 채우도록 몇 번 더 읽는다). 좋아요 · 댓글은 없다(피드를 중심 IA로 만들지 않는다, 65장).
 - **테스트**: `ActivityApiContractTest`를 MySQL · MariaDB에서(코스 등록 · 첫 기록 · 느린 기록은 없음 · PB 갱신 · 주간 1위 · 도전 성공 · 친구 아닌 사람 · cursor · 숨긴 코스 · 로그인 · 5위에서 3위로 올라섬).
 
+## 요청 제한 · App Link · 누적 통계 (Hardening)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 제한 (27장 `RATE_LIMITED` 429) | 로그인 · 가입 IP마다 분당 10번, 사용자 · 코스 검색 사람마다 60번, 친구 요청 사람마다 20번, 공유 링크 해석 · 공유 페이지 IP마다 60번, 실시간 연결(STOMP CONNECT) 사람마다 20번. 넘으면 `Retry-After`와 함께 429 |
+| `GET /.well-known/apple-app-site-association` · `/.well-known/assetlinks.json` | App Link · Universal Link 확인 파일(로그인 없이). 공유 페이지 `/s/*`만 앱으로. 값이 없으면 404 |
+| `GET /api/v1/users/me` | `stats { runCount, totalDistanceM, totalActiveSec }` (MY-002, 끝난 러닝만) |
+
+- **요청 제한 구현**: Redis 고정 창(INCR + 첫 번째에만 만료, Lua 하나)이라 서버가 여러 대여도 같은 값. 인증 필터 뒤에서 돌아 로그인한 사람은 사람마다 센다. Redis에 닿지 못하면 막지 않는다. 값은 `dallimo.rate-limit.*`(`enabled`, `window`, `login`, `search`, `friend-request`, `share-resolve`, `ws-connect`), 테스트 프로필은 끈다.
+- **App Link 설정**: `dallimo.share.app-links.ios-app-ids`(팀ID.번들ID), `android-package`, `android-sha256`. 운영은 `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` · `SHARE_PUBLIC_BASE_URL`. 앱은 `APP_LINK_DOMAIN` · `IOS_BUNDLE_ID` · `ANDROID_PACKAGE`로 빌드한다(frontend `app.config.ts`).
+- **테스트**: `RateLimitApiTest`(로그인 · 검색 사람마다 · 공유 해석), `AppLinksTest`, 확인 파일 없음은 `ShareAndRoomApiContractTest`, 누적 통계는 `CourseApiContractTest`.
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -345,6 +357,10 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 환경 단계 | 1~3 평균을 1.67 · 2.34로 나눠 세 단계 | 명세에 값 없음 |
 | 신고 테이블 | `tbl_course_report(reason, content)`, `uk(course_id, user_id)`. 쌓기만 | CREG-005인데 ERD에 없다. 숨김 기준은 코스 공개 정책(20.2장)과 함께 |
 | 코스 지역 · 추천 시간 | `tbl_course.region`(50자) · `recommended_time`(30자), 등록 요청에 받는다 | ERD에 없다. 지역은 앱이 휴대폰 지오코더로(외부 지도 API 없이) |
+| 요청 제한 값 | 위 표. 1분 고정 창 | 명세는 대상 후보만 있다(27장). 공유 코드 추측 · 로그인 대입을 막을 만큼만 |
+| 요청 제한 실패 시 | Redis 오류면 통과 | 요청 제한 때문에 로그인이 막히지 않게 |
+| 누적 통계 위치 | `GET /users/me`의 `stats` | 명세 41장 UserProfileResponse. 앱이 기록 전체를 받아 더하던 것을 없앴다 |
+| App Link 경로 | 공유 페이지 `/s/*`만 | 서버 주소의 다른 경로(API)는 브라우저로 남긴다 |
 | 활동 테이블 | ERD `activity` + `value_int`(PB 이전 기록 · 주간 순위, 만든 때의 값) | 나중 기록으로 문구가 바뀌지 않게. ERD에는 대상만 있다 |
 | 랭킹 활동 기준 | 이번 주 코스 3위 안으로 들어오거나 3위 안에서 순위를 올렸을 때 | 명세에 값 없음. 순위가 그대로면 남기지 않는다(같은 소식 반복 방지) |
 | 활동 공개 범위 | 친구와 나. visibility는 FRIENDS만 쓴다 | 16장 "공개 범위는 정책화". 전체 공개 피드는 만들지 않는다 |

@@ -2,6 +2,7 @@ package com.dallimo.dallimoserver.user.api;
 
 import com.dallimo.dallimoserver.auth.application.AuthService;
 import com.dallimo.dallimoserver.common.web.ApiResponse;
+import com.dallimo.dallimoserver.running.infrastructure.RunStatsJdbcRepository;
 import com.dallimo.dallimoserver.user.application.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -24,10 +25,12 @@ public class UserController {
 
     private final UserService users;
     private final AuthService auth;
+    private final RunStatsJdbcRepository runStats;
 
-    public UserController(UserService users, AuthService auth) {
+    public UserController(UserService users, AuthService auth, RunStatsJdbcRepository runStats) {
         this.users = users;
         this.auth = auth;
+        this.runStats = runStats;
     }
 
     public record UpdateMeRequest(@NotBlank @Size(max = 40) String nickname) {
@@ -39,9 +42,14 @@ public class UserController {
     public record NicknameAvailability(boolean available) {
     }
 
+    /** MY-001~002 내 프로필 + 누적 통계 (끝난 러닝의 수 · 거리 · 달린 시간) */
+    public record MeResponse(long userId, String email, String nickname, String profileImageUrl, String friendCode, RunStatsJdbcRepository.Totals stats) {
+    }
+
     @GetMapping("/me")
-    public ApiResponse<UserResponse> me(@AuthenticationPrincipal Jwt jwt) {
-        return ApiResponse.ok(UserResponse.from(users.get(userId(jwt))));
+    public ApiResponse<MeResponse> me(@AuthenticationPrincipal Jwt jwt) {
+        UserResponse u = UserResponse.from(users.get(userId(jwt)));
+        return ApiResponse.ok(new MeResponse(u.userId(), u.email(), u.nickname(), u.profileImageUrl(), u.friendCode(), runStats.totals(userId(jwt))));
     }
 
     /** 닉네임 변경. 프로필 사진 업로드는 S3 결정 뒤에 붙인다 */

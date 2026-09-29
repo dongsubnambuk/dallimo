@@ -12,3 +12,6 @@ dallimo:
   # Push: 로컬 · 테스트는 보내지 않고 로그만 (Expo 계정 · 실기기 없이)
   push:
     provider: log
+  # 요청 제한: 테스트는 같은 IP로 가입 · 로그인을 많이 해서 끈다 (RateLimitApiTest가 켜서 확인)
+  rate-limit:
+    enabled: false

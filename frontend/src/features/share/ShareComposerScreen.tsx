@@ -18,6 +18,7 @@ import { type ShareScenario } from '@/entities/share/api/mockShareRepository';
 
 import { availableTemplates, defaultTemplate, TEMPLATE_LABEL, type ShareCardData, type TemplateKey } from './cardModel';
 import { CARD_BASE_H, CARD_BASE_W, ShareCard } from './components/ShareCard';
+import { PRIVACY_RADIUS_M } from './privacyZone';
 import { useShareSubject, type LinkTarget } from './useShareSubject';
 
 // 공유 이미지 크기 (9:16, 스토리 · 메신저 세로 이미지)
@@ -125,9 +126,9 @@ function Composer({
       </View>
       {template === 'map' && data.freePath ? (
         <View style={styles.note}>
-          <AppIcon name="warning" size={14} color={colors.status.warning} />
+          <AppIcon name="lock" size={14} color={colors.text.secondary} />
           <AppText role="caption" tone="secondary" style={styles.flexShrink}>
-            지도에 출발 지점이 그대로 보여요. 집 근처에서 시작했다면 기록 카드를 권해요.
+            집 · 직장이 드러나지 않게 출발 · 도착 {PRIVACY_RADIUS_M}m는 지도에서 가렸어요.
           </AppText>
         </View>
       ) : null}

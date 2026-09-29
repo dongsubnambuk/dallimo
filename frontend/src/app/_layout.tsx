@@ -95,6 +95,8 @@ export default function RootLayout() {
             {/* SCR-R05 공유 카드, SHR-004 공유 링크 열기 */}
             <Stack.Screen name="share/compose" options={{ headerShown: false, presentation: 'modal' }} />
             <Stack.Screen name="share/[code]" options={{ headerShown: false, animation: 'fade' }} />
+            {/* App Link: 공유 페이지 주소(https://{도메인}/s/{code})를 앱이 바로 열 때 */}
+            <Stack.Screen name="s/[code]" options={{ headerShown: false, animation: 'fade' }} />
           </Stack.Protected>
           {/* SCR-A01 로그인 · 회원가입 (dark) */}
           <Stack.Protected guard={auth === 'signedOut'}>

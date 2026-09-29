@@ -310,6 +310,12 @@ abstract class CourseApiContractTest {
         assertThat(ids(body(get(me.token, "/api/v1/users/me/courses?kind=FINISHED")), "$.data")).containsExactly(courseId);
         // 비회원에게는 내 기록이 없다
         assertThat((Object) JsonPath.read(body(get(null, "/api/v1/courses/" + courseId)), "$.data.myRecord")).isNull();
+        // MY-002 누적 통계: 끝난 러닝 둘(코스를 만든 자유 달리기 300초 + 코스 러닝 700초)
+        String profile = body(get(me.token, "/api/v1/users/me"));
+        assertThat((Integer) JsonPath.read(profile, "$.data.stats.runCount")).isEqualTo(2);
+        assertThat((Integer) JsonPath.read(profile, "$.data.stats.totalActiveSec")).isEqualTo(299 + 699);
+        assertThat(((Number) JsonPath.read(profile, "$.data.stats.totalDistanceM")).intValue()).isGreaterThan(2500);
+        assertThat((String) JsonPath.read(profile, "$.data.nickname")).isEqualTo(me.nickname);
     }
 
     // ── helpers ──

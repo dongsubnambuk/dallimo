@@ -4,8 +4,11 @@ import com.dallimo.dallimoserver.auth.infrastructure.RefreshSessionRepository;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.dallimo.dallimoserver.common.ratelimit.RateLimitFilter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -46,8 +49,10 @@ public class SecurityConfig {
 
     @Bean
     @ConditionalOnWebApplication
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder, ApiSecurityErrors errors) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder, ApiSecurityErrors errors, RateLimitFilter rateLimit) throws Exception {
         http
+                // 요청 제한은 토큰을 읽은 뒤 (로그인한 사람은 사람마다 센다)
+                .addFilterAfter(rateLimit, BearerTokenAuthenticationFilter.class)
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -61,6 +66,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
                         // SHR-004 공유 링크 해석 · 공유 페이지는 로그인 없이
                         .requestMatchers(HttpMethod.GET, "/api/v1/shares/*", "/s/*").permitAll()
+                        // App Link · Universal Link 확인 파일
+                        .requestMatchers(HttpMethod.GET, "/.well-known/apple-app-site-association", "/.well-known/assetlinks.json").permitAll()
                         // 8장 WebSocket 연결. 인증은 STOMP CONNECT의 Access Token으로 한다 (StompAuthInterceptor)
                         .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error").permitAll()
@@ -73,6 +80,14 @@ public class SecurityConfig {
                         .authenticationEntryPoint(errors.entryPoint())
                         .accessDeniedHandler(errors.accessDeniedHandler()));
         return http.build();
+    }
+
+    /** 요청 제한 필터는 보안 체인 안에서만 돈다 (서블릿 필터로 한 번 더 붙지 않게) */
+    @Bean
+    FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter filter) {
+        FilterRegistrationBean<RateLimitFilter> r = new FilterRegistrationBean<>(filter);
+        r.setEnabled(false);
+        return r;
     }
 
     @Bean

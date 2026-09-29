@@ -173,7 +173,7 @@
 
 1. ~~탈퇴 API~~ → DELETE /users/me로 구현
 2. ~~소셜 로그인 응답의 가입 여부~~ → 이메일 가입으로 바뀌어 필요 없음
-3. 누적 통계(MY-002)를 줄 곳 (UserProfileResponse 필드는 구현됨)
+3. ~~누적 통계(MY-002)를 줄 곳~~ → `GET /users/me`의 `stats { runCount, totalDistanceM, totalActiveSec }`. 앱은 여기에 아직 올리지 못한 기기 기록만 더한다
 4. ~~닉네임 중복 확인 API~~ → GET /users/nickname-availability로 구현
 5. 프로필 이미지 업로드 방식
 6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부). 검증 결과 · PB · 주간 순위 · 친구 최고 기록은 `verification`으로 구현
@@ -196,3 +196,4 @@
 23. 도전 공유 미리보기 필드(`challengeStatus · challengerName · challengedName · challengeTargetSec`): 14.3장은 대상만 있다. 명세에 넣어야 한다
 24. 코스 신고 테이블 · 사유(`DANGER · PRIVATE_PROPERTY · WRONG_INFO · OTHER`): ERD에 없다. 신고가 쌓였을 때 숨길지는 20.2장 코스 공개 정책과 함께 정한다
 25. Activity 모양: ERD activity에 `value_int`(PB 이전 기록 · 주간 순위)를 더했고, 종류는 PB · COURSE_CREATED · CHALLENGE_WON · WEEKLY_TOP(이번 주 3위 안). 공개 범위(visibility)는 FRIENDS만 쓴다. 명세에 넣어야 한다
+26. 요청 제한 값 · App Link 확인 파일 경로 · 공유 페이지 App Link(`/s/{code}`): 명세에 값이 없다. 도메인 · 앱 id는 배포 단계에서 정한다

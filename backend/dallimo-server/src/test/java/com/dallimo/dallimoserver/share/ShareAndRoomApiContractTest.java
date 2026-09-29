@@ -70,6 +70,9 @@ abstract class ShareAndRoomApiContractTest {
         assertThat(get(null, "/s/nosuchcode1")).hasStatus(404);
         // 이상한 경로는 막는다 (Spring 방화벽 400 또는 코드 형식 404)
         assertThat(get(null, "/s/..%2F..%2Fetc").getResponse().getStatus()).isIn(400, 404);
+        // App Link 값이 없으면 확인 파일도 없다 (AppLinksTest에서 값이 있을 때)
+        assertThat(get(null, "/.well-known/apple-app-site-association").getResponse().getStatus()).isEqualTo(404);
+        assertThat(get(null, "/.well-known/assetlinks.json").getResponse().getStatus()).isEqualTo(404);
     }
 
     @Test

@@ -20,3 +20,10 @@ dallimo:
   push:
     provider: expo
     expo-access-token: ${EXPO_ACCESS_TOKEN:}
+  # 공유 링크 주소 · App Link (SHR-004). 도메인 · 앱 id는 배포 때 환경변수로
+  share:
+    public-base-url: ${SHARE_PUBLIC_BASE_URL:}
+    app-links:
+      ios-app-ids: ${APP_LINK_IOS_APP_IDS:}
+      android-package: ${APP_LINK_ANDROID_PACKAGE:}
+      android-sha256: ${APP_LINK_ANDROID_SHA256:}
