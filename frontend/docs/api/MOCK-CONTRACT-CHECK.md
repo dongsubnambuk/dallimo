@@ -63,7 +63,7 @@
 | POST /runs/{id}/points `batchUuid, fromSeq, toSeq, points[]` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | `Idempotency-Key` 헤더에 batchUuid를 함께 보낸다(7.3장). SQLite에 Batch UUID를 먼저 기록한 뒤 보낸다(50.2장). 연속 seq 60개씩, 실패하면 같은 batchUuid로 backoff 재전송. 422 · 409 IDEMPOTENCY_CONFLICT · 400 · 403은 FAILED. `toPointDto`로 이름 · 단위 변환, `qualityFlag`는 보내지 않는다 |
 | POST /runs/{id}/pause · resume | 엔진 · SQLite 구간에만 | 서버 구현 · 앱은 부르지 않음 | 요청에 시각이 없어 오프라인에서 한 일시정지를 나중에 올릴 수 없다. 대신 finish에 `activeSeconds`를 보낸다(12항 13번) |
 | POST /runs/{id}/finish `endedAt, lastSeq, activeSeconds` | 엔진 `finish()` → `syncRunNow` | 서버 구현 · 필드 추가 | `activeSeconds`(앱이 잰 달린 시간, 일시정지 제외)는 명세에 없는 필드다(사용자 결정). 서버는 거리만 point로 다시 계산하고 달린 시간은 이 값을 받되 시작~종료 시간을 넘지 않게 자른다. 남은 Batch를 보낸 뒤 요청. 응답 `status`가 FINISHING이면 빠진 Batch를 보내고 다시 요청. 오프라인이거나 20초 안에 못 끝내면 휴대폰에 저장한 결과로 보여주고 연결되면 이어서 올린다 |
-| GET /runs/{id} → run detail | `RunResultRepository.get(id)` | 명세 없음 · 서버 구현 | 서버 응답: `{ summary, splits[{ km, sec }], path[[위도, 경도]] (400개 이하) }`. 앱 id는 `srv-{runId}`. 코스 이름 · PB · 주간 순위 · 친구 최고 기록은 아직 없다(코스 · 랭킹 API 뒤). 앱이 쓰는 필드: `startedAt, finishedAt, distanceM, activeSec, avgPaceSec, splits, path(표시용으로 줄인 것), course{ id, name, timeSec }, target, verification, verificationReason, pb{ previousSec, improved }, weeklyRank{ before, after }, friendBest{ name, timeSec }` |
+| GET /runs/{id} → run detail | `RunResultRepository.get(id)` | 명세 없음 · 서버 구현 | 서버 응답: `{ summary(+courseName), splits[{ km, sec }], path[[위도, 경도]] (400개 이하), verification{ status, failureReason, matchRate, recordSeconds, previousBestSec, personalBest, policyVersion } }`. 앱 id는 `srv-{runId}`. 검증 결과 · 공식 기록 · PB는 서버 값(26장), 기기 기록도 서버에 올라간 뒤 서버 판정을 붙인다. 주간 순위 · 친구 최고 기록은 아직 없다(랭킹 API 뒤). 앱이 쓰는 필드: `startedAt, finishedAt, distanceM, activeSec, avgPaceSec, splits, path(표시용으로 줄인 것), course{ id, name, timeSec }, target, verification, verificationReason, pb{ previousSec, improved }, weeklyRank{ before, after }, friendBest{ name, timeSec }` |
 | GET /runs?cursor&size | `list(cursor, size)` | 서버 구현 | FINISHED만, `startedAt` 최신순(6.4장), size 1~50(기본 20), cursor는 `"startedAt 밀리초:id"`의 base64url. 항목: `runId, clientRunUuid, mode, status, courseId, startedAt, endedAt, distanceM, elapsedSeconds, avgPaceSecPerKm, verificationStatus`. 이번 실행에서 끝낸 기록(기기에만 있음 포함)은 첫 페이지에 기기 값으로 더하고 서버 쪽 같은 기록은 뺀다. 목록의 `pb`, 경로 미리보기(`preview`)는 명세 없음 → 서버 기록은 썸네일이 빈칸 |
 | (기기 저장) | `saveFinished(input, synced)` | — | 서버 API가 아니라 기기 저장(11장 SQLite local_run). `clientRunUuid`와 `startedAt`을 함께 저장하도록 고침 |
 
@@ -160,7 +160,7 @@
 3. 누적 통계(MY-002)를 줄 곳 (UserProfileResponse 필드는 구현됨)
 4. ~~닉네임 중복 확인 API~~ → GET /users/nickname-availability로 구현
 5. 프로필 이미지 업로드 방식
-6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부)
+6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부). 검증 결과 · PB는 `verification`으로 구현
 7. 코스 상세 응답 필드, 경로를 상세에 포함할지 (서버는 상세에 줄인 경로를 넣고 GET /route로 전체를 준다)
 8. 코스 등록 요청의 추천 시간
 9. 내 주변 순위 API (RNK-005)

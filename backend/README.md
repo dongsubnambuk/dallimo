@@ -106,6 +106,21 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **로컬 코스 데이터**: local 프로필에서만 `db/seed/local/R__local_seed_courses.sql`(수성못 둘레길 · 신천 강변 왕복 · 들안로 왕복, 만든 사람 "달리모")을 넣는다. 앱 mock 코스와 같은 OpenStreetMap 경로를 10m 간격으로 찍었다. 다시 만들 때: `node --experimental-strip-types scripts/gen-local-seed.mts`.
 - **테스트**: `CourseApiContractTest`를 MySQL · MariaDB에서 모두 돌린다(등록 · 거부 · 주변 · 숨김 · 검색 · 저장 · 내 코스 · 기록 숫자). `CourseRouteTest`는 경로 정규화.
 
+## 코스 완주 검증 (명세 26장, WBS 5)
+
+- **언제**: 코스 러닝(COURSE · PB · CHALLENGE + courseId)을 finish하면 검증 대기(PENDING). 커밋 뒤 비동기로 판정한다(`VerificationTrigger`, 12.4장). 서버가 그 사이 꺼져 1분 넘게 PENDING으로 남은 Run은 1분마다 다시 찾는다(`dallimo.verification.sweep-interval`).
+- **한 번만**: Run 행을 잠그고 PENDING일 때만 판정한다. `tbl_course_record.run_id` UNIQUE.
+- **파이프라인** (`CourseVerifier`, 26.1장): 거리 계산과 같은 GPS 품질 판정 → 출발점 반경 → 도착점 반경 → 거리 → 경로 일치율 → 이어진 속도 → 판정.
+  - 출발: 처음 출발점 반경에 들어온 구간에서 출발점에 가장 가까운 point
+  - 도착: 출발 뒤 코스 거리의 50% 이상 달린 다음 처음 도착점 반경에 들어온 구간에서 도착점에 가장 가까운 point (루프 · 왕복 코스에서 출발하자마자 도착으로 보지 않고, 두 바퀴 달리면 첫 바퀴)
+  - 경로 일치율: 코스 점(10m 간격) 중 달린 선분에서 허용 폭 안인 비율. 달린 선분을 격자에 넣고 코스 점마다 주변 칸만 본다(26.3장, O(N×M) 전체 비교 없음)
+  - 속도: 움직인 시간 30초 이상 구간의 평균 속도
+- **판정**: 속도 초과 → REJECTED(`SPEED_ANOMALY`). 출발 · 도착 · 거리 · 일치율 중 하나라도 실패 → UNVERIFIED(`START_NOT_NEAR` · `END_NOT_REACHED` · `DISTANCE_SHORT` · `ROUTE_MISMATCH`, GPS 부족 `GPS_INSUFFICIENT`, 코스 경로 없음 `COURSE_UNAVAILABLE`). 모두 통과 → VERIFIED + 공식 기록.
+- **공식 기록** (사용자 결정): 출발점에 가장 가까운 point부터 도착점에 가장 가까운 point까지 달린 시간, 일시정지(point 사이 15초 넘게 빔) 제외. 페이스는 코스 거리 기준.
+- **근거** (26.4장): `tbl_run_verification`에 검사별 PASS · FAIL · SKIPPED, 일치율, 실패 사유, 정책 버전(`2026-09-v1`)을 남긴다. 원본 point는 바꾸지 않는다.
+- **API**: `GET /runs/{id}`의 `verification { status, failureReason, matchRate, recordSeconds, previousBestSec, personalBest, policyVersion }`(코스 러닝이 아니면 null). 목록 · 상세 요약에 `courseName`.
+- **테스트**: `CourseVerifierTest`(직선 · 루프 두 바퀴 · 일시정지 · 대각선 지름길 · 우회 · 차량 속도 · 짧은 전력 질주 · 출발 · 도착 · 정확도 나쁜 point · 재현성), `VerificationApiContractTest`를 MySQL · MariaDB에서(CRS-IT-001~003, PB, 한 번만 판정, 주기 재검사).
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -143,3 +158,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 내 코스 API | `GET /users/me/courses?kind=` | MY-005인데 41~43장 표에 경로 없음 |
 | 코스 cursor | 주변: 거리순 위치, 검색: 마지막 id (둘 다 base64url) | 27.3장 opaque cursor |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |
+| 검증 기준값 (`VerificationPolicy` 2026-09-v1) | 출발 · 도착 반경 100m, 경로 허용 폭 50m, 최소 일치율 85% | 사용자 결정: 명세 10.5장 후보값. 실기기 테스트 뒤 조정하고 버전을 올린다 |
+| 검증 거리 · 도착 판정 | 출발~도착 거리 ≥ 코스의 90%, 코스의 50% 이상 달린 뒤부터 도착 판정 | 명세에 값 없음 |
+| 비정상 속도 | 움직인 시간 30초 이상 평균 초속 7m 초과면 거부 | 명세에 값 없음. 1km 세계 기록 평균(약 7.6m/s)에 가깝고 짧은 전력 질주는 걸리지 않게 |
+| 검증 시점 | finish 커밋 뒤 비동기 + 1분마다 남은 PENDING 재검사 | 12.4장 비동기 후보. 응답을 늦추지 않고 서버 재시작에도 빠지지 않게 |
