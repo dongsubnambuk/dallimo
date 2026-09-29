@@ -1,0 +1,6 @@
+# 개발자 로컬: backend/dallimo-server/docker-compose.yml의 MySQL
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/dallimo?connectionTimeZone=UTC&characterEncoding=UTF-8
+    username: ${DB_USERNAME:dallimo}
+    password: ${DB_PASSWORD:dallimo}

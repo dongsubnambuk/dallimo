@@ -1,0 +1,27 @@
+# 로컬 개발용 MySQL (application-local.yaml). 운영 값이 아니다.
+# 실행: docker compose up -d   /   중지: docker compose down   (데이터까지 지우려면 -v)
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: dallimo-mysql
+    environment:
+      MYSQL_DATABASE: dallimo
+      MYSQL_USER: dallimo
+      MYSQL_PASSWORD: dallimo
+      MYSQL_ROOT_PASSWORD: dallimo-root
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - dallimo-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-udallimo", "-pdallimo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  dallimo-mysql:

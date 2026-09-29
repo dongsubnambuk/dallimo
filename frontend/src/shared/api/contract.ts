@@ -21,6 +21,7 @@ export type ApiErrorCode =
   | 'AUTH_REQUIRED' // 401
   | 'TOKEN_EXPIRED' // 401
   | 'RESOURCE_FORBIDDEN' // 403
+  | 'RESOURCE_NOT_FOUND' // 404 (명세 표에 없음: 도메인 코드가 없는 404. backend/README 결정 사항)
   | 'RUN_NOT_FOUND' // 404
   | 'COURSE_NOT_FOUND' // 404
   | 'RUN_INVALID_STATE' // 409

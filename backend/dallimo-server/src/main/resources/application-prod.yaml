@@ -1,0 +1,10 @@
+# 운영 (MariaDB). 접속 정보는 환경변수로만 받는다
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+management:
+  endpoint:
+    health:
+      show-details: never

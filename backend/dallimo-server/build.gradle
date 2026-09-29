@@ -39,6 +39,9 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-mysql'
+    // 13.1장 · ADR-004: 운영(MariaDB)과 같은 DB로 migration · SQL 호환을 CI에서 확인한다
+    testImplementation 'org.testcontainers:testcontainers-mariadb'
+    testRuntimeOnly 'org.mariadb.jdbc:mariadb-java-client'
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
@@ -46,4 +49,10 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // 40.4장: 서버 기준 시간은 UTC
+    systemProperty 'user.timezone', 'UTC'
+}
+
+tasks.named('bootRun') {
+    systemProperty 'user.timezone', 'UTC'
 }

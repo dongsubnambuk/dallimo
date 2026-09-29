@@ -166,3 +166,4 @@
 12. 공유 링크 요청 · 응답 필드
 13. 일시정지 · 재개 시각: POST /runs/{id}/pause · resume에 시각이 없다. 오프라인에서 한 일시정지를 나중에 알리려면 `pausedAt` · `resumedAt`을 요청에 넣거나, finish에 달린 구간(또는 active 시간)을 넣어야 서버 `elapsedSeconds`가 맞다
 14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 앱은 200 + `status: FINISHING`으로 가정했다
+15. `RESOURCE_NOT_FOUND`(404): 서버가 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드가 없는 404에 쓴다. 명세 표에 넣을지 정한다
