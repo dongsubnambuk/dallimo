@@ -36,6 +36,11 @@ export function registerAuthHooks(h: AuthHooks) {
   hooks = h;
 }
 
+// fetch 밖(WebSocket CONNECT 헤더)에서 쓸 Access Token
+export async function currentAccessToken(): Promise<string | null> {
+  return (await hooks?.getAccessToken()) ?? null;
+}
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;

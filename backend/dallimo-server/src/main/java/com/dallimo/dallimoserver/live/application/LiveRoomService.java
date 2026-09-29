@@ -12,6 +12,8 @@ import com.dallimo.dallimoserver.live.infrastructure.LiveMemberJdbcRepository;
 import com.dallimo.dallimoserver.live.infrastructure.LiveMemberJdbcRepository.Member;
 import com.dallimo.dallimoserver.live.infrastructure.LiveRoomJpaRepository;
 import com.dallimo.dallimoserver.share.infrastructure.ShareJdbcRepository;
+import com.dallimo.dallimoserver.live.domain.LiveRoomEvents;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,13 +42,16 @@ public class LiveRoomService {
     private final ShareJdbcRepository shares;
     private final CourseService courses;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
-    public LiveRoomService(LiveRoomJpaRepository rooms, LiveMemberJdbcRepository members, ShareJdbcRepository shares, CourseService courses, Clock clock) {
+    public LiveRoomService(LiveRoomJpaRepository rooms, LiveMemberJdbcRepository members, ShareJdbcRepository shares, CourseService courses, Clock clock,
+                           ApplicationEventPublisher events) {
         this.rooms = rooms;
         this.members = members;
         this.shares = shares;
         this.courses = courses;
         this.clock = clock;
+        this.events = events;
     }
 
     /** me: 내 참가 상태. 참가하지 않고 초대 링크로 보는 중이면 INVITED */
@@ -102,7 +107,10 @@ public class LiveRoomService {
         if (room.getHostUserId() == userId && room.getStatus().beforeStart()) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "방장은 방을 취소해 주세요.");
         advance(room);
         if (room.getStatus().beforeStart()) members.remove(roomId, userId);
-        else if (room.getStatus() == LiveRoomStatus.RUNNING) members.setStatus(roomId, userId, LiveMemberStatus.DNF);
+        else if (room.getStatus() == LiveRoomStatus.RUNNING) {
+            members.setStatus(roomId, userId, LiveMemberStatus.DNF);
+            events.publishEvent(new LiveRoomEvents.Left(roomId, userId));
+        }
         advance(room);
     }
 
@@ -150,7 +158,17 @@ public class LiveRoomService {
 
     private void advance(LiveRoom room) {
         List<LiveMemberStatus> statuses = members.list(room.getId()).stream().map(Member::status).toList();
-        if (room.advance(statuses, clock.instant())) members.startAll(room.getId());
+        if (room.advance(statuses, clock.instant())) {
+            members.startAll(room.getId());
+            // 커밋 뒤 실시간 채널이 참가자 상태를 만들고 알린다
+            events.publishEvent(new LiveRoomEvents.Started(room.getId()));
+        }
+    }
+
+    /** 아무도 방을 읽지 않아도 출발 시각이 지나면 출발시킨다 (실시간 채널의 주기 확인) */
+    @Transactional
+    public void tick(long roomId) {
+        rooms.findForUpdate(roomId).ifPresent(this::advance);
     }
 
     private Snapshot snapshot(LiveRoom room, long viewerId) {

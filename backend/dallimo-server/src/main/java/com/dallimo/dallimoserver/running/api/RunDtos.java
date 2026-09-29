@@ -25,7 +25,7 @@ public final class RunDtos {
 
     static final String UUID_RULE = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
 
-    /** 42.1장. challengeId · liveRoomId는 도전 · Together(WBS 9 · 12) 전이라 받기만 한다 */
+    /** 42.1장. liveRoomId는 함께 달리기 방 참가 기록에 이 Run을 잇는다. challengeId는 도전(WBS 9) 전이라 받기만 한다 */
     public record CreateRunRequest(
             @NotBlank @Pattern(regexp = UUID_RULE) String clientRunUuid,
             @NotNull RunMode mode,

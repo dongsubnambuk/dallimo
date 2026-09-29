@@ -1,12 +1,11 @@
 package com.dallimo.dallimoserver.live.api;
 
-import com.dallimo.dallimoserver.common.error.ApiException;
-import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.ApiResponse;
 import com.dallimo.dallimoserver.live.api.LiveRoomDtos.CreateRoomRequest;
 import com.dallimo.dallimoserver.live.api.LiveRoomDtos.JoinRequest;
 import com.dallimo.dallimoserver.live.api.LiveRoomDtos.ReadyRequest;
 import com.dallimo.dallimoserver.live.api.LiveRoomDtos.RoomResponse;
+import com.dallimo.dallimoserver.live.application.LiveRaceService;
 import com.dallimo.dallimoserver.live.application.LiveRoomService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,7 +24,7 @@ import java.time.Clock;
 import java.util.List;
 
 /**
- * 45장 Together REST (대기실까지). 친구 초대(POST /invite)는 친구 기능(WBS 8) 뒤, 결과(GET /result)는 Live 단계(WBS 11) 뒤.
+ * 45장 Together REST. 달리는 중 상태는 STOMP(LiveRaceMessageController). 친구 초대(POST /invite)는 친구 기능(WBS 8) 뒤.
  * 지금은 방 초대 링크(POST /shares type LIVE_ROOM)를 받은 사람이 그 코드로 참가한다.
  */
 @RestController
@@ -33,10 +32,12 @@ import java.util.List;
 public class LiveRoomController {
 
     private final LiveRoomService rooms;
+    private final LiveRaceService race;
     private final Clock clock;
 
-    public LiveRoomController(LiveRoomService rooms, Clock clock) {
+    public LiveRoomController(LiveRoomService rooms, LiveRaceService race, Clock clock) {
         this.rooms = rooms;
+        this.race = race;
         this.clock = clock;
     }
 
@@ -81,10 +82,10 @@ public class LiveRoomController {
         return ResponseEntity.noContent().build();
     }
 
-    /** 최종 결과는 실시간 경쟁(WBS 11)이 확정한다. 그 전까지는 없음 */
+    /** SCR-T05 최종 결과 (46.1장 서버 finalization 값). 참가자만, 방이 끝나기 전에는 404 */
     @GetMapping("/{roomId}/result")
-    public ApiResponse<Void> result(@AuthenticationPrincipal Jwt jwt, @PathVariable long roomId) {
-        throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "결과가 아직 없어요.");
+    public ApiResponse<LiveRaceService.Result> result(@AuthenticationPrincipal Jwt jwt, @PathVariable long roomId) {
+        return ApiResponse.ok(race.result(userId(jwt), roomId));
     }
 
     private static long userId(Jwt jwt) {

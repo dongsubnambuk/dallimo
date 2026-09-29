@@ -12,6 +12,7 @@ import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
+import { createHttpLiveChannel } from '@/entities/live/api/httpLiveChannel';
 import type { LiveChannel } from '@/entities/live/api/liveChannel';
 import { createMockLiveChannel, type LiveRunScenario } from '@/entities/live/api/mockLiveChannel';
 import { liveRoomRepositoryFor } from '@/entities/live/api';
@@ -26,9 +27,9 @@ import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } fr
 import { haptics } from '@/shared/haptics';
 
 import { goalLabel, participantStatus } from '../labels';
-import { distanceGap, myRank, orderMembers } from './liveRank';
+import { distanceGap, orderMembers } from './liveRank';
 
-type Props = { roomId: string; scenario: LiveRunScenario; speed: number };
+type Props = { roomId: string; scenario: LiveRunScenario; speed: number; resume: boolean };
 
 // SCR-T04 Together Live (TGT-005~010). 94장 레이아웃:
 // 목표 · 참가 인원 → 내 순위와 거리(self metric 항상 고정) → 참가자 가상 진행 rail → 선두와 차이 · 평균 페이스 → 일시정지.
@@ -41,10 +42,10 @@ export function TogetherLiveScreen(props: Props) {
   );
 }
 
-function Live({ roomId, scenario, speed }: Props) {
+function Live({ roomId, scenario, speed, resume }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  // 방 정보는 서버(서버 방) 또는 mock. 달리는 중 상태는 Live 단계(WBS 11) 전이라 mock 채널
+  // 방 정보는 서버(서버 방) 또는 mock
   const repo = useMemo(() => liveRoomRepositoryFor(roomId), [roomId]);
   const room = useQuery({ queryKey: ['live', 'room', roomId, 'live'], queryFn: () => repo.get(roomId), retry: false, staleTime: Infinity });
 
@@ -64,17 +65,19 @@ function Live({ roomId, scenario, speed }: Props) {
           actions={<SecondaryButton label="함께 달리기로" size="sm" onPress={() => router.dismissTo('/together')} />}
         />
       ) : (
-        <LiveRun room={room.data} scenario={scenario} speed={speed} />
+        <LiveRun room={room.data} scenario={scenario} speed={speed} resume={resume} />
       )}
     </View>
   );
 }
 
-function LiveRun({ room, scenario, speed }: { room: LiveRoom; scenario: LiveRunScenario; speed: number }) {
+function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: LiveRunScenario; speed: number; resume: boolean }) {
   const { colors } = useTheme();
   // 개인 Run은 항상 만든다 (45.1장). 내 기록은 러닝 엔진이, 다른 사람 상태는 Live 채널이 준다.
-  const [engine] = useState(() => beginActiveRun({ kind: 'mock', scenario: 'normal', speed }));
-  const [channel] = useState<LiveChannel>(() => createMockLiveChannel({ room, scenario, now: engine.now, speed }));
+  // 서버 방은 실제 위치로 기록하고 46장 WebSocket에 붙는다. 개발용 mock 방(r-*)은 mock 러너와 mock 채널
+  const [server] = useState(() => /^\d+$/.test(room.id));
+  const [engine] = useState(() => beginActiveRun(server ? { kind: 'device' } : { kind: 'mock', scenario: 'normal', speed }));
+  const [channel] = useState<LiveChannel>(() => (server ? createHttpLiveChannel(room) : createMockLiveChannel({ room, scenario, now: engine.now, speed })));
   const [members, setMembers] = useState<LiveMemberState[]>([]);
   const [connected, setConnected] = useState(true);
   const [mine, setMine] = useState<'RUNNING' | 'FINISHED' | 'DNF'>('RUNNING');
@@ -85,7 +88,31 @@ function LiveRun({ room, scenario, speed }: { room: LiveRoom; scenario: LiveRunS
   const elapsed = useElapsedSec(engine);
   // Together에서도 내 구간 안내는 같다 (AUD-001)
   useSplitAnnouncer(engine);
-  const ending = useRef(false);
+  // 내 기록을 끝내는 중 (한 번만)
+  const ending = useRef<Promise<void> | null>(null);
+
+  // 내 기록을 끝낸다: 목표 도달 · 그만두기 · 서버 마감
+  const end = (kind: 'FINISHED' | 'DNF') => {
+    if (ending.current) return ending.current;
+    setMine(kind);
+    if (kind === 'FINISHED') haptics.complete();
+    const finalDistance = (m: number) => (room.targetDistanceM != null && kind === 'FINISHED' ? room.targetDistanceM : m);
+    // 서버 방은 끝난 순간을 바로 알린다. 기록 마무리(남은 point 올리기)는 몇 초 걸릴 수 있다
+    if (server) {
+      const s = engine.getSnapshot();
+      channel.sendState({ distanceM: finalDistance(s.distanceM), elapsedSec: activeMs(s, engine.now()) / 1000, paceSec: s.avgPaceSec, status: kind });
+    }
+    ending.current = (async () => {
+      const r = await engine.finish();
+      const runId = await runResultRepository.saveFinished(
+        { clientRunUuid: r.clientRunUuid, startedAt: r.startedAt, mode: room.mode, distanceM: r.distanceM, activeSec: r.activeSec, avgPaceSec: r.avgPaceSec, splits: r.splits, path: r.path, course: null, target: null },
+        r.synced,
+      );
+      // 결과 화면의 내 기록 연결. 서버는 이미 끝난 사람의 상태를 다시 받지 않는다
+      channel.sendState({ distanceM: finalDistance(r.distanceM), elapsedSec: r.activeSec, paceSec: r.avgPaceSec, status: kind, runId });
+    })().catch((e) => console.warn('[live] finish', e));
+    return ending.current;
+  };
 
   // 러닝 중 뒤로 가기로 빠지지 않게 한다
   useEffect(() => {
@@ -93,16 +120,27 @@ function LiveRun({ room, scenario, speed }: { room: LiveRoom; scenario: LiveRunS
     return () => sub.remove();
   }, []);
 
-  // 대기실 카운트다운이 끝난 뒤 들어오므로 바로 기록을 시작하고 채널에 붙는다
+  // 대기실 카운트다운이 끝난 뒤 들어오므로 바로 기록을 시작하고 채널에 붙는다.
+  // plan의 liveRoomId로 서버 Run이 방에 이어지고(POST /runs), 앱이 꺼졌다 켜지면 이 화면으로 돌아온다 (useRunRecovery)
   useEffect(() => {
-    engine.prepare({ mode: room.mode }).then(() => engine.start());
+    const plan = JSON.stringify({ liveRoomId: room.id });
+    engine
+      .prepare({ mode: room.mode, plan })
+      .then(() => (resume ? engine.recover() : engine.start()))
+      .catch((e) => console.warn('[live] run start', e));
     channel.connect((e) => {
       if (e.type === 'MEMBER_STATE') setMembers(e.members);
       else if (e.type === 'CONNECTION') setConnected(e.connected);
       else if (e.type === 'ROOM_FINISHED') {
-        haptics.complete();
-        endActiveRun();
-        router.replace({ pathname: '/together/[roomId]/result', params: { roomId: room.id } });
+        // 서버 마감(첫 완주 + 30분 · 목표 시간 + 5분)으로 끝나면 달리던 기록도 여기서 끝낸다.
+        // 내 기록 저장이 끝난 뒤 결과로 간다 (결과의 내 기록 연결)
+        const mineInResult = e.result.entries.find((x) => x.isMe);
+        const finishing = ending.current ?? end(mineInResult?.status === 'DNF' ? 'DNF' : 'FINISHED');
+        finishing.finally(() => {
+          haptics.complete();
+          endActiveRun();
+          router.replace({ pathname: '/together/[roomId]/result', params: { roomId: room.id } });
+        });
       }
     });
     return () => channel.close();
@@ -124,35 +162,25 @@ function LiveRun({ room, scenario, speed }: { room: LiveRoom; scenario: LiveRunS
 
   // 내가 끝나는 조건: 레이스·함께는 목표 거리, 타임 어택은 목표 시간
   const reached = (room.targetDistanceM != null && distanceM >= room.targetDistanceM) || (room.targetSeconds != null && elapsed >= room.targetSeconds);
-  const end = async (kind: 'FINISHED' | 'DNF') => {
-    if (ending.current) return;
-    ending.current = true;
-    setMine(kind);
-    if (kind === 'FINISHED') haptics.complete();
-    const r = await engine.finish();
-    const runId = await runResultRepository.saveFinished(
-      { clientRunUuid: r.clientRunUuid, startedAt: r.startedAt, mode: room.mode, distanceM: r.distanceM, activeSec: r.activeSec, avgPaceSec: r.avgPaceSec, splits: r.splits, path: r.path, course: null, target: null },
-      r.synced,
-    );
-    channel.sendState({ distanceM: room.targetDistanceM != null && kind === 'FINISHED' ? room.targetDistanceM : r.distanceM, elapsedSec: r.activeSec, paceSec: r.avgPaceSec, status: kind, runId });
-  };
   useEffect(() => {
     if (reached && mine === 'RUNNING') end('FINISHED');
     // end는 이 조건에서만 부른다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reached, mine]);
 
+  const me: LiveMemberState = members.find((m) => m.isMe) ?? { userId: 'me', name: '나', isMe: true, status: 'RUNNING', distanceM, elapsedSec: elapsed, paceSec: avgPace, finishSec: null };
+  const meNow: LiveMemberState = { ...me, distanceM: mine === 'RUNNING' ? distanceM : me.distanceM };
+  const ordered = orderMembers(room.mode, members.length ? members.map((m) => (m.isMe ? meNow : m)) : [meNow]);
+
   // 순위가 바뀌면 가벼운 햅틱 (69장 Rank change). 중도 포기하면 순위에서 빠진다.
-  const rank = mine === 'DNF' ? null : myRank(room.mode, members);
+  // 내 거리는 기기 값으로 본다 (연결이 끊겨도 순위 · 차이가 같은 값에서 나온다)
+  const rank = mine === 'DNF' || room.mode === 'TOGETHER' ? null : ordered.findIndex((m) => m.isMe) + 1 || null;
   const prevRank = useRef<number | null>(null);
   useEffect(() => {
     if (rank != null && prevRank.current != null && rank !== prevRank.current && mine === 'RUNNING') haptics.countdownTick();
     prevRank.current = rank;
   }, [rank, mine]);
 
-  const me: LiveMemberState = members.find((m) => m.isMe) ?? { userId: 'me', name: '나', isMe: true, status: 'RUNNING', distanceM, elapsedSec: elapsed, paceSec: avgPace, finishSec: null };
-  const meNow: LiveMemberState = { ...me, distanceM: mine === 'RUNNING' ? distanceM : me.distanceM };
-  const ordered = orderMembers(room.mode, members.length ? members.map((m) => (m.isMe ? meNow : m)) : [meNow]);
   const running = ordered.filter((m) => m.status === 'RUNNING' || m.status === 'DISCONNECTED').length;
   const leader = ordered[0];
   const paused = status === 'PAUSED';
@@ -343,7 +371,8 @@ function gapCopy(room: LiveRoom, ordered: LiveMemberState[], me: LiveMemberState
   }
   const i = ordered.findIndex((m) => m.isMe);
   if (i === 0) {
-    const next = ordered[1];
+    // 중도 포기한 사람과는 비교하지 않는다
+    const next = ordered.slice(1).find((m) => m.status !== 'DNF');
     return next ? `2위와 ${Math.max(0, Math.round(me.distanceM - next.distanceM))}m 앞서요` : '선두예요';
   }
   const leader = ordered[0];

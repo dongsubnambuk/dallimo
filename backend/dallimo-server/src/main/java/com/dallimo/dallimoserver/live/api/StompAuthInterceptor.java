@@ -1,0 +1,67 @@
+package com.dallimo.dallimoserver.live.api;
+
+import com.dallimo.dallimoserver.live.application.LiveRaceService;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessageDeliveryException;
+import org.springframework.messaging.simp.stomp.StompCommand;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.stereotype.Component;
+
+import java.security.Principal;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * STOMP 인증 · 권한 (16장). CONNECT: Access Token을 REST와 같은 JwtDecoder(서명 · 만료 · 세션 살아 있음)로 확인해 사용자를 붙인다.
+ * SUBSCRIBE /topic/live-runs/{roomId} · SEND /app/live-runs/{roomId}/*: 그 방 참가자만.
+ */
+@Component
+public class StompAuthInterceptor implements ChannelInterceptor {
+
+    private static final Pattern ROOM = Pattern.compile("^/(?:topic|app)/live-runs/(\\d+)(?:/.*)?$");
+
+    private final JwtDecoder jwt;
+    private final LiveRaceService race;
+
+    public StompAuthInterceptor(JwtDecoder jwt, @org.springframework.context.annotation.Lazy LiveRaceService race) {
+        this.jwt = jwt;
+        this.race = race;
+    }
+
+    @Override
+    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+        StompHeaderAccessor a = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        if (a == null || a.getCommand() == null) return message;
+        StompCommand cmd = a.getCommand();
+        if (cmd == StompCommand.CONNECT) {
+            List<String> header = a.getNativeHeader("Authorization");
+            String token = header == null || header.isEmpty() ? null : header.get(0).replaceFirst("(?i)^Bearer\\s+", "");
+            if (token == null || token.isBlank()) throw new MessageDeliveryException("AUTH_REQUIRED");
+            try {
+                String userId = jwt.decode(token).getSubject();
+                a.setUser(new UsernamePasswordAuthenticationToken(userId, null, List.of()));
+            } catch (JwtException e) {
+                throw new MessageDeliveryException("AUTH_REQUIRED");
+            }
+            return message;
+        }
+        if (cmd == StompCommand.SUBSCRIBE || cmd == StompCommand.SEND) {
+            Principal user = a.getUser();
+            if (user == null) throw new MessageDeliveryException("AUTH_REQUIRED");
+            String dest = a.getDestination();
+            if (dest == null) return message;
+            if (dest.startsWith("/user/")) return message;
+            Matcher m = ROOM.matcher(dest);
+            if (!m.matches()) throw new MessageDeliveryException("RESOURCE_FORBIDDEN");
+            if (!race.isMember(Long.parseLong(user.getName()), Long.parseLong(m.group(1)))) throw new MessageDeliveryException("RESOURCE_FORBIDDEN");
+        }
+        return message;
+    }
+}

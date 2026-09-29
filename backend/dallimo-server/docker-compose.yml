@@ -1,4 +1,4 @@
-# 로컬 개발용 MySQL (application-local.yaml). 운영 값이 아니다.
+# 로컬 개발용 MySQL · Redis (application-local.yaml). 운영 값이 아니다.
 # 실행: docker compose up -d   /   중지: docker compose down   (데이터까지 지우려면 -v)
 services:
   mysql:
@@ -19,6 +19,18 @@ services:
       - dallimo-mysql:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-udallimo", "-pdallimo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # 8장 실시간: 달리는 중 방 · 참가자 최신 상태 (ADR-005). 영구 데이터가 아니라 볼륨을 두지 않는다
+  redis:
+    image: redis:7.4-alpine
+    container_name: dallimo-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 20

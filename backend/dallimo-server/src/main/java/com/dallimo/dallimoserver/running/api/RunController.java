@@ -59,7 +59,7 @@ public class RunController {
     /** 42.1장: 새로 만들면 201, 같은 clientRunUuid 재요청이면 200 */
     @PostMapping
     public ResponseEntity<ApiResponse<CreateRunResponse>> create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateRunRequest req) {
-        RunService.Created c = runs.create(userId(jwt), req.clientRunUuid().toLowerCase(), req.mode(), req.courseId(), req.startedAt().toInstant());
+        RunService.Created c = runs.create(userId(jwt), req.clientRunUuid().toLowerCase(), req.mode(), req.courseId(), req.liveRoomId(), req.startedAt().toInstant());
         Run r = c.run();
         return ResponseEntity.status(c.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ApiResponse.ok(new CreateRunResponse(r.getId(), r.getClientRunUuid(), r.getStatus(), clock.instant())));

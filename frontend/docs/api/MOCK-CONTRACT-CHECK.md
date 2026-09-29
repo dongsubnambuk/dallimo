@@ -59,7 +59,7 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| POST /runs `clientRunUuid, mode, courseId, challengeId, liveRoomId, startedAt` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | 서버 id가 없으면 먼저 만든다(`clientRunUuid` 멱등, 새로 만들면 201 · 다시 보내면 200). 서버 id는 숫자라 `httpRunApi`가 문자열로 바꾼다. 숫자가 아닌 mock 코스 id(`c-suseongmot` 등)는 `courseId: null`로 올린다(서버는 없는 코스면 404 COURSE_NOT_FOUND). 서버 주소가 없으면 `mockRunApi` |
+| POST /runs `clientRunUuid, mode, courseId, challengeId, liveRoomId, startedAt` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | 서버 id가 없으면 먼저 만든다(`clientRunUuid` 멱등, 새로 만들면 201 · 다시 보내면 200). 함께 달리기 러닝은 기기 계획(plan JSON)의 `liveRoomId`를 보낸다. 서버 id는 숫자라 `httpRunApi`가 문자열로 바꾼다. 숫자가 아닌 mock 코스 id(`c-suseongmot` 등)는 `courseId: null`로 올린다(서버는 없는 코스면 404 COURSE_NOT_FOUND). 서버 주소가 없으면 `mockRunApi` |
 | POST /runs/{id}/points `batchUuid, fromSeq, toSeq, points[]` | 기록 동기화 `syncRun` → `httpRunApi` | 서버 구현 | `Idempotency-Key` 헤더에 batchUuid를 함께 보낸다(7.3장). SQLite에 Batch UUID를 먼저 기록한 뒤 보낸다(50.2장). 연속 seq 60개씩, 실패하면 같은 batchUuid로 backoff 재전송. 422 · 409 IDEMPOTENCY_CONFLICT · 400 · 403은 FAILED. `toPointDto`로 이름 · 단위 변환, `qualityFlag`는 보내지 않는다 |
 | POST /runs/{id}/pause · resume | 엔진 · SQLite 구간에만 | 서버 구현 · 앱은 부르지 않음 | 요청에 시각이 없어 오프라인에서 한 일시정지를 나중에 올릴 수 없다. 대신 finish에 `activeSeconds`를 보낸다(12항 13번) |
 | POST /runs/{id}/finish `endedAt, lastSeq, activeSeconds` | 엔진 `finish()` → `syncRunNow` | 서버 구현 · 필드 추가 | `activeSeconds`(앱이 잰 달린 시간, 일시정지 제외)는 명세에 없는 필드다(사용자 결정). 서버는 거리만 point로 다시 계산하고 달린 시간은 이 값을 받되 시작~종료 시간을 넘지 않게 자른다. 남은 Batch를 보낸 뒤 요청. 응답 `status`가 FINISHING이면 빠진 Batch를 보내고 다시 요청. 오프라인이거나 20초 안에 못 끝내면 휴대폰에 저장한 결과로 보여주고 연결되면 이어서 올린다 |
@@ -101,24 +101,27 @@
 | POST /live-runs/{roomId}/ready `ready` | `setReady(roomId, ready)` | 서버 구현 · 명세 없음 | 명세는 READY 전환만 있다. 준비 취소(`ready=false`)도 받는다 |
 | POST /live-runs/{roomId}/leave | `leave(roomId)` | 서버 구현 | 시작 전이면 방에서 빠지고, 달리는 중이면 DNF. 방장은 409(취소를 쓴다) |
 | POST /live-runs/{roomId}/cancel | `cancel(roomId)` | 서버 구현 | 방장만, 시작 전만 |
-| GET /live-runs/{roomId}/result | `getResult(roomId)` | 서버 미구현 | 실시간 경쟁 · 결과 확정(WBS 11) 전이라 404. 달리기 · 결과 화면은 지금까지의 흐름(mock 채널)을 그대로 쓴다 |
+| GET /live-runs/{roomId}/result | `getResult(roomId)` | 서버 구현 | 참가자만, 끝난 방만(아니면 404). `myRunId`는 서버 Run id → 앱 `srv-{id}`. 결과 화면 · 결과 공유가 방 id로 서버 · mock 저장소를 고른다(`liveRoomRepositoryFor`) |
 | GET /live-runs | `listUpcoming()` | 명세 없음 · 서버 구현 | 내가 참가한 예정 · 진행 중 방(SCR-T01). 45장 표에 경로가 없어 정했다 |
 | (예정 방 · 최근 결과 목록) | `listUpcoming()`, `listRecent()` | 명세 없음 | Together 홈(SCR-T01) 목록 API가 없다 |
 | (같은 멤버로 다시) | `rematch(roomId)` | 명세 없음 | 앱에서 create + invite로 대신할 수 있다 |
 
 ## 7. WebSocket (46장)
 
+실제 채널은 `httpLiveChannel`(STOMP, `@stomp/stompjs`). 서버 방(숫자 id)이면 이 채널과 기기 위치 기록, 개발용 mock 방(`r-*` · `demo`)이면 `mockLiveChannel`과 mock 러너.
+
 | 메시지 | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| C→S RUN_STATE `roomId, memberSeq, runId, distanceM, elapsedMs, currentPace, status, sentAt` | `LiveChannel.sendState({ distanceM, elapsedSec, paceSec, status, runId? })` | 변환 | 채널이 elapsedMs(×1000) · currentPace로 바꾸고 roomId · memberSeq · sentAt을 붙인다. runId는 실제로는 시작 때부터 있으므로 매번 보낸다(지금 mock은 끝날 때만) |
-| C→S HEARTBEAT | 없음 | 미구현 | 채널 구현 몫 |
-| S→C ROOM_SNAPSHOT | 없음 | 미구현 | 대기실은 REST 재조회로 대신 |
-| S→C MEMBER_STATE | `{ type: 'MEMBER_STATE', members }` | 변환 | 앱은 전체 멤버 배열로 받는다. 한 명씩 오면 채널이 합친다 |
-| S→C RANK_CHANGED | 쓰지 않음 | — | 러닝 중 순위는 앱이 거리로 계산(화면용). 최종 순위는 서버 결과(46.1장) |
-| S→C MEMBER_CONNECTION | 멤버 status `DISCONNECTED` | 변환 | |
-| S→C MEMBER_FINISHED | 멤버 status `FINISHED` · `finishSec` | 변환 | |
-| S→C ROOM_FINISHED | `{ type: 'ROOM_FINISHED', result }` | 일치 | |
-| S→C ERROR `code, message, recoverable` | 없음 | 미구현 | 받으면 recoverable이면 재연결, 아니면 안내 |
+| 연결 `/ws` + CONNECT `Authorization` | `createHttpLiveChannel(room)` | 서버 구현 | 서버 주소 http → ws. 연결할 때마다 Access Token을 새로 받는다(`currentAccessToken`). 끊기면 2초 뒤 다시 붙는다. STOMP heartbeat 5초 |
+| C→S RUN_STATE `roomId, memberSeq, runId, distanceM, elapsedMs, currentPace, status, sentAt` | `sendState({ distanceM, elapsedSec, paceSec, status, runId? })` → SEND `/app/live-runs/{id}/state` `{ seq, distanceM, elapsedSeconds, currentPaceSecPerKm, status, sentAt }` | 변환 · 서버 구현 | roomId는 경로에. seq는 시각 기반으로 올린다(앱을 다시 켜도 줄지 않게). 서버 단위에 맞춰 초로 보낸다. runId는 보내지 않는다: 서버 Run이 `POST /runs`의 `liveRoomId`로 방에 이어진다. 끊긴 동안 보내지 못한 마지막 상태는 다시 연결되면 보낸다 |
+| C→S HEARTBEAT | SEND `/app/live-runs/{id}/heartbeat` 5초마다 | 서버 구현 | 서버는 15초 동안 상태 · heartbeat가 없으면 DISCONNECTED |
+| S→C ROOM_SNAPSHOT | `SYNC_STATE` → `MEMBER_STATE` | 변환 · 서버 구현 | 방 topic을 구독하면 내 queue(`/user/queue/live-runs`)로 온다. 끝난 방이면 결과도 같이 와서 결과 화면으로 간다. 대기실은 지금도 REST 재조회 |
+| S→C MEMBER_STATE | `{ type: 'MEMBER_STATE', members }` | 서버 구현 | 서버가 전체 참가자 배열을 보낸다. `isMe`는 방 정보의 내 userId로 채널이 정한다 |
+| S→C RANK_CHANGED | 쓰지 않음 | — | 러닝 중 순위는 앱이 거리로 계산(화면용, 내 거리는 기기 값). 최종 순위는 서버 결과(46.1장) |
+| S→C MEMBER_CONNECTION | 멤버 status `DISCONNECTED` | 서버 구현 | 서버가 바로 뒤에 MEMBER_STATE를 보내 앱은 그 배열을 쓴다. 내 연결 상태(`CONNECTION`)는 채널이 WebSocket 연결로 정한다 |
+| S→C MEMBER_FINISHED · MEMBER_DNF | 멤버 status `FINISHED` · `DNF` | 서버 구현 | 위와 같이 MEMBER_STATE로 반영 |
+| S→C ROOM_FINISHED | `{ type: 'ROOM_FINISHED', result }` | 서버 구현 | 방 전체에 보내 `isMe`가 없다. 채널이 내 userId로 다시 정한다. 결과 화면은 GET /result를 읽는다. 내가 아직 달리는 중이었으면(서버 마감) 내 기록도 여기서 끝낸다 |
+| S→C ERROR `code, message, recoverable` | 로그만 | 서버 구현 | 받는 경우: 달리는 중이 아닌 방, 잘못된 값, 비정상 속도 |
 
 ## 8. 공유 (SHR)
 
@@ -167,10 +170,11 @@
 8. 코스 등록 요청의 추천 시간
 9. ~~내 주변 순위 API (RNK-005)~~ → GET /courses/{id}/rankings/me로 구현. 명세 표에 넣어야 한다
 10. ~~내 코스 목록 API (MY-005)~~ → GET /users/me/courses?kind=로 구현. 명세 표에 넣어야 한다
-11. Together 방 목록(예정 · 최근), 준비 취소, 재대결 — 예정 목록 · 준비 취소는 서버 구현(명세 표에 넣어야 함), 최근 결과 · 재대결은 결과 확정(WBS 11) 뒤
+11. Together 방 목록(예정 · 최근), 준비 취소, 재대결 — 예정 목록 · 준비 취소는 서버 구현(명세 표에 넣어야 함). 최근 결과 목록 API는 아직 없다(Together 홈 최근 결과가 서버 모드에서 비어 있다). 재대결은 앱이 같은 조건으로 새 방을 만든다
 12. 공유 링크 요청 · 응답 필드 — 서버 구현(`type, referenceId` → `code, url`, 해석 `type, referenceId, courseId, preview`). 명세에 넣어야 한다
 13. ~~일시정지 · 재개 시각~~ → finish에 `activeSeconds`를 더했다(사용자 결정). 명세 42.4장 요청 필드에 넣어야 한다
 14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 서버 · 앱 모두 200 + `status: FINISHING`으로 구현했다
 15. `RESOURCE_NOT_FOUND`(404): 서버가 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드가 없는 404에 쓴다. 명세 표에 넣을지 정한다
 16. 히스토리 목록 경로 미리보기: GET /runs 항목에 줄인 경로를 넣을지. 지금은 서버 기록 썸네일이 빈칸이다
 17. 코스 지역("대구 수성구") · 러닝 환경 · 추천 시간을 저장할 곳: ERD에 없다. 서버 코스 상세에는 비어 있다
+18. 실시간 메시지 필드: 46장은 `elapsedMs · currentPace · memberSeq · runId`, 서버 · 앱은 `elapsedSeconds · currentPaceSecPerKm · seq`, runId는 POST /runs `liveRoomId`로 잇는다. ROOM_SNAPSHOT 대신 SYNC_STATE. 명세에 맞출지 정한다
