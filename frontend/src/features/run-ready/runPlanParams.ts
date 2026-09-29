@@ -7,6 +7,9 @@ export type RunPlanParams = {
   courseName?: string;
   targetSec?: string;
   targetLabel?: string;
+  // CHALLENGE: 도전할 친구 기록 id (Run Ready에서 도전을 만든다), 만든 도전 id (기록 동기화가 서버 Run에 잇는다)
+  targetRecordId?: string;
+  challengeId?: string;
 };
 
 // 코스 없이 시작하면 FREE (RUN-001 빠른 러닝)
@@ -25,18 +28,20 @@ export function parseRunPlan(p: RunPlanParams): ReadyPlan {
       mode,
       courseId: p.courseId,
       ...(Number.isFinite(targetSec) && mode !== 'COURSE' ? { targetSec, targetLabel: p.targetLabel } : {}),
+      ...(mode === 'CHALLENGE' && p.targetRecordId ? { targetRecordId: p.targetRecordId } : {}),
     },
   };
 }
 
 export function toRunPlanParams(plan: ReadyPlan, courseName?: string | null): RunPlanParams {
   if (plan.kind === 'free') return { mode: 'FREE' };
-  const { mode, courseId, targetSec, targetLabel } = plan.plan;
+  const { mode, courseId, targetSec, targetLabel, targetRecordId } = plan.plan;
   return {
     mode,
     courseId,
     ...(courseName ? { courseName } : {}),
     ...(targetSec != null ? { targetSec: String(targetSec), targetLabel } : {}),
+    ...(targetRecordId ? { targetRecordId } : {}),
   };
 }
 

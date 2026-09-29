@@ -1,3 +1,4 @@
+import type { Challenge } from '@/entities/challenge/types';
 import type { GeoPoint } from '@/shared/geo';
 
 import type { RunMode, RunSplit } from './types';
@@ -42,4 +43,6 @@ export type RunResult = {
   weeklyRank: { before: number | null; after: number } | null;
   // RST-004 같은 코스 친구 최고 기록
   friendBest: { name: string; timeSec: number } | null;
+  // CHL-003 이 러닝으로 한 도전 (서버 판정). 서버에 올라가기 전 · 도전이 아니면 없다
+  challenge?: Challenge | null;
 };

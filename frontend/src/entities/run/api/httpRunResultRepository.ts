@@ -1,3 +1,4 @@
+import { toChallenge, type ChallengeDto } from '@/entities/challenge/api/httpChallengeRepository';
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { CursorPage } from '@/shared/api/contract';
 
@@ -39,7 +40,8 @@ type ServerVerification = {
   // 이 코스 친구 최고 기록 (RST-004)
   friendBest?: { userId: number; name: string; timeSec: number } | null;
 };
-type ServerDetail = { summary: ServerSummary; splits: RunSplit[]; path: [number, number][]; verification: ServerVerification | null };
+// challenge: 이 Run으로 한 도전 (CHL-003)
+type ServerDetail = { summary: ServerSummary; splits: RunSplit[]; path: [number, number][]; verification: ServerVerification | null; challenge?: ChallengeDto | null };
 
 const SERVER_PREFIX = 'srv-';
 
@@ -63,7 +65,14 @@ function verdict(v: ServerVerification | null, status: string) {
   };
 }
 
-function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number][], v: ServerVerification | null): RunResult {
+// 도전이면 목표는 서버 도전의 친구 기록 (기록 목록에서 다시 열어도 목표와 비교한다)
+function challengeOf(dto: ChallengeDto | null | undefined) {
+  if (!dto) return {};
+  const challenge = toChallenge(dto);
+  return { challenge, target: { sec: challenge.targetSec, label: challenge.target.nickname } };
+}
+
+function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number][], v: ServerVerification | null, c?: ChallengeDto | null): RunResult {
   const startedAt = Date.parse(s.startedAt);
   const { recordSec, ...judged } = verdict(v, s.verificationStatus);
   return {
@@ -81,6 +90,7 @@ function fromServer(s: ServerSummary, splits: RunSplit[], path: [number, number]
     target: null,
     sync: 'synced',
     ...judged,
+    ...challengeOf(c),
   };
 }
 
@@ -113,7 +123,7 @@ export function createHttpRunResultRepository(): RunResultRepository {
     const d = await detailOf(l.serverRunId).catch(() => null);
     if (!d) return base;
     const { recordSec, ...judged } = verdict(d.verification, d.summary.verificationStatus);
-    return { ...base, ...judged, course: { ...l.input.course, timeSec: recordSec ?? l.input.course.timeSec } };
+    return { ...base, ...judged, ...challengeOf(d.challenge), course: { ...l.input.course, timeSec: recordSec ?? l.input.course.timeSec } };
   };
 
   return {
@@ -144,7 +154,7 @@ export function createHttpRunResultRepository(): RunResultRepository {
       if (!id.startsWith(SERVER_PREFIX)) throw new RunResultNotFoundError(id);
       try {
         const d = await detailOf(id.slice(SERVER_PREFIX.length));
-        return fromServer(d.summary, d.splits, d.path, d.verification);
+        return fromServer(d.summary, d.splits, d.path, d.verification, d.challenge);
       } catch (e) {
         if (e instanceof ApiRequestError && (e.code === 'RUN_NOT_FOUND' || e.code === 'RESOURCE_FORBIDDEN')) throw new RunResultNotFoundError(id);
         throw e;

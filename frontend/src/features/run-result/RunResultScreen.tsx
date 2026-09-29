@@ -198,6 +198,7 @@ function Competition({ result: r }: { result: RunResult }) {
     <View style={[styles.card, { backgroundColor: colors.bg.surface }]}>
       <StatRow label="내 PB" value={pb} accent={verified && !!r.pb?.improved} muted={pb === waiting} />
       <StatRow label="이번 주 순위" value={rank} accent={!!rankUp} muted={rank === waiting} icon={rankUp ? 'rankUp' : undefined} />
+      {r.challenge ? <ChallengeRow challenge={r.challenge} /> : null}
       {r.friendBest && friendDiff != null ? (
         <StatRow
           label={`${r.friendBest.name} 최고 ${formatDuration(r.friendBest.timeSec)}`}
@@ -206,6 +207,20 @@ function Competition({ result: r }: { result: RunResult }) {
         />
       ) : null}
     </View>
+  );
+}
+
+// CHL-003 서버 판정. 도전한 친구에게도 같은 결과가 보인다
+function ChallengeRow({ challenge: c }: { challenge: NonNullable<RunResult['challenge']> }) {
+  const value =
+    c.status === 'success' ? '성공' : c.status === 'failed' ? '실패' : c.status === 'running' ? '판정 중' : c.status === 'open' ? '기록 올리는 중' : '취소됨';
+  return (
+    <StatRow
+      label={`${c.target.nickname} 기록 도전 · 목표 ${formatDuration(c.targetSec)}`}
+      value={value}
+      accent={c.status === 'success'}
+      muted={c.status === 'running' || c.status === 'open'}
+    />
   );
 }
 
@@ -239,8 +254,13 @@ function Actions({ result: r, outcome }: { result: RunResult; outcome: Outcome }
       </View>
     );
   }
-  // PB를 새로 세웠으면 다음 도전 목표는 이번 기록
-  const target = r.pb?.improved && r.course.timeSec != null ? { sec: r.course.timeSec, label: '내 PB' } : r.target;
+  // PB를 새로 세웠으면 다음 도전 목표는 이번 기록. 친구 도전은 친구의 지금 최고 기록으로 새 도전 (CHL-004)
+  const challenge = r.mode === 'CHALLENGE' ? r.challenge : null;
+  const target = challenge
+    ? { sec: challenge.targetBest.timeSec, label: challenge.target.nickname }
+    : r.pb?.improved && r.course.timeSec != null
+      ? { sec: r.course.timeSec, label: '내 PB' }
+      : r.target;
   const label = r.mode === 'PB' ? 'PB 다시 도전' : r.mode === 'CHALLENGE' && outcome.kind === 'won' ? '다시 달리기' : '다시 도전';
   return (
     <View style={styles.actions}>
@@ -256,6 +276,7 @@ function Actions({ result: r, outcome }: { result: RunResult; outcome: Outcome }
               courseId: r.course!.id,
               courseName: r.course!.name,
               ...(r.mode !== 'COURSE' && target ? { targetSec: String(target.sec), targetLabel: target.label } : {}),
+              ...(challenge ? { targetRecordId: challenge.targetBest.recordId } : {}),
             },
           })
         }

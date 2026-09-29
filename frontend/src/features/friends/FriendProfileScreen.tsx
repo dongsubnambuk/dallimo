@@ -13,6 +13,8 @@ import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import type { FriendScenario } from '@/entities/friend/api/mockFriendRepository';
 import { FriendError } from '@/entities/friend/api/friendRepository';
 import type { FriendProfile } from '@/entities/friend/types';
+import { ChallengeItem } from '@/features/challenge/ChallengeItem';
+import { useChallenges } from '@/features/challenge/useChallenges';
 import { formatDuration } from '@/shared/format';
 
 import { RelationButtons } from './FriendsScreen';
@@ -20,7 +22,8 @@ import { agoLabel } from './labels';
 import { useFriendAction, useFriendProfile } from './useFriends';
 
 // SCR-M05 친구 프로필 (FND-005). 사용자 결정: 닉네임, 인증된 코스 기록, 마지막으로 달린 날.
-// 자유 달리기 경로 · 위치는 보여주지 않는다. 기록은 친구에게만 보이고, 코스를 누르면 그 코스로 가서 같이 겨룬다.
+// 자유 달리기 경로 · 위치는 보여주지 않는다. 기록은 친구에게만 보이고, 코스를 누르면 그 코스로, "도전"을 누르면 그 기록에 도전한다 (CHL-001).
+// 아래에 이 친구와 주고받은 도전과 결과.
 export function FriendProfileScreen({ userId, scenario }: { userId: string; scenario: FriendScenario }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -61,6 +64,11 @@ function Body({ profile, scenario, bottom }: { profile: FriendProfile; scenario:
   const [confirm, setConfirm] = useState(false);
   const { user } = profile;
   const friend = user.relation === 'friend';
+  const challenge = (r: FriendProfile['records'][number]) =>
+    router.navigate({
+      pathname: '/run',
+      params: { mode: 'CHALLENGE', courseId: r.courseId, courseName: r.courseName, targetSec: String(r.bestSec), targetLabel: user.nickname, targetRecordId: r.recordId },
+    });
 
   return (
     <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: bottom + spacing.xxl }]}>
@@ -93,28 +101,30 @@ function Body({ profile, scenario, bottom }: { profile: FriendProfile; scenario:
             </AppText>
           ) : (
             profile.records.map((r) => (
-              <AppPressable
-                key={r.courseId}
-                onPress={() => router.push({ pathname: '/course/[id]', params: { id: r.courseId } })}
-                accessibilityRole="button"
-                accessibilityLabel={`${r.courseName}, 최고 기록 ${formatDuration(r.bestSec)}, ${agoLabel(r.recordedAt)}`}
-                accessibilityHint="코스 상세를 열어요"
-                style={[styles.record, { backgroundColor: colors.bg.surface }]}
-              >
-                <AppIcon name="modeCourse" size={20} color={colors.text.primary} />
-                <View style={styles.flex}>
-                  <AppText role="body" numberOfLines={1} style={styles.bold}>
-                    {r.courseName}
+              <View key={r.courseId} style={styles.recordRow}>
+                <AppPressable
+                  onPress={() => router.push({ pathname: '/course/[id]', params: { id: r.courseId } })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${r.courseName}, 최고 기록 ${formatDuration(r.bestSec)}, ${agoLabel(r.recordedAt)}`}
+                  accessibilityHint="코스 상세를 열어요"
+                  style={[styles.record, { backgroundColor: colors.bg.surface }]}
+                >
+                  <AppIcon name="modeCourse" size={20} color={colors.text.primary} />
+                  <View style={styles.flex}>
+                    <AppText role="body" numberOfLines={1} style={styles.bold}>
+                      {r.courseName}
+                    </AppText>
+                    <AppText role="caption" tone="secondary">
+                      {agoLabel(r.recordedAt)}
+                    </AppText>
+                  </View>
+                  <AppText role="sectionTitle" tabular>
+                    {formatDuration(r.bestSec)}
                   </AppText>
-                  <AppText role="caption" tone="secondary">
-                    {agoLabel(r.recordedAt)}
-                  </AppText>
-                </View>
-                <AppText role="sectionTitle" tabular>
-                  {formatDuration(r.bestSec)}
-                </AppText>
-                <AppIcon name="collapse" size={18} color={colors.text.secondary} />
-              </AppPressable>
+                </AppPressable>
+                {/* CHL-001 이 기록에 도전: 달리기 준비로 가서 출발할 때 서버 도전을 만든다 */}
+                <SecondaryButton label="도전" emphasized size="sm" onPress={() => challenge(r)} />
+              </View>
             ))
           )}
         </View>
@@ -123,6 +133,8 @@ function Body({ profile, scenario, bottom }: { profile: FriendProfile; scenario:
           친구가 되면 코스 기록과 마지막으로 달린 날을 볼 수 있어요.
         </AppText>
       )}
+
+      {friend ? <Challenges userId={user.userId} /> : null}
 
       {friend ? (
         confirm ? (
@@ -154,6 +166,22 @@ function Body({ profile, scenario, bottom }: { profile: FriendProfile; scenario:
         </AppText>
       ) : null}
     </ScrollView>
+  );
+}
+
+// 이 친구와 주고받은 도전 (CHL-003 결과는 두 사람 모두 본다)
+function Challenges({ userId }: { userId: string }) {
+  const list = useChallenges(userId);
+  if (!list.data?.length) return null;
+  return (
+    <View style={styles.section}>
+      <AppText role="sectionTitle" accessibilityRole="header">
+        주고받은 도전
+      </AppText>
+      {list.data.map((c) => (
+        <ChallengeItem key={c.id} challenge={c} />
+      ))}
+    </View>
   );
 }
 
@@ -206,7 +234,13 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.sm,
   },
+  recordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   record: {
+    flex: 1,
     minHeight: touchTarget.min + spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',

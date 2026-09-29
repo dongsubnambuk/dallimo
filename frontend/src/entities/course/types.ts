@@ -90,7 +90,8 @@ export type CourseDetail = {
   competition: {
     leaderSec: number | null;
     myWeeklyRank: number | null;
-    friendBest: { name: string; timeSec: number } | null;
+    // recordId: 서버 공식 기록 id (도전 목표, mock에는 없다)
+    friendBest: { name: string; timeSec: number; recordId?: string } | null;
     weeklyTop: CourseRankingEntry[];
     myEntry: CourseRankingEntry | null;
   } | null;

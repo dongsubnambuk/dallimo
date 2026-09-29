@@ -9,7 +9,7 @@ import { FriendError, type FriendRepository } from './friendRepository';
 type SummaryDto = { userId: number; nickname: string; profileImageUrl: string | null; relation: 'NONE' | 'FRIEND' | 'SENT' | 'RECEIVED'; requestId: number | null };
 type RequestDto = { requestId: number; userId: number; nickname: string; profileImageUrl: string | null; requestedAt: string };
 type FriendDto = { userId: number; nickname: string; profileImageUrl: string | null; since: string };
-type ProfileDto = { user: SummaryDto; lastRunAt: string | null; records: { courseId: number; courseName: string; bestSec: number; recordedAt: string }[] };
+type ProfileDto = { user: SummaryDto; lastRunAt: string | null; records: { recordId: number; courseId: number; courseName: string; bestSec: number; recordedAt: string }[] };
 
 const toSummary = (u: SummaryDto): UserSummary => ({
   userId: String(u.userId),
@@ -70,7 +70,13 @@ export function createHttpFriendRepository(): FriendRepository {
         return {
           user: toSummary(p.user),
           lastRunAt: p.lastRunAt ? Date.parse(p.lastRunAt) : null,
-          records: p.records.map((r) => ({ courseId: String(r.courseId), courseName: r.courseName, bestSec: r.bestSec, recordedAt: Date.parse(r.recordedAt) })),
+          records: p.records.map((r) => ({
+            recordId: String(r.recordId),
+            courseId: String(r.courseId),
+            courseName: r.courseName,
+            bestSec: r.bestSec,
+            recordedAt: Date.parse(r.recordedAt),
+          })),
         } satisfies FriendProfile;
       }),
   };

@@ -34,5 +34,6 @@ export type FriendRequests = { received: FriendRequest[]; sent: FriendRequest[] 
 export type FriendProfile = {
   user: UserSummary;
   lastRunAt: number | null;
-  records: { courseId: string; courseName: string; bestSec: number; recordedAt: number }[];
+  // recordId: 그 코스 최고 공식 기록 (도전 목표, CHL-001)
+  records: { recordId: string; courseId: string; courseName: string; bestSec: number; recordedAt: number }[];
 };
