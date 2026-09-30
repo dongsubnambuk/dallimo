@@ -1,4 +1,4 @@
-import type { CourseDetail, CourseRankingEntry, CourseReview, CourseStatus, CourseSummary, MyCourse, NearbyCourseQuery, RecordVerification, ReportReason } from '@/entities/course/types';
+import type { CourseDetail, CourseRankingEntry, CourseReview, CourseSourceInfo, CourseStatus, CourseSummary, MyCourse, NearbyCourseQuery, RecordVerification, ReportReason } from '@/entities/course/types';
 import { distanceM, loopRoute, type GeoPoint } from '@/shared/geo';
 
 import { CourseRepositoryError, type CourseRepository } from './courseRepository';
@@ -192,6 +192,11 @@ const MOCK_DETAIL: Record<string, MockDetailExtra | undefined> = {
   },
 };
 
+// 추천 코스 출처 (결정 로그 52항). 대구스타디움 루프는 OSM에서 가져온 추천 코스로 본다
+const MOCK_SOURCE: Record<string, CourseSourceInfo | undefined> = {
+  'c-stadium': { kind: 'OSM', attribution: '© OpenStreetMap contributors', license: 'ODbL 1.0', url: 'https://www.openstreetmap.org/' },
+};
+
 const pace = (sec: number, m: number) => Math.round(sec / (m / 1000));
 
 function toDetail(c: MockCourse, scenario: MockCourseScenario): CourseDetail {
@@ -226,6 +231,7 @@ function toDetail(c: MockCourse, scenario: MockCourseScenario): CourseDetail {
     weeklyRunnerCount: c.weeklyRunnerCount,
     recommendedTime: x?.recommendedTime ?? null,
     environment: x?.environment ?? { signals: null, nightLight: null, crowd: null, surface: null, toilets: null, waterFountains: null },
+    source: MOCK_SOURCE[c.id] ?? null,
     myRecord: hasRecord ? { bestSec: c.myBestSec!, bestVerification: x.bestVerification, lastSec: x.lastSec!, finishCount: x.finishCount } : null,
     competition:
       scenario === 'rankingUnavailable'

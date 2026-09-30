@@ -37,6 +37,16 @@ export type NearbyCourseQuery = {
 // ---- 코스 상세 (43장 GET /api/v1/courses/{id} → CourseDetail, CRS-101~104) ----
 
 export type CourseDifficulty = 'EASY' | 'MODERATE' | 'HARD';
+// 외부 공개 데이터로 만든 달리모 추천 코스의 출처 (결정 로그 52항). OSM · 두루누비 · 관리자가 올린 GPX
+export type CourseSourceKind = 'OSM' | 'DURUNUBI' | 'GPX';
+export type CourseSourceInfo = {
+  kind: CourseSourceKind;
+  // 상세에 그대로 보여 준다. 예: "© OpenStreetMap contributors" (OSM은 ODbL 출처 표시 의무)
+  attribution: string | null;
+  license: string | null;
+  // 원본 페이지 (없으면 null)
+  url: string | null;
+};
 // 6.3장 CourseStatus. HIDDEN · BLOCKED는 상세를 볼 수 없다(CourseRepositoryError 'hidden').
 export type CourseStatus = 'NEW' | 'VERIFIED' | 'POPULAR';
 export type Level = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -119,6 +129,8 @@ export type CourseDetail = {
   // 추천 시간대. 예: "새벽·저녁"
   recommendedTime: string | null;
   environment: CourseEnvironment;
+  // 추천 코스 출처. 사용자가 등록한 코스는 null
+  source: CourseSourceInfo | null;
   // REV-001 평가 요약 · 내 평가
   rating: CourseRating;
   // CRS-103 내 코스 기록. 달린 적 없으면 null.

@@ -2,7 +2,7 @@ import { toRankingEntry, type RankingEntryDto } from '@/entities/ranking/api/htt
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { CursorPage } from '@/shared/api/contract';
 
-import type { CourseDetail, CourseDifficulty, CourseReview, CourseStatus, CourseSummary, Level, MyCourse, MyCourseKind, ReviewScore } from '../types';
+import type { CourseDetail, CourseDifficulty, CourseReview, CourseSourceInfo, CourseStatus, CourseSummary, Level, MyCourse, MyCourseKind, ReviewScore } from '../types';
 import { CourseRepositoryError, type CourseRepository } from './courseRepository';
 
 // 43장 Course API 실제 클라이언트 (backend/dallimo-server /api/v1/courses).
@@ -29,6 +29,8 @@ export type CourseSummaryDto = {
   region: string | null;
   ratingAvg: number | null;
   reviewCount: number;
+  // USER · OSM · DURUNUBI · GPX (앱 목록은 아직 쓰지 않는다)
+  source?: string;
 };
 
 export type ReviewDto = {
@@ -75,6 +77,8 @@ export type CourseDetailDto = {
   recommendedTime: string | null;
   environment: { signals: Level | null; nightLight: Level | null; crowd: Level | null; surface: 'ROUGH' | 'NORMAL' | 'SMOOTH' | null; toilet: boolean | null; water: boolean | null };
   rating: { avg: number | null; count: number; canReview: boolean; mine: ReviewDto | null };
+  // 추천 코스 출처 (사용자 코스는 null)
+  source: CourseSourceInfo | null;
 };
 
 // 노면 점수 평균을 말로 (1 울퉁불퉁 ~ 3 고름)
@@ -143,6 +147,7 @@ export function toCourseDetail(c: CourseDetailDto): CourseDetail {
       waterFountains: c.environment.water,
     },
     rating: { avg: c.rating.avg, count: c.rating.count, canReview: c.rating.canReview, mine: c.rating.mine ? toReview(c.rating.mine) : null },
+    source: c.source ?? null,
     // 서버 기록은 검증을 통과한 공식 기록(course_record)만 센다
     myRecord: c.myRecord ? { bestSec: c.myRecord.bestSec, bestVerification: 'verified', lastSec: c.myRecord.lastSec, finishCount: c.myRecord.finishCount } : null,
     // 코스 1위는 전체 기간, 순위는 이번 주(한국 시간 월요일 0시부터). 친구 기록은 친구 기능(WBS 8) 뒤에 채운다
