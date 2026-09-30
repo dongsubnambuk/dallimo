@@ -48,6 +48,10 @@ function toAuthError(e: unknown): never {
         throw new AuthError('nicknameTaken', e.message);
       case 'VALIDATION_ERROR':
         throw new AuthError('invalid', e.message);
+      case 'PASSWORD_MISMATCH':
+        throw new AuthError('passwordMismatch', e.message);
+      case 'RESET_CODE_INVALID':
+        throw new AuthError('resetCodeInvalid', e.message);
       default:
         if (e.status === 401) throw new AuthError('unauthorized', e.message);
         throw new AuthError('network', e.message);
@@ -66,5 +70,11 @@ export function createHttpAuthRepository(): AuthRepository {
       apiRequest<AuthResponseDto>('/api/v1/auth/refresh', { method: 'POST', auth: false, body: { refreshToken, deviceId } }).then(toSession, toAuthError),
     logout: () => apiRequest<void>('/api/v1/auth/logout', { method: 'POST' }).catch(toAuthError),
     withdraw: () => apiRequest<void>('/api/v1/users/me', { method: 'DELETE' }).catch(toAuthError),
+    changePassword: (currentPassword, newPassword) =>
+      apiRequest<void>('/api/v1/auth/password/change', { method: 'POST', body: { currentPassword, newPassword } }).catch(toAuthError),
+    requestPasswordReset: (email) =>
+      apiRequest<void>('/api/v1/auth/password/reset-code', { method: 'POST', auth: false, body: { email } }).catch(toAuthError),
+    resetPassword: (email, code, newPassword) =>
+      apiRequest<void>('/api/v1/auth/password/reset', { method: 'POST', auth: false, body: { email, code, newPassword } }).catch(toAuthError),
   };
 }

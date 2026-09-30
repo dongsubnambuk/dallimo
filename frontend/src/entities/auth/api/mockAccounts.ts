@@ -91,6 +91,13 @@ export async function updateMockAccount(userId: string, patch: Partial<Pick<Mock
   return a;
 }
 
+export async function setMockPassword(userId: string, password: string) {
+  const a = findAccount(userId);
+  if (!a) return;
+  a.password = password;
+  await save();
+}
+
 // 탈퇴: 계정을 지운다 (같은 이메일로 다시 가입할 수 있다)
 export async function removeMockAccount(userId: string) {
   state.accounts = state.accounts.filter((a) => a.userId !== userId);

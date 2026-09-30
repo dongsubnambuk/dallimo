@@ -40,6 +40,7 @@
 | 409 `IDEMPOTENCY_CONFLICT` | 같은 멱등 키로 다른 내용을 보냈다. 재시도하지 않고 기록 오류로 남긴다 |
 | 422 `RUN_POINT_INVALID` | Batch를 FAILED로 두고 재시도하지 않는다(50.3장) |
 | 400 `VALIDATION_ERROR` | 코스 등록은 `CourseRepositoryError('invalid')`에 서버 메시지 |
+| 400 `PASSWORD_MISMATCH` · `RESET_CODE_INVALID` | `AuthError('passwordMismatch')` · `AuthError('resetCodeInvalid')`. 비밀번호 화면이 입력 칸 아래에 안내 (결정 로그 58항) |
 | 429 · 500 · 연결 실패 | `network`. 화면은 "연결을 확인하고 다시 시도" |
 
 ## 2. 인증 · 사용자 (41장 → 이메일 로그인으로 변경)
@@ -53,6 +54,9 @@
 | POST /auth/refresh `refreshToken, deviceId` | `refresh` | 구현 | 응답에 새 Refresh Token(회전). 401 `AUTH_REQUIRED`면 다시 로그인 |
 | POST /auth/logout (Bearer) → 204 | `logout()` | 구현 | 요청 본문 없이 Access Token의 세션을 끊는다 |
 | DELETE /users/me (Bearer) → 204 | `withdraw()` | 구현 | 명세 표에 없던 탈퇴 경로 |
+| POST /auth/password/change `currentPassword, newPassword` → 204 | `changePassword` | 명세 없음 · 서버 구현 | 이 기기는 로그인 유지, 다른 기기는 로그아웃. 400 `PASSWORD_MISMATCH` (결정 로그 58항) |
+| POST /auth/password/reset-code `email` → 202 | `requestPasswordReset` | 명세 없음 · 서버 구현 | Resend 메일로 6자리 코드. 가입하지 않은 이메일도 같은 응답. mock은 메일 대신 개발 콘솔에 코드를 찍는다 |
+| POST /auth/password/reset `email, code, newPassword` → 204 | `resetPassword` | 명세 없음 · 서버 구현 | 모든 기기 로그아웃. 앱은 바로 새 비밀번호로 로그인한다. 400 `RESET_CODE_INVALID` |
 | GET /users/me → `userId, email, nickname, profileImageUrl, friendCode` | `UserRepository.getMe()` | 구현 | provider 대신 email. 누적 통계(MY-002)는 아직 서버 집계가 없어 앱이 기기 기록으로 더한다 |
 | PATCH /users/me `nickname` (JSON) · multipart `nickname?, profileImage?` | `updateMe` | 구현 | 새로 고른 사진이면 multipart로 닉네임과 한 번에 올린다(웹은 Blob, 앱은 `{ uri, name, type }`). 서버가 512px JPEG로 다시 만들어 `profileImageUrl`을 준다. JPG · PNG · 5MB가 아니면 400 · 413과 서버 문구를 그대로 보여준다 |
 | DELETE /users/me/profile-image | `updateMe({ profileImageUri: null })` | 명세 없음 · 서버 구현 | 사진 빼기 |
@@ -234,3 +238,4 @@
 33. Ghost(124장): 126장 표에 경로가 없다. `GET /courses/{id}/ghost?recordId=`와 응답(코스 위 거리 → 걸린 초)을 서버 · 앱이 정했다. 명세에 넣어야 한다
 34. 외부 추천 코스: 명세 2.1장은 "전국 자동 코스 생성"을 MVP에서 뺐다. 사용자 결정으로 OSM · 두루누비 · GPX에서 가져온 추천 코스를 넣었다(결정 로그 52항). 코스 출처 필드(V15), 상세 `source`, 관리 API를 서버 · 앱이 정했다. 명세 2.1장 · 43장에 넣어야 하고, 두루누비 경로를 저장해 보여 주는 것은 운영계정 승인 때 확인한다(TourAPI 활용매뉴얼)
 35. 코스 공개 정책(20.2장 오픈 이슈): 사용자 결정으로 "신고 3건이면 자동 숨김 + 관리자 검토"로 정했다(결정 로그 53항). 기준 수 · 관리 API · 처리 기록(V16)을 서버가 정했다. 등록 즉시 공개는 그대로다. 명세 20.2장에 넣어야 한다
+36. 비밀번호 변경 · 재설정: 명세에 이메일 로그인이 없어 흐름도 없다. 사용자 요청으로 Resend 메일 6자리 코드 방식을 넣었다(결정 로그 58항). 경로 3개 · 오류 코드 2개(`PASSWORD_MISMATCH` · `RESET_CODE_INVALID`) · 코드 규칙 · V17 `tbl_password_reset`을 서버 · 앱이 정했다. 명세 41장에 넣어야 한다

@@ -200,6 +200,7 @@ export function SettingsScreen() {
           {profile ? (
             <>
               <SettingRow kind="value" label="이메일" value={profile.email} />
+              <SettingRow kind="link" label="비밀번호 바꾸기" caption="바꾸면 다른 기기에서는 로그아웃돼요" onPress={() => router.push('/settings/password')} />
               <SettingRow
                 kind="value"
                 label="친구 코드"

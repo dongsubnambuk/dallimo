@@ -4,9 +4,9 @@ import { StyleSheet, View, type TextInput } from 'react-native';
 
 import { BrandSymbol, Wordmark } from '@/components/Brand';
 import { SecondaryButton } from '@/components/SecondaryButton';
-import { AppIcon, AppText } from '@/design/primitives';
+import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
-import { fontFamily, radius, spacing } from '@/design/tokens';
+import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { AuthError } from '@/entities/auth/api/authRepository';
 import { EMAIL_SHAPE } from '@/entities/auth/types';
 
@@ -99,6 +99,11 @@ function Login() {
           </View>
         ) : null}
         <SecondaryButton label={pending ? '로그인하는 중' : '로그인'} emphasized disabled={!canSubmit} onPress={submit} style={styles.submit} />
+        <AppPressable onPress={() => router.push('/password-reset')} accessibilityRole="link" style={styles.forgot}>
+          <AppText role="label" tone="secondary" style={styles.underline}>
+            비밀번호를 잊었어요
+          </AppText>
+        </AppPressable>
       </View>
 
       <View style={styles.footer}>
@@ -138,6 +143,15 @@ const styles = StyleSheet.create({
   submit: {
     alignSelf: 'stretch',
     minHeight: 56,
+  },
+  forgot: {
+    alignSelf: 'center',
+    minHeight: touchTarget.min,
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+  },
+  underline: {
+    textDecorationLine: 'underline',
   },
   footer: {
     flex: 1,

@@ -80,6 +80,12 @@ public class User {
         this.updatedAt = now;
     }
 
+    /** 비밀번호 변경 · 재설정 (FOUNDATION-DECISION-LOG 58항) */
+    public void changePassword(String passwordHash, Instant now) {
+        this.passwordHash = passwordHash;
+        this.updatedAt = now;
+    }
+
     /**
      * 탈퇴(AUTH-004). 행은 남기고(22.3장: Run · 랭킹 참조 무결성) 로그인 정보와 개인정보를 지운다.
      * 이메일 · 닉네임 · 친구 코드 UNIQUE 자리를 비워 같은 이메일로 다시 가입할 수 있게 한다.

@@ -64,13 +64,15 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `EXPO_ACCESS_TOKEN` | 아니오 | Expo Push "Enhanced push security"를 켰을 때 |
 | `STORAGE_LOCAL_DIR` · `STORAGE_PUBLIC_BASE_URL` | 아니오 | 프로필 사진 저장 폴더 · 공개 주소 (R2로 바꾸기 전) |
 | `SHARE_PUBLIC_BASE_URL` · `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` | 아니오(prod) | 공유 링크 주소 · App Link |
+| `RESEND_API_KEY` · `MAIL_FROM` | 예(prod) · 아니오 | 비밀번호 재설정 코드 · 변경 알림 메일(Resend). 보내는 주소 기본 `달리모 <onboarding@resend.dev>`는 Resend 계정 본인에게만 간다. 도메인을 인증하고 그 주소로 바꾼다. 키가 없으면 서버는 뜨고 메일만 못 보낸다 |
+| `MAIL_PROVIDER` | 아니오 | `resend`(기본) · `log`(보내지 않고 로그로, local 기본) |
 | `ADMIN_API_KEY` | 아니오 | 관리 API 키. 없으면 관리 API가 닫힌다 (예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) |
 | `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
 | `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
 
 ### DB · 스키마
 
-- **테이블은 서버가 시작할 때 만든다.** Flyway가 `db/migration`의 V1~V16을 적용한다(이미 적용한 것은 건너뛴다). SQL을 따로 실행하지 않는다. JPA는 `ddl-auto: validate`로 엔티티와 스키마가 맞는지만 본다(테이블 29개 중 JPA 엔티티는 5개이고 나머지는 JDBC로 쓴다. `ddl-auto`로는 테이블 · 유니크 키 · 인덱스를 만들 수 없다).
+- **테이블은 서버가 시작할 때 만든다.** Flyway가 `db/migration`의 V1~V17을 적용한다(이미 적용한 것은 건너뛴다). SQL을 따로 실행하지 않는다. JPA는 `ddl-auto: validate`로 엔티티와 스키마가 맞는지만 본다(테이블 30개 중 JPA 엔티티는 5개이고 나머지는 JDBC로 쓴다. `ddl-auto`로는 테이블 · 유니크 키 · 인덱스를 만들 수 없다).
 - **빈 DB 서버**에도 붙는다: DB가 없으면 만들고(`createDatabaseIfNotExist`), DB 기본 문자셋이 utf8mb4가 아니면 마이그레이션 전에 utf8mb4로 바꾼다(`Utf8mb4MigrationStrategy`, 한글 닉네임 · 코스 이름). 바꿀 권한이 없으면 실행할 SQL을 알려 주고 시작하지 않는다.
 - DB 세션 시간대는 UTC(`SET time_zone = '+00:00'`), 서버 JVM도 UTC.
 - MariaDB 드라이버는 접속 주소에 비밀번호를 넣는다. Hibernate가 시작할 때 이 주소를 찍어서 그 로그(`org.hibernate.orm.connections.pooling`)는 끈다.
@@ -88,12 +90,17 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `DELETE /api/v1/users/me/profile-image` | 프로필 사진 빼기 (명세 없음) |
 | `GET /files/{key}` | 올린 프로필 사진 (로그인 없이, 1년 캐시) |
 | `GET /api/v1/users/nickname-availability?nickname=` | 로그인 없이. `{ available }` |
+| `POST /api/v1/auth/password/change` | Bearer. `{ currentPassword, newPassword }` → 204. 이 기기 세션만 남기고 다른 기기를 끊는다 |
+| `POST /api/v1/auth/password/reset-code` | 로그인 없이. `{ email }` → 202. 가입한 이메일이면 6자리 코드 메일(없는 이메일도 같은 응답) |
+| `POST /api/v1/auth/password/reset` | 로그인 없이. `{ email, code, newPassword }` → 204. 모든 기기 세션을 끊는다 |
 
 - **Access Token**: JWT(HS256) 30분. `sub` = 사용자 id, `sid` = 세션 id. 요청마다 세션이 살아 있는지 확인해서 로그아웃 · 같은 기기 재로그인 · 탈퇴하면 남은 Access Token도 바로 막힌다.
 - **Refresh Token**: `{세션 id}.{256비트 무작위}` 30일. 서버에는 SHA-256 해시만(`tbl_refresh_token`, 기기마다 한 줄). refresh할 때마다 새 토큰으로 바뀌고, 바로 전 토큰은 60초 동안만 다시 받아 준다(응답 유실 재시도). 그 뒤 옛 토큰이나 다른 기기에서 온 토큰은 탈취로 보고 세션을 끊는다.
 - **오류**: 만료 `401 TOKEN_EXPIRED`(앱이 refresh 후 재시도), 그 밖 `401 AUTH_REQUIRED`(다시 로그인), 로그인 실패 `401 INVALID_CREDENTIALS`, 중복 `409 EMAIL_ALREADY_EXISTS` · `NICKNAME_ALREADY_EXISTS`.
 - **비밀번호**: 8~64자, 영문과 숫자 함께, 공백 없음. BCrypt(`{bcrypt}` 접두어)로 저장.
 - **프로필 사진**: JPG · PNG 5MB까지(넘으면 413). 서버가 가운데를 정사각형으로 잘라 512px JPEG로 다시 만든다(`ProfileImages`). EXIF(촬영 위치 등)는 남지 않고 휴대폰 사진 회전 정보는 반영한다. 사진이 틀리면 닉네임도 바꾸지 않는다. 파일은 DB 커밋 뒤 정리(바꾸면 옛 사진, 실패하면 새 사진, 빼기 · 탈퇴면 그 사진을 지운다). 저장은 `ImageStorage` 경계 뒤 서버 디스크(`LocalDiskImageStorage`, `dallimo.storage.local-dir` · `public-base-url`, 운영은 `STORAGE_LOCAL_DIR` · `STORAGE_PUBLIC_BASE_URL`). 사진을 바꾸거나 닉네임을 바꾸는 PATCH는 사람마다 분당 10번.
+- **비밀번호 변경 · 재설정** (결정 로그 58항): 틀린 지금 비밀번호는 400 `PASSWORD_MISMATCH`, 코드가 틀림 · 만료 · 잠김이면 400 `RESET_CODE_INVALID`(앱이 401이면 로그아웃해서 400). 코드는 숫자 6자리 · 10분 · 5번 틀리면 잠김 · 새 코드를 받으면 전 코드는 못 쓴다. DB에는 SHA-256 해시만(`tbl_password_reset`, V17). 같은 계정은 60초에 1번 · 1시간에 5번만 보낸다. 코드 요청 · 재설정은 IP마다 분당 10번(로그인과 같은 규칙), 변경은 사람마다 분당 10번. 바뀌면 알림 메일을 보낸다.
+- **메일**: `MailSender` 경계 뒤 Resend(`ResendMailSender`, `POST https://api.resend.com/emails`). DB 커밋 뒤 비동기(`taskExecutor`)로 보내고 실패하면 `mail.failed` 로그만 남긴다. local · 테스트는 `LogMailSender`(코드를 로그에서 본다). 로그에 코드 · 비밀번호는 남기지 않는다(`password.*` · `mail.sent kind=`).
 - **설정**: `dallimo.auth.*` (application.yaml). 키는 환경변수 `JWT_SECRET`(Base64 32바이트 이상). local 프로필은 개발 전용 키가 들어 있다.
 - **스키마**: `V4__email_auth.sql` — 이메일 가입자는 `provider = 'EMAIL'`, `provider_user_id = 소문자 이메일`, `password_hash` 추가, Refresh Token 회전용 `previous_token_hash` · `rotated_at`.
 
@@ -490,6 +497,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 코스 신고 처리 | 서로 다른 사람(만든 사람 제외)의 열린 신고 3건이면 자동 `HIDDEN`, 관리자가 `HIDE` · `BLOCK` · `RESTORE`. V16 `moderated_at` · `tbl_course_moderation` | 사용자 결정(명세 20.2장 "코스 공개 정책" 오픈 이슈). 3건은 명세에 없어 정한 시작값 |
 | 비동기 실행기 | `taskExecutor` 코어 2 · 최대 8 · 대기 500, 끌 때 20초까지 하던 일을 마친다 | 명세에 값 없음. 검증 · Push 보내기용 |
 | 요청 id | `X-Request-Id` 8~64자 `[A-Za-z0-9._-]`, 아니면 서버가 UUID | 로그를 어지럽히지 않게 |
+| 비밀번호 재설정 | 메일로 숫자 6자리 코드(10분 · 5번 틀리면 잠김), 계정마다 60초 1번 · 1시간 5번. 변경은 다른 기기 로그아웃, 재설정은 모든 기기 로그아웃. 오류는 400 | 사용자 요청(Resend). 명세에 이메일 로그인 · 비밀번호 찾기가 없음 |
 | 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
 | 외부 추천 코스 | V15 `tbl_course.source · source_ref · attribution · license · source_url`, 관리 API `X-Admin-Key`, 1~21.1km, 같은 자리 100m · 길이 10% 안이면 중복 | 사용자 결정(명세 2.1장 MVP 제외 항목을 넣음). 값은 명세에 없어 정한 시작값 |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |

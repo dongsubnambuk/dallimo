@@ -26,3 +26,6 @@ dallimo:
   # Push: 로컬 · 테스트는 보내지 않고 로그만 (Expo 계정 · 실기기 없이)
   push:
     provider: log
+  # 메일: 로컬은 보내지 않고 로그만 (인증 코드를 로그에서 본다). Resend로 보내 보려면 MAIL_PROVIDER=resend · RESEND_API_KEY
+  mail:
+    provider: ${MAIL_PROVIDER:log}

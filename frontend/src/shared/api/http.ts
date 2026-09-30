@@ -87,7 +87,8 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, auth =
     const fresh = await hooks.refreshAccessToken();
     if (fresh) res = await send(fresh);
   }
-  if (res.status === 204) return undefined as T;
+  // 204 · 202(비밀번호 재설정 코드 요청)는 본문이 없다
+  if (res.status === 204 || res.status === 202) return undefined as T;
 
   const envelope = (await res.json().catch(() => null)) as ApiResponse<T> | null;
   if (res.ok && envelope?.success) return envelope.data as T;

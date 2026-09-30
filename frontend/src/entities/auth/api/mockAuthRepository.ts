@@ -10,15 +10,23 @@ import {
   nicknameTaken,
   removeMockAccount,
   setCurrentMockAccount,
+  setMockPassword,
   type MockAccount,
 } from './mockAccounts';
 
 // 서버 없이 쓸 때의 인증. 서버와 같은 오류를 흉내 낸다.
 // 개발용: 이메일에 "offline"이 들어가면 서버에 닿지 못한 경우를 흉내 낸다 (SCR-A01 오류 상태 확인)
+// 비밀번호 재설정 코드는 메일 대신 개발 콘솔에 찍는다 (서버의 dallimo.mail.provider=log와 같다)
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const ACCESS_MS = 30 * 60_000;
 const REFRESH_MS = 30 * 24 * 3_600_000;
+// 서버와 같은 값 (backend PasswordService)
+const CODE_TTL_MS = 10 * 60_000;
+const MAX_ATTEMPTS = 5;
+
+type ResetCode = { email: string; code: string; expiresAt: number; attempts: number };
+let resetCode: ResetCode | null = null;
 
 const profileOf = (a: MockAccount): MyProfile => ({
   userId: a.userId,
@@ -76,6 +84,39 @@ export function createMockAuthRepository(): AuthRepository {
       await wait(500);
       const a = currentMockAccount();
       if (a) await removeMockAccount(a.userId);
+    },
+    async changePassword(currentPassword, newPassword) {
+      await wait(500);
+      const a = currentMockAccount();
+      if (!a) throw new AuthError('unauthorized', '다시 로그인해 주세요.');
+      if (a.password !== currentPassword) throw new AuthError('passwordMismatch', '지금 비밀번호가 맞지 않아요.');
+      if (currentPassword === newPassword) throw new AuthError('invalid', '지금 비밀번호와 다른 비밀번호로 바꿔 주세요.');
+      await setMockPassword(a.userId, newPassword);
+    },
+    async requestPasswordReset(email) {
+      await wait(500);
+      failIfOffline(email);
+      const a = findAccountByEmail(email);
+      if (!a) return;
+      const code = String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+      resetCode = { email: a.email, code, expiresAt: Date.now() + CODE_TTL_MS, attempts: 0 };
+      if (__DEV__) console.info(`[mock mail] ${a.email} 비밀번호 재설정 인증 코드: ${code}`);
+    },
+    async resetPassword(email, code, newPassword) {
+      await wait(500);
+      failIfOffline(email);
+      const a = findAccountByEmail(email);
+      const r = resetCode;
+      const invalid = new AuthError('resetCodeInvalid', '인증 코드가 맞지 않거나 시간이 지났어요. 코드를 다시 받아 주세요.');
+      if (!a || !r || r.email !== a.email || Date.now() > r.expiresAt || r.attempts >= MAX_ATTEMPTS) throw invalid;
+      if (r.code !== code) {
+        r.attempts += 1;
+        throw invalid;
+      }
+      resetCode = null;
+      await setMockPassword(a.userId, newPassword);
+      // 모든 기기 로그아웃
+      await setCurrentMockAccount(null);
     },
   };
 }
