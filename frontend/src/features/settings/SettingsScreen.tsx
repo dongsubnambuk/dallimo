@@ -17,6 +17,7 @@ import { hasRunInProgress, signOut, withdraw } from '@/features/auth/session';
 import { useMe } from '@/features/my/useMy';
 import { API_BASE_URL } from '@/shared/api/config';
 import { getPreferences, setPreference, usePreferences, type Preferences } from '@/shared/preferences';
+import { useWatchState, type WatchState } from '@/shared/watch/watchTransport';
 
 import { ConfirmSheet } from './components/ConfirmSheet';
 import { SettingChoice, SettingRow, SettingSection } from './components/SettingRow';
@@ -50,12 +51,19 @@ function usePushSettings() {
   };
 }
 
+function watchFooter(w: WatchState): string {
+  if (!w.paired) return '연결된 Apple Watch가 없어요. 휴대폰의 Watch 앱에서 먼저 연결해 주세요.';
+  if (!w.installed) return 'Apple Watch에 달리모 앱이 없어요. 휴대폰의 Watch 앱 › 사용 가능한 앱에서 달리모를 설치해 주세요.';
+  return 'Apple Watch와 연결됐어요.';
+}
+
 export function SettingsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const prefs = usePreferences();
   const push = usePushSettings();
   const me = useMe('normal');
+  const watch = useWatchState();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,6 +152,19 @@ export function SettingsScreen() {
           />
           <SettingRow kind="toggle" label="진동" caption="출발 · 일시정지 · GPS 약함 · 완주를 진동으로 알려요" value={prefs.haptics} onChange={(v) => setPreference('haptics', v)} />
         </SettingSection>
+
+        {/* WATCH-001: 달리기를 시작하면 워치에서도 보여 준다 (아이폰에서만) */}
+        {watch.supported ? (
+          <SettingSection title="Apple Watch" footer={watchFooter(watch)}>
+            <SettingRow
+              kind="toggle"
+              label="워치에 러닝 보여주기"
+              caption="시작하면 워치 앱이 켜져요. 거리 · 시간 · 페이스를 보고 워치에서 일시정지 · 끝내기를 할 수 있어요. 심박은 휴대폰에도 보여요"
+              value={prefs.watchMirror}
+              onChange={(v) => setPreference('watchMirror', v)}
+            />
+          </SettingSection>
+        ) : null}
 
         {/* 122.3장 연동 설정 */}
         <SettingSection title="외부 기록">

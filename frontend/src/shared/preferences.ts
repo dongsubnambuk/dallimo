@@ -8,6 +8,8 @@ import { setVoiceEnabled } from './voice';
 export type Preferences = {
   // 122장 외부 기록 가져오기: Apple 건강 연결 (연결하면 새 달리기를 찾아 알려 준다)
   healthImport: boolean;
+  // WATCH-001: 달리기를 시작하면 Apple Watch에서도 보여 준다 (워치 앱이 설치돼 있을 때)
+  watchMirror: boolean;
   // RUN-009 자동 일시정지(P1). 판단 기준(속도/시간)은 필드 테스트 뒤 정한다 (20.2장)
   autoPause: boolean;
   // AUD-001~003 음성 안내
@@ -26,7 +28,7 @@ export type Preferences = {
   runAlerts: boolean;
 };
 
-const DEFAULTS: Preferences = { healthImport: false, autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true };
+const DEFAULTS: Preferences = { healthImport: false, watchMirror: true, autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true };
 const KEY = 'dallimo.preferences';
 
 let current: Preferences = DEFAULTS;

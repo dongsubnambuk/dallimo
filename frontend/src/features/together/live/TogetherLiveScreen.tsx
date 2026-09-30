@@ -24,6 +24,7 @@ import { beginActiveRun, endActiveRun, useRunSnapshot } from '@/features/run/eng
 import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { createFinishVoice, createRankVoice, createRemainingVoice } from '@/features/run/voice/competitionRules';
 import { activeMs } from '@/features/run/engine/runningEngine';
+import { launchWatchApp, sendWatchEnd, useWatchLink } from '@/features/watch/useWatchLink';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import { haptics } from '@/shared/haptics';
 import { showNow } from '@/shared/notifications/notifier';
@@ -117,6 +118,7 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
       );
       // 결과 화면의 내 기록 연결. 서버는 이미 끝난 사람의 상태를 다시 받지 않는다
       channel.sendState({ distanceM: finalDistance(r.distanceM), elapsedSec: r.activeSec, paceSec: r.avgPaceSec, status: kind, runId });
+      sendWatchEnd(r, goalLabel(room));
     })().catch((e) => console.warn('[live] finish', e));
     return ending.current;
   };
@@ -131,6 +133,7 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
   // plan의 liveRoomId로 서버 Run이 방에 이어지고(POST /runs), 앱이 꺼졌다 켜지면 이 화면으로 돌아온다 (useRunRecovery)
   useEffect(() => {
     const plan = JSON.stringify({ liveRoomId: room.id });
+    launchWatchApp();
     engine
       .prepare({ mode: room.mode, plan })
       .then(() => (resume ? engine.recover() : engine.start()))
@@ -220,6 +223,35 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
   const running = ordered.filter((m) => m.status === 'RUNNING' || m.status === 'DISCONNECTED').length;
   const leader = ordered[0];
   const paused = status === 'PAUSED';
+
+  // WATCH-003: 워치에 순위 · 차이를 보여 주고 일시정지 · 그만두기를 받는다
+  useWatchLink(engine, {
+    context: () => ({
+      title: goalLabel(room),
+      strip:
+        mine !== 'RUNNING'
+          ? { label: mine === 'FINISHED' ? '완주' : '중도 포기', value: '다른 참가자를 기다려요', tone: 'neutral' }
+          : { label: rank != null ? `${ordered.length}명 중 ${rank}위` : '함께 달리기', value: gapCopy(room, ordered, meNow, avgPace), tone: rank === 1 ? 'accent' : 'neutral' },
+      canPause: mine === 'RUNNING',
+      canFinish: mine === 'RUNNING',
+      finishLabel: '그만두기',
+    }),
+    onCommand: (cmd) => {
+      if (mine !== 'RUNNING') return;
+      const st = engine.getSnapshot().status;
+      if (cmd === 'pause' && st === 'RUNNING') {
+        haptics.runControl();
+        engine.pause();
+      } else if (cmd === 'resume' && st === 'PAUSED') {
+        haptics.runControl();
+        engine.resume();
+      } else if (cmd === 'finish') {
+        // 워치에서 이미 확인했다
+        setConfirmQuit(false);
+        end('DNF');
+      }
+    },
+  });
 
   return (
     <>

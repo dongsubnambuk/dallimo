@@ -173,6 +173,7 @@
 | RunningEngine `prepare, start, pause, resume, finish, recover` | 같음 + `subscribe, getSnapshot, now, dispose` | 일치 | 더한 것은 화면 구독용 |
 | RunPointStore `append, getUnsyncedRange(runUuid, limit), markSynced(runUuid, fromSeq, toSeq)` | runUuid 없이 쓰고 있었다 | 이번에 고침 | 명세 서명으로 맞춤. `unsyncedCount`는 화면 표시용으로 더함 |
 | LocationSource `requestPermissions, startForeground, startBackground, stop, getCurrentQuality` | `requestPermissions, getCurrentPosition, getCurrentQuality` | 미구현 | 기록용 수신은 GPS PoC(WBS 1) |
+| (명세 없음) 휴대폰 ↔ Apple Watch 메시지 | `watchTransport`(WatchConnectivity) · `watchMessages.ts` v1 | 앱 안 · 서버 API 없음 | WATCH-001~004. 휴대폰 → 워치 `run · countdown · cue · end · idle`, 워치 → 휴대폰 `hello · cmd · hr`. 워치 앱 `targets/watch/PhoneLink.swift`와 같이 바꾼다 (결정 로그 48항) |
 
 ## 11. 명세 안에서 서로 다른 곳
 
@@ -217,3 +218,4 @@
 28. **추가 작업 — 이미지 저장소를 Cloudflare R2로** (사용자 결정): 지금은 서버 디스크(`LocalDiskImageStorage`). 이미지 작업은 나중에 따로 한다. 할 일: `ImageStorage`의 R2 구현(S3 호환 API, 버킷 · 키는 환경변수), 공개 주소(R2 공개 버킷 또는 커스텀 도메인)를 `public-base-url`로, 서버 디스크에 있던 사진 옮기기, R2 흉내 저장소로 테스트(MinIO 컨테이너). 서버를 여러 대로 늘리기 전에 끝내야 한다
 27. 인터벌 API 모양: 126장은 경로만 있다(`GET · POST /workouts`, `GET · PUT /workouts/{id}`, `POST /workouts/{id}/duplicate`). 지우기(`DELETE /workouts/{id}`), 목록 응답의 `lastRunAt · runCount`, 추천 템플릿은 앱에 둔 것, Run의 `workout` · `workoutSteps` · 목록 `mode` 필터, 버전별 구간(`template_version`) · 구간 결과 테이블을 서버 · 앱이 정했다. 명세에 넣어야 한다
 29. 외부 기록 가져오기 API 모양: 126장은 경로만 있다. 후보 확인(`POST /imported-activities/check`), 가져오기 요청 · 응답, 연동 목록 응답, Run의 source 필드 응답, 가져오기 기록부(`tbl_activity_import`) · Run 유일 키에 user_id를 넣은 것, 가져온 기록 검증 정책(`2026-09-imp-v1`)을 서버 · 앱이 정했다. `/integrations/{provider}/sync`는 만들지 않았다. 명세에 넣어야 한다
+30. Apple Watch(WATCH-001~004): 명세에 워치 흐름 · 메시지가 없다(5장 P2). 휴대폰이 기록하고 워치는 보여 주기 · 조작 · 심박만 맡는 것으로 정했다(결정 로그 48항). 심박은 아직 서버에 보내지 않는다. 심박을 기록 · 결과에 남길지 정해야 한다

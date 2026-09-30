@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandLoader } from '@/components/Brand';
 import { GpsStatus } from '@/components/GpsStatus';
 import { MetricBlock } from '@/components/MetricBlock';
-import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
+import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { runResultRepository } from '@/entities/run/api';
@@ -18,6 +18,8 @@ import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { useGapLine, useGapVoice } from '@/features/run/voice/useCompetitionVoice';
 import { useIntervalCues } from '@/features/run/voice/useIntervalCues';
 import type { RunFinishResult, RunningEngine } from '@/features/run/engine/runningEngine';
+import { sendWatchEnd, useWatchHeartRate, useWatchLink } from '@/features/watch/useWatchLink';
+import { isManualStep, soloStrip } from '@/features/watch/watchMessages';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import type { GeoPoint } from '@/shared/geo';
 import { haptics } from '@/shared/haptics';
@@ -26,6 +28,7 @@ import { speak } from '@/shared/voice';
 import { IntervalPanel } from './components/IntervalPanel';
 import { ModeStrip, type RunTarget } from './components/ModeStrip';
 import { RunPathMap } from './components/RunPathMap';
+import { runNoticeOf } from './runNotice';
 import { useElapsedSec } from './useElapsedSec';
 
 // SCR-R02 Active Run 공통 Run Shell (72장 6~7번). 92장 레이아웃:
@@ -61,6 +64,33 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
   // 인터벌 달리기는 구간 안내가 1km 안내를 대신한다 (겹쳐 읽지 않게)
   useSplitAnnouncer(engine, useGapLine(engine, target), flat == null);
   useIntervalCues(engine, flat);
+  const saveLabel = intervalDone ? '인터벌 기록 저장' : '완주 기록 저장';
+  // WATCH-001~004: 워치에 지금 상태를 보여 주고 워치 조작을 받는다 (휴대폰 버튼과 같은 동작)
+  useWatchLink(engine, {
+    context: (s, now) => ({
+      title: summary,
+      strip: soloStrip(s, now, { target, flat }),
+      manualStep: isManualStep(s, flat),
+      completed,
+      saveLabel,
+    }),
+    onCommand: (cmd) => {
+      const st = engine.getSnapshot().status;
+      if (cmd === 'pause' && st === 'RUNNING') {
+        haptics.runControl();
+        engine.pause();
+      } else if (cmd === 'resume' && st === 'PAUSED') {
+        haptics.runControl();
+        engine.resume();
+      } else if (cmd === 'next' && (st === 'RUNNING' || st === 'PAUSED') && isManualStep(engine.getSnapshot(), flat)) {
+        haptics.runControl();
+        engine.nextIntervalStep();
+      } else if (cmd === 'finish' && (st === 'RUNNING' || st === 'PAUSED')) {
+        // 워치에서 이미 확인했다
+        void finish();
+      }
+    },
+  });
 
   // 러닝 중 Android 뒤로 가기로 화면을 벗어나지 않게 한다 (종료는 일시정지 → 종료 확인으로만)
   useEffect(() => {
@@ -93,6 +123,7 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
       result.synced,
     );
     setFinished({ result, id });
+    sendWatchEnd(result, summary);
     // 동기화까지 끝나면 결과로 넘어간다. 오프라인이면 안내를 보여주고 사용자가 결과를 연다.
     if (result.synced) openResult(id);
   };
@@ -139,7 +170,7 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
       <Controls
         paused={paused}
         completed={completed}
-        saveLabel={intervalDone ? '인터벌 기록 저장' : '완주 기록 저장'}
+        saveLabel={saveLabel}
         onSave={finish}
         disabled={status !== 'RUNNING' && status !== 'PAUSED'}
         onPause={() => {
@@ -181,7 +212,10 @@ function TopBar({ engine, view, onToggleView }: { engine: RunningEngine; view: '
 
   return (
     <View style={styles.topBar}>
-      <GpsStatus quality={gps} style={styles.gps} />
+      <View style={styles.topLeft}>
+        <GpsStatus quality={gps} style={styles.gps} />
+        <HeartRate />
+      </View>
       <View style={styles.topRight}>
         <View style={styles.tag} accessible accessibilityLabel={tag.text} accessibilityLiveRegion="polite">
           <View style={[styles.tagDot, { backgroundColor: tag.color }]} />
@@ -201,6 +235,21 @@ function TopBar({ engine, view, onToggleView }: { engine: RunningEngine; view: '
   );
 }
 
+// 워치에서 받은 심박. 워치가 없거나 15초 넘게 새 값이 없으면 보이지 않는다
+function HeartRate() {
+  const { colors } = useTheme();
+  const bpm = useWatchHeartRate();
+  if (bpm == null) return null;
+  return (
+    <View style={styles.heart} accessible accessibilityLabel={`심박 ${bpm}`}>
+      <AppIcon name="health" size={16} color={colors.status.danger} />
+      <AppText role="label" tabular style={styles.tagText}>
+        {bpm}
+      </AppText>
+    </View>
+  );
+}
+
 // ---- 상태 안내 (한 번에 하나). SCREEN-SPECS: GPS poor, offline, recovering ----
 
 function RunNotice({ engine }: { engine: RunningEngine }) {
@@ -212,13 +261,7 @@ function RunNotice({ engine }: { engine: RunningEngine }) {
   const completedMs = useRunSnapshot(engine, (s) => s.course?.completedActiveMs ?? null);
   const autoPaused = useRunSnapshot(engine, (s) => s.autoPaused);
 
-  let notice: { icon: IconName; text: string; tone: 'warning' | 'neutral' | 'success' } | null = null;
-  if (completedMs != null) notice = { icon: 'finished', text: `코스 완주 · ${formatDuration(Math.round(completedMs / 1000))}. 이 기록으로 저장돼요`, tone: 'success' };
-  else if (autoPaused) notice = { icon: 'pause', text: '멈춰 있어서 기록을 잠시 멈췄어요. 다시 달리면 이어서 기록해요', tone: 'neutral' };
-  else if (status === 'RECOVERY') notice = { icon: 'gpsAcquiring', text: '앱이 꺼지기 전 기록을 불러왔어요. GPS를 다시 찾는 중이에요', tone: 'neutral' };
-  else if (offRouteM != null) notice = { icon: 'warning', text: `코스에서 ${offRouteM}m 벗어났어요. 코스로 돌아가 주세요`, tone: 'warning' };
-  else if (gps === 'poor') notice = { icon: 'gpsPoor', text: 'GPS 신호가 약해 거리를 잠시 세지 않아요', tone: 'warning' };
-  else if (network === 'offline') notice = { icon: 'offline', text: '오프라인이에요. 기록은 휴대폰에 저장하고 있어요', tone: 'neutral' };
+  const notice = runNoticeOf({ status, gps, network, offRouteM, completedMs, autoPaused });
   if (!notice) return <View style={styles.noticeSpace} />;
 
   const color = notice.tone === 'warning' ? colors.status.warning : notice.tone === 'success' ? colors.text.accent : colors.text.secondary;
@@ -483,6 +526,16 @@ const styles = StyleSheet.create({
   },
   gps: {
     alignSelf: 'center',
+  },
+  topLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  heart: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   topRight: {
     flexDirection: 'row',
