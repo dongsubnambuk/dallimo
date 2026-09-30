@@ -7,6 +7,7 @@ import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.CursorPage;
 import com.dallimo.dallimoserver.friend.application.FriendService;
+import com.dallimo.dallimoserver.gamification.application.CourseTitleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +48,13 @@ public class ActivityService {
         if (climbed) store.insert(userId, ActivityType.WEEKLY_TOP, "COURSE_RECORD", recordId, weeklyRankAfter, now);
     }
 
+    /** 124장: 코스 크라운 · 로컬 레전드를 새로 가졌을 때. LEGEND의 value는 그때 완주 수 */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void onTitles(long recordId, long userId, CourseTitleService.TitleChange change, Instant now) {
+        if (change.crownTaken()) store.insert(userId, ActivityType.CROWN, "COURSE_RECORD", recordId, null, now);
+        if (change.legendTaken()) store.insert(userId, ActivityType.LEGEND, "COURSE_RECORD", recordId, change.legendFinishes(), now);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void onCourseCreated(long userId, long courseId, Instant now) {
         store.insert(userId, ActivityType.COURSE_CREATED, "COURSE", courseId, null, now);
@@ -61,7 +69,7 @@ public class ActivityService {
 
     public record Item(long id, ActivityType type, long userId, String nickname, boolean isMine, Instant createdAt, Long courseId, String courseName,
                        Integer courseDistanceM, Integer timeSec, Integer previousSec, Integer rank, String targetNickname, Integer targetSec,
-                       boolean targetIsMe) {
+                       boolean targetIsMe, Integer finishCount) {
     }
 
     /** 친구와 나의 활동. 볼 수 없는 코스(숨김 · 비공개)에 딸린 활동은 뺀다 */
@@ -118,7 +126,8 @@ public class ActivityService {
                     r.type() == ActivityType.PB ? r.value() : null,
                     r.type() == ActivityType.WEEKLY_TOP ? r.value() : null,
                     challenge == null ? null : challenge.targetNickname(), challenge == null ? null : challenge.targetSec(),
-                    challenge != null && challenge.targetUserId() == viewerId));
+                    challenge != null && challenge.targetUserId() == viewerId,
+                    r.type() == ActivityType.LEGEND ? r.value() : null));
         }
         return read;
     }

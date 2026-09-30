@@ -1,6 +1,7 @@
 package com.dallimo.dallimoserver.verification.application;
 
 import com.dallimo.dallimoserver.activity.application.ActivityService;
+import com.dallimo.dallimoserver.gamification.application.CourseTitleService;
 import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.ranking.application.RankingService;
 import com.dallimo.dallimoserver.course.domain.CourseRoute;
@@ -37,10 +38,12 @@ public class CourseVerificationService {
     private final RecordBeatenNotifier recordBeaten;
     private final RankingService ranking;
     private final ActivityService activities;
+    private final CourseTitleService titles;
     private final Clock clock;
 
     public CourseVerificationService(RunJpaRepository runs, RunPointJdbcRepository points, CourseJdbcRepository courses,
-                                     VerificationJdbcRepository store, ChallengeService challenges, RecordBeatenNotifier recordBeaten, Clock clock, RankingService ranking, ActivityService activities) {
+                                     VerificationJdbcRepository store, ChallengeService challenges, RecordBeatenNotifier recordBeaten, Clock clock, RankingService ranking, ActivityService activities,
+                                     CourseTitleService titles) {
         this.runs = runs;
         this.points = points;
         this.courses = courses;
@@ -49,6 +52,7 @@ public class CourseVerificationService {
         this.recordBeaten = recordBeaten;
         this.ranking = ranking;
         this.activities = activities;
+        this.titles = titles;
         this.clock = clock;
     }
 
@@ -74,6 +78,8 @@ public class CourseVerificationService {
             long recordId = store.recordIdOfRun(runId);
             RankingService.RankChange rank = ranking.weeklyChange(courseId, run.getUserId(), recordId, now);
             activities.onRecord(courseId, recordId, run.getUserId(), result.recordSeconds(), rank.before(), rank.after(), now);
+            // 124장: 이 기록으로 코스 크라운 · 로컬 레전드가 됐으면 활동으로 남긴다
+            activities.onTitles(recordId, run.getUserId(), titles.change(courseId, run.getUserId(), recordId, now), now);
         }
         run.completeVerification(result.outcome().name(), now);
         // 이 Run으로 진행 중인 도전 판정 (CHL-003)

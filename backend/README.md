@@ -146,6 +146,19 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **cursor**: 순위 위치의 base64url (23.1장 LIMIT · OFFSET). 기록이 많아져 느려지면 사용자별 최고 기록 projection이나 Redis를 검토한다(23.1장, 측정 뒤).
 - **테스트**: `RankingApiContractTest`를 MySQL · MariaDB에서(RNK-IT-001, 한국 시간 주 · 월 경계, cursor, 내 주변, 친구 랭킹 · 친구 최고 기록, 숨김 코스, 코스 상세 미리보기, 실제 검증을 거친 주간 순위 변화).
 
+## 코스 크라운 · 로컬 레전드 (명세 124장 게임화, 126장 Gamification API)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/courses/{id}/crown` | 로그인 없이도. `{ periodDays, from, holder{ userId, name, profileImageUrl, relation }, timeSec, paceSecPerKm, achievedAt, recordId, me{ bestSec, gapSec, holder } }`. 기록이 없으면 holder null |
+| `GET /api/v1/courses/{id}/local-legend` | 로그인 없이도. `{ periodDays, from, minFinishes, holder, finishCount, lastFinishedAt, me{ finishCount, needed, holder } }`. 비회원이면 me null |
+
+- **Crown**: 최근 90일 코스 공식 기록 중 가장 빠른 기록. 같으면 먼저 세운 기록. `me`는 기간 안 내 최고 기록과 크라운까지 남은 초(기간 안 기록이 없으면 null).
+- **Local Legend**: 최근 90일 검증 완주(코스 공식 기록) 수가 가장 많은 사람, 2번 이상부터. 같으면 그 횟수를 먼저 채운 사람(마지막 완주가 이른 사람). `me.needed`는 지금 기준 레전드가 되려면 더 필요한 완주 수.
+- **둘을 합치지 않는다** (124장): 크라운은 기록, 레전드는 반복 참여. 둘 다 검증된 기록만 세고 다른 사람의 위치는 쓰지 않는다(129장).
+- **새로 가졌을 때**: 코스 공식 기록이 생긴 순간(기록 시각까지 90일)으로 이 기록을 빼고 · 넣고 비교한다. 러닝 상세 `verification { crownTaken, legendTaken, legendFinishCount }`, 친구 활동 `CROWN` · `LEGEND`(value: 그때 완주 수). 이미 가진 사람이 다시 달리면 새로 가진 것이 아니다.
+- **테스트**: `CourseTitleApiContractTest`를 MySQL · MariaDB에서(90일 경계, 같은 기록 · 같은 횟수 순서, 나 · 친구 · 비회원, 레전드 최소 2번, 실제 검증으로 크라운 · 레전드를 가짐 · 이미 가진 뒤, 활동).
+
 ## 공유 링크 · 함께 달리기 초대 (SHR-001~004, 45장 대기실)
 
 | API | 설명 |
@@ -430,3 +443,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 가져온 기록 검증 기준 | 따라 달린 비율 90%, point 간격 가운데 값 5초 이하 | 명세에 값 없음. 다른 앱이 잰 기록이라 달리모 기록(80%)보다 엄하게 |
 | 달리모 기록과 겹침 | 짧은 쪽 시간의 50% 이상 겹치면 같은 러닝으로 보고 Run을 만들지 않는다 | 122.2장 "Merge Candidate". 워치로 함께 기록한 운동이 두 번 쌓이지 않게. 앱은 달리모가 건강 앱에 쓴 운동(`DallimoClientRunUuid` 메타데이터, 워치 작업에서 쓴다)을 먼저 뺀다 |
 | 가져오기 범위 | point 20,000개, 24시간, 한 번에 확인 200개 | 명세에 값 없음 |
+| 크라운 · 레전드 기간 | 최근 90일(기록이 만들어진 시각 기준) | 124장 "최근 기간"에 값이 없다. 한 계절 동안 지킬 수 있고 오래 쉰 사람의 타이틀은 자연히 넘어간다 |
+| 레전드 최소 완주 | 2번 | 한 번씩만 달린 사람끼리는 반복 참여라 할 수 없다 |
+| 같은 값 순서 | 크라운은 먼저 세운 기록, 레전드는 그 횟수를 먼저 채운 사람 | 나중에 같은 값을 낸 사람이 빼앗지 않게 |
+| 타이틀 알림 | 활동(친구 피드)만. Push는 보내지 않는다 | 사용자 결정 "Push는 꼭 필요한 것만"(알림 항목) |

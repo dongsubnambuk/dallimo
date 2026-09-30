@@ -44,6 +44,8 @@ export type RunResult = {
   weeklyRank: { before: number | null; after: number } | null;
   // RST-004 같은 코스 친구 최고 기록
   friendBest: { name: string; timeSec: number } | null;
+  // 124장: 이 기록으로 코스 크라운 · 로컬 레전드를 새로 가졌나 (인증된 서버 기록만, legendFinishCount는 그때 완주 수)
+  titles?: { crownTaken: boolean; legendTaken: boolean; legendFinishCount: number | null } | null;
   // CHL-003 이 러닝으로 한 도전 (서버 판정). 서버에 올라가기 전 · 도전이 아니면 없다
   challenge?: Challenge | null;
   // 인터벌 달리기: 달린 인터벌과 구간별 실제 거리 · 시간 (123.2장)

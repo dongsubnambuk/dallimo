@@ -17,6 +17,8 @@ const base = { isMine: false, timeSec: null, previousSec: null, rank: null, targ
 // mock 코스(수성못 둘레길 등)와 이어지는 예시
 const MOCK: Activity[] = [
   { ...base, id: 'a-1', type: 'CHALLENGE_WON', userId: 'u-minsu', nickname: '민수', createdAt: Date.now() - 2 * H, course: course('c-suseongmot', '수성못 둘레길', 1900), timeSec: 598, target: { nickname: '수성러너', timeSec: 612, isMe: true } },
+  { ...base, id: 'a-c', type: 'CROWN', userId: 'u-minsu', nickname: '민수', createdAt: Date.now() - 2 * H, course: course('c-suseongmot', '수성못 둘레길', 1900), timeSec: 598 },
+  { ...base, id: 'a-l', type: 'LEGEND', userId: 'u-jisu', nickname: '지수', createdAt: Date.now() - 4 * H, course: course('c-sincheon', '신천 강변 왕복', 4600), timeSec: 1302, finishCount: 9 },
   { ...base, id: 'a-2', type: 'WEEKLY_TOP', userId: 'u-jisu', nickname: '지수', createdAt: Date.now() - 5 * H, course: course('c-sincheon', '신천 강변 왕복', 4600), timeSec: 1302, rank: 2 },
   { ...base, id: 'a-3', type: 'PB', userId: 'u-jisu', nickname: '지수', createdAt: Date.now() - 5 * H, course: course('c-sincheon', '신천 강변 왕복', 4600), timeSec: 1302, previousSec: 1355 },
   { ...base, id: 'a-4', type: 'COURSE_CREATED', userId: 'u-haneul', nickname: '하늘', createdAt: Date.now() - 26 * H, course: course('c-dusan', '두산오거리 야간 3K', 3000) },

@@ -52,7 +52,8 @@ type TextTone =
 | PrimaryRunButton | label,availability,loading | ready, disabledGPS, disabledPermission, loading | single dominant action |
 | GpsStatus | quality,copy | acquiring,good,fair,poor,unavailable | icon + text + semantic color |
 | GapIndicator | delta,direction,label | ahead,behind,tied,noData | direction + numeric gap |
-| RankingRow | rank,user,time,relation | normal,self,friend,podium,nearby | self anchor over decoration |
+| RankingRow | rank,user,time,relation,titles | normal,self,friend,podium,nearby | self anchor over decoration |
+| CourseTitleBadge | kind | crown,legend | shape + spoken name, not color only (124장) |
 | VerificationBadge | status | pending,verified,unverified,rejected | compact factual status |
 | ParticipantChip | name,status,progress | invited,ready,running,disconnected,finished,DNF | state first |
 | FilterChip | label,selected | default,selected,disabled | quick filter only |

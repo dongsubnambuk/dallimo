@@ -5,6 +5,7 @@ import { FlatList, StyleSheet, View, type NativeScrollEvent, type NativeSyntheti
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLoader } from '@/components/Brand';
+import type { CourseTitleKind } from '@/components/CourseTitleBadge';
 import { FilterChip } from '@/components/FilterChip';
 import { RankingRow } from '@/components/RankingRow';
 import { SecondaryButton } from '@/components/SecondaryButton';
@@ -17,7 +18,9 @@ import type { RankingScenario } from '@/entities/ranking/api/mockRankingReposito
 import type { MyStanding, RankingEntry, RankingPeriod, RankingScope } from '@/entities/ranking/types';
 import { formatCount, formatDuration, formatDurationSpoken } from '@/shared/format';
 
+import { CourseTitlesCard } from './components/CourseTitlesCard';
 import { useCourseRanking } from './useCourseRanking';
+import { titlesOf, useCourseTitles } from './useCourseTitles';
 
 export type RankingTab = 'weekly' | 'monthly' | 'all' | 'friends';
 
@@ -45,6 +48,8 @@ export function CourseRankingScreen({ courseId, initialTab, scenario }: { course
   const [tab, setTab] = useState<RankingTab>(initialTab);
   const t = TABS.find((x) => x.key === tab)!;
   const { list, standing, entries } = useCourseRanking(courseId, t.scope, t.period, scenario);
+  // 124장: 크라운 · 레전드를 가진 사람 줄에 표시
+  const titles = useCourseTitles(courseId, scenario);
   const course = useCourseName(courseId);
   const listRef = useRef<FlatList<RankingEntry>>(null);
   const [cardBottom, setCardBottom] = useState(0);
@@ -96,7 +101,15 @@ export function CourseRankingScreen({ courseId, initialTab, scenario }: { course
           data={entries}
           keyExtractor={(e) => e.userId}
           renderItem={({ item }) => (
-            <RankingRow rank={item.rank} name={item.name} timeSec={item.timeSec} paceSecPerKm={item.paceSecPerKm} relation={item.relation} isPB={item.isPB} />
+            <RankingRow
+              rank={item.rank}
+              name={item.name}
+              timeSec={item.timeSec}
+              paceSecPerKm={item.paceSecPerKm}
+              relation={item.relation}
+              isPB={item.isPB}
+              titles={titlesOf(titles.data, item.userId)}
+            />
           )}
           // 떠 있는 "내 순위" 버튼 높이만큼 아래를 비워 마지막 줄을 가리지 않는다
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + touchTarget.min + spacing.huge }]}
@@ -107,7 +120,12 @@ export function CourseRankingScreen({ courseId, initialTab, scenario }: { course
           ListHeaderComponent={
             <View onLayout={(e) => setCardBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
               {/* 순위표가 비었으면 아래 빈 상태 안내 하나만 보여준다 */}
-              {entries.length > 0 ? <MyStandingCard standing={standing.data ?? null} loading={standing.isPending} tab={tab} onRun={run} /> : null}
+              {entries.length > 0 ? <MyStandingCard standing={standing.data ?? null} loading={standing.isPending} tab={tab} onRun={run} titleOf={(id) => titlesOf(titles.data, id)} /> : null}
+              {titles.data ? (
+                <View style={styles.titles}>
+                  <CourseTitlesCard titles={titles.data} />
+                </View>
+              ) : null}
               {entries.length > 0 ? (
                 <View style={styles.listHead}>
                   <AppText role="sectionTitle" accessibilityRole="header">
@@ -160,15 +178,17 @@ export function CourseRankingScreen({ courseId, initialTab, scenario }: { course
 }
 
 // RNK-005 내 주변 순위 + "총 N명 중 M등". 탐색 티켓·코스 상세 경쟁 카드와 같은 검정 표면.
-function MyStandingCard({ standing, loading, tab, onRun }: { standing: MyStanding | null; loading: boolean; tab: RankingTab; onRun: () => void }) {
+type StandingProps = { standing: MyStanding | null; loading: boolean; tab: RankingTab; onRun: () => void; titleOf: (userId: string) => CourseTitleKind[] };
+
+function MyStandingCard(props: StandingProps) {
   return (
     <ThemeProvider scheme="dark">
-      <StandingBody standing={standing} loading={loading} tab={tab} onRun={onRun} />
+      <StandingBody {...props} />
     </ThemeProvider>
   );
 }
 
-function StandingBody({ standing, loading, tab, onRun }: { standing: MyStanding | null; loading: boolean; tab: RankingTab; onRun: () => void }) {
+function StandingBody({ standing, loading, tab, onRun, titleOf }: StandingProps) {
   const { colors } = useTheme();
   if (loading || !standing) {
     return (
@@ -226,7 +246,7 @@ function StandingBody({ standing, loading, tab, onRun }: { standing: MyStanding 
       </AppText>
       <View style={[styles.around, { borderTopColor: colors.border.subtle }]}>
         {standing.around.map((e) => (
-          <RankingRow key={e.userId} rank={e.rank} name={e.name} timeSec={e.timeSec} relation={e.relation} isPB={e.isPB} />
+          <RankingRow key={e.userId} rank={e.rank} name={e.name} timeSec={e.timeSec} relation={e.relation} isPB={e.isPB} titles={titleOf(e.userId)} />
         ))}
       </View>
     </View>
@@ -306,6 +326,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: spacing.sm,
     marginHorizontal: -spacing.md,
+  },
+  titles: {
+    marginTop: spacing.lg,
   },
   listHead: {
     flexDirection: 'row',

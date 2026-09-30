@@ -43,25 +43,27 @@ abstract class ActivityApiContractTest {
         double[] at = somewhere();
         long course = course(friend, at);
 
-        // 첫 공식 기록(약 225초) → PB(이전 없음) + 이번 주 1위
+        // 첫 공식 기록(약 225초) → PB(이전 없음) + 이번 주 1위 + 코스 크라운(최근 90일 첫 기록)
         verifiedRun(me, course, at, 250, 4.0, "COURSE", null);
-        // 느린 기록(약 299초) → 활동 없음
+        // 느린 기록(약 299초) → 2번째 완주로 로컬 레전드 (124장)
         verifiedRun(me, course, at, 334, 3.0, "COURSE", null);
         // 더 빠른 기록(약 179초) → PB(이전 약 225초). 순위는 그대로 1위라 랭킹 활동은 없다
         verifiedRun(me, course, at, 200, 5.0, "COURSE", null);
 
         String mine = body(get(me, "/api/v1/activities"));
-        assertThat(JsonPath.<List<String>>read(mine, "$.data.items[*].type")).containsExactly("PB", "WEEKLY_TOP", "PB", "COURSE_CREATED");
+        assertThat(JsonPath.<List<String>>read(mine, "$.data.items[*].type")).containsExactly("PB", "LEGEND", "CROWN", "WEEKLY_TOP", "PB", "COURSE_CREATED");
         assertThat((Integer) JsonPath.read(mine, "$.data.items[0].previousSec")).isBetween(222, 228);
         assertThat((Integer) JsonPath.read(mine, "$.data.items[0].timeSec")).isBetween(176, 182);
-        assertThat((Integer) JsonPath.read(mine, "$.data.items[1].rank")).isEqualTo(1);
-        assertThat((Object) JsonPath.read(mine, "$.data.items[2].previousSec")).isNull();
+        assertThat((Integer) JsonPath.read(mine, "$.data.items[1].finishCount")).isEqualTo(2);
+        assertThat((Integer) JsonPath.read(mine, "$.data.items[2].timeSec")).isBetween(222, 228);
+        assertThat((Integer) JsonPath.read(mine, "$.data.items[3].rank")).isEqualTo(1);
+        assertThat((Object) JsonPath.read(mine, "$.data.items[4].previousSec")).isNull();
         assertThat((Boolean) JsonPath.read(mine, "$.data.items[0].isMine")).isTrue();
-        assertThat((String) JsonPath.read(mine, "$.data.items[3].nickname")).isEqualTo(friend.name);
-        assertThat((String) JsonPath.read(mine, "$.data.items[3].courseName")).isEqualTo("활동 코스");
-        assertThat(((Number) JsonPath.read(mine, "$.data.items[3].courseId")).longValue()).isEqualTo(course);
+        assertThat((String) JsonPath.read(mine, "$.data.items[5].nickname")).isEqualTo(friend.name);
+        assertThat((String) JsonPath.read(mine, "$.data.items[5].courseName")).isEqualTo("활동 코스");
+        assertThat(((Number) JsonPath.read(mine, "$.data.items[5].courseId")).longValue()).isEqualTo(course);
         // 코스 등록에는 기록 숫자가 없다 (코스 id와 같은 id의 기록이 있어도)
-        assertThat((Object) JsonPath.read(mine, "$.data.items[3].timeSec")).isNull();
+        assertThat((Object) JsonPath.read(mine, "$.data.items[5].timeSec")).isNull();
 
         // 도전 성공: 친구 기록 260초에 도전해 약 179초로 인증
         long target = record(course, friend.id, 260);
@@ -99,11 +101,11 @@ abstract class ActivityApiContractTest {
         for (int sec : new int[]{150, 160, 170, 180}) record(course, signup("앞").id, sec);
         // 약 225초 → 5위: PB만
         verifiedRun(me, course, at, 250, 4.0, "COURSE", null);
-        // 약 165초 → 3위로 올라섬: PB + 랭킹
+        // 약 165초 → 3위로 올라섬: PB + 랭킹. 2번째 완주라 로컬 레전드도 (다른 사람은 1번씩)
         verifiedRun(me, course, at, 185, 5.4, "COURSE", null);
         String b = body(get(me, "/api/v1/activities"));
-        assertThat(JsonPath.<List<String>>read(b, "$.data.items[*].type")).containsExactly("WEEKLY_TOP", "PB", "PB", "COURSE_CREATED");
-        assertThat((Integer) JsonPath.read(b, "$.data.items[0].rank")).isEqualTo(3);
+        assertThat(JsonPath.<List<String>>read(b, "$.data.items[*].type")).containsExactly("LEGEND", "WEEKLY_TOP", "PB", "PB", "COURSE_CREATED");
+        assertThat((Integer) JsonPath.read(b, "$.data.items[1].rank")).isEqualTo(3);
     }
 
     // ── 도우미 ──

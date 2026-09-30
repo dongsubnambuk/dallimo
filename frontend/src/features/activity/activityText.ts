@@ -20,6 +20,10 @@ export function activityText(a: Activity): { title: string; detail: string } {
       const target = a.target ? `목표 ${formatDuration(a.target.timeSec)}` : null;
       return { title: `${who} ${whose} 기록을 넘었어요`, detail: join(course, time && target ? `${time} (${target})` : time) };
     }
+    case 'CROWN':
+      return { title: `${who} 코스 크라운을 차지했어요`, detail: join(course, time, '최근 90일 최고 기록') };
+    case 'LEGEND':
+      return { title: `${who} 로컬 레전드가 됐어요`, detail: join(course, a.finishCount != null ? `90일 동안 ${a.finishCount}번 완주` : null) };
     case 'COURSE_CREATED':
       return { title: `${who} 새 코스를 만들었어요`, detail: join(course, `${formatDistanceKm(a.course.distanceM, 1)}km`) };
   }

@@ -49,6 +49,7 @@ Spacing
 | PrimaryRunButton | Course/Ready | disabled GPS, ready, loading |
 | PlayModeCard | mode picker | selected/default/locked |
 | RankingRow | ranking | self, friend, podium, nearby |
+| CourseTitleBadge | ranking, course detail | crown(왕관), legend(불꽃) |
 | GapIndicator | PB/Challenge/Live | ahead, behind, tied |
 | GpsStatus | Ready/Run | good, fair, poor, unavailable |
 | ParticipantChip | Together | invited, ready, running, disconnected, finished |
@@ -117,6 +118,7 @@ colors = {
 | PrimaryRunButton | signal accent를 가장 강하게 사용하는 핵심 action |
 | GapIndicator | +/- 방향과 ahead/behind copy를 함께 사용 |
 | RankingRow | self는 surface/line로 anchor. podium decoration 절제 |
+| CourseTitleBadge | 이름 옆 작은 아이콘 하나. 금색 · 반짝임 없이 모양과 읽는 이름으로 구분 (124장 게임화는 기록을 보조) |
 | VerificationBadge | 작고 명확한 status, 결과 headline보다 시각 우선하지 않음 |
 | FilterChip | 선택 상태 명확, 너무 많은 색상 사용 금지 |
 | BottomSheet | map 작업을 보조; 최대 높이가 지도 전체를 상시 덮지 않음 |

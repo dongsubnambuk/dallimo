@@ -83,6 +83,9 @@ const icons = {
   imported: { ios: 'square.and.arrow.down', android: 'download' },
   watch: { ios: 'applewatch', android: 'watch' },
   health: { ios: 'heart.fill', android: 'favorite' },
+  // 124장 코스 타이틀: 크라운(최근 최고 기록) · 로컬 레전드(최근 최다 완주)
+  crown: { ios: 'crown.fill', android: 'crown' },
+  legend: { ios: 'flame.fill', android: 'local_fire_department' },
 } satisfies Record<string, { ios: SFSymbol; android: AndroidSymbol }>;
 
 export type IconName = keyof typeof icons;

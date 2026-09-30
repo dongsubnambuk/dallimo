@@ -141,7 +141,8 @@ public final class RunDtos {
      */
     public record VerificationResponse(String status, String failureReason, Double matchRate, Integer recordSeconds,
                                        Integer previousBestSec, Boolean personalBest, String policyVersion,
-                                       Integer weeklyRankBefore, Integer weeklyRankAfter, RankingService.FriendBest friendBest) {
+                                       Integer weeklyRankBefore, Integer weeklyRankAfter, RankingService.FriendBest friendBest,
+                                       Boolean crownTaken, Boolean legendTaken, Integer legendFinishCount) {
     }
 
     /** 상세 (GET /runs/{id}): 요약 + 스플릿 + 표시용 경로([위도, 경도]) + 검증(코스 러닝일 때) + 이 Run으로 한 도전(CHL-003) + 인터벌 결과 */
