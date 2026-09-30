@@ -10,6 +10,7 @@ import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { getUserRepository } from '@/entities/user/api';
 import { checkNicknameLocal, NICKNAME_MAX } from '@/entities/user/api/mockUserRepository';
+import { ProfilePhotoError } from '@/entities/user/api/userRepository';
 import type { MyProfile, NicknameCheck } from '@/entities/user/types';
 
 // AUTH-002 프로필 수정: 프로필 이미지 선택, 닉네임 중복 확인. 닉네임 확인 문구(nicknameStatus)는 가입 화면도 쓴다.
@@ -47,15 +48,19 @@ export function ProfileForm({
   const result: NicknameCheck | 'checking' | 'unchanged' | null = local ?? (unchanged ? 'unchanged' : check.data && debounced === trimmed ? check.data : 'checking');
 
   const save = useMutation({
-    mutationFn: () => repo.updateMe({ ...(unchanged ? {} : { nickname: trimmed }), profileImageUri: image }),
+    // 사진은 바꿨을 때만 보낸다 (새로 고른 사진이면 올리고, 뺐으면 지운다)
+    mutationFn: () => repo.updateMe({ ...(unchanged ? {} : { nickname: trimmed }), ...(image !== initial.profileImageUrl ? { profileImageUri: image } : {}) }),
     onSuccess: onDone,
   });
-  const failed = save.error instanceof Error ? (save.error.message === 'taken' ? 'taken' : 'error') : null;
+  const failed = save.error instanceof ProfilePhotoError ? 'photo' : save.error instanceof Error ? (save.error.message === 'taken' ? 'taken' : 'error') : null;
   const canSave = (result === 'ok' || (result === 'unchanged' && image !== initial.profileImageUrl)) && !save.isPending;
 
   const pick = async () => {
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-    if (!r.canceled && r.assets[0]) setImage(r.assets[0].uri);
+    if (!r.canceled && r.assets[0]) {
+      setImage(r.assets[0].uri);
+      save.reset();
+    }
   };
 
   const status = nicknameStatus(failed === 'taken' ? 'taken' : result, touched);
@@ -124,6 +129,10 @@ export function ProfileForm({
       {failed === 'error' ? (
         <AppText role="label" style={{ color: colors.status.warning }} accessibilityLiveRegion="polite">
           저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요.
+        </AppText>
+      ) : failed === 'photo' ? (
+        <AppText role="label" style={{ color: colors.status.warning }} accessibilityLiveRegion="polite">
+          {save.error?.message} 다른 사진을 골라 주세요.
         </AppText>
       ) : null}
 

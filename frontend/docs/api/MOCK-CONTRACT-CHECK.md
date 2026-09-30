@@ -51,7 +51,8 @@
 | POST /auth/logout (Bearer) → 204 | `logout()` | 구현 | 요청 본문 없이 Access Token의 세션을 끊는다 |
 | DELETE /users/me (Bearer) → 204 | `withdraw()` | 구현 | 명세 표에 없던 탈퇴 경로 |
 | GET /users/me → `userId, email, nickname, profileImageUrl, friendCode` | `UserRepository.getMe()` | 구현 | provider 대신 email. 누적 통계(MY-002)는 아직 서버 집계가 없어 앱이 기기 기록으로 더한다 |
-| PATCH /users/me `nickname` | `updateMe` | 구현(닉네임만) | 프로필 이미지 업로드는 S3 결정 뒤. 그 전까지 사진은 기기에만 |
+| PATCH /users/me `nickname` (JSON) · multipart `nickname?, profileImage?` | `updateMe` | 구현 | 새로 고른 사진이면 multipart로 닉네임과 한 번에 올린다(웹은 Blob, 앱은 `{ uri, name, type }`). 서버가 512px JPEG로 다시 만들어 `profileImageUrl`을 준다. JPG · PNG · 5MB가 아니면 400 · 413과 서버 문구를 그대로 보여준다 |
+| DELETE /users/me/profile-image | `updateMe({ profileImageUri: null })` | 명세 없음 · 서버 구현 | 사진 빼기 |
 | GET /users/nickname-availability?nickname= → `{ available }` | `checkNickname` | 구현 | 로그인 없이 부를 수 있다(가입 화면) |
 | GET /users/search `q, cursor, size` | `FriendRepository.search(query, cursor)` → `httpFriendRepository` | 서버 구현 · 필드 추가 | 닉네임 일부 또는 친구 코드. 항목에 나와의 관계(`relation`, 요청 중이면 `requestId`)를 붙였다(UserSummary 필드가 명세에 없다) |
 | GET /users/{userId} | `FriendRepository.profile(userId)` | 명세 없음 · 서버 구현 | 친구 프로필(FND-005). 코스 기록 · 마지막 러닝은 친구에게만 |
@@ -182,7 +183,7 @@
 2. ~~소셜 로그인 응답의 가입 여부~~ → 이메일 가입으로 바뀌어 필요 없음
 3. ~~누적 통계(MY-002)를 줄 곳~~ → `GET /users/me`의 `stats { runCount, totalDistanceM, totalActiveSec }`. 앱은 여기에 아직 올리지 못한 기기 기록만 더한다
 4. ~~닉네임 중복 확인 API~~ → GET /users/nickname-availability로 구현
-5. 프로필 이미지 업로드 방식
+5. ~~프로필 이미지 업로드 방식~~ → PATCH /users/me multipart(`profileImage`), 서버 디스크(`ImageStorage` 경계, S3로 바꿀 수 있게), 빼기는 DELETE /users/me/profile-image. 명세에 요청 형식 · 빼기 경로를 넣어야 한다
 6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부). 검증 결과 · PB · 주간 순위 · 친구 최고 기록은 `verification`으로 구현
 7. 코스 상세 응답 필드, 경로를 상세에 포함할지 (서버는 상세에 줄인 경로를 넣고 GET /route로 전체를 준다)
 8. ~~코스 등록 요청의 추천 시간~~ → `recommendedTime` · `region`을 받게 했다. 명세 43장 요청 필드에 넣어야 한다

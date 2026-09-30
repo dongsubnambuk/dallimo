@@ -17,6 +17,11 @@ spring:
     locations: classpath:db/migration
   jackson:
     time-zone: UTC
+  # 프로필 사진 (사진은 서버가 512px로 다시 만든다, ProfileImages)
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 server:
   shutdown: graceful
@@ -35,3 +40,7 @@ dallimo:
     access-token-ttl: 30m
     refresh-token-ttl: 30d
     refresh-reuse-grace: 60s
+  # 올린 파일(프로필 사진). 지금은 서버 디스크, 주소 앞부분이 비어 있으면 요청이 들어온 서버 주소 (ImageStorage)
+  storage:
+    local-dir: ${STORAGE_LOCAL_DIR:./data/uploads}
+    public-base-url: ${STORAGE_PUBLIC_BASE_URL:}

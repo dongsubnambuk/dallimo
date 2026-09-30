@@ -35,3 +35,6 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### 로컬 개발에서 올린 파일 (프로필 사진, dallimo.storage.local-dir) ###
+data/

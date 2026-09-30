@@ -69,6 +69,12 @@ public class User {
 
     public static final String STATUS_WITHDRAWN = "WITHDRAWN";
 
+    /** 프로필 사진 주소 (빼면 null) */
+    public void changeProfileImage(String url, Instant now) {
+        this.profileImageUrl = url;
+        this.updatedAt = now;
+    }
+
     public void changeNickname(String nickname, Instant now) {
         this.nickname = nickname;
         this.updatedAt = now;

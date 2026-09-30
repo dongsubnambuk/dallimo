@@ -10,7 +10,7 @@ import java.time.Duration;
  */
 @ConfigurationProperties("dallimo.rate-limit")
 public record RateLimitProperties(Boolean enabled, Duration window, Integer login, Integer search, Integer friendRequest, Integer shareResolve,
-                                  Integer wsConnect) {
+                                  Integer wsConnect, Integer profileUpdate) {
 
     public RateLimitProperties {
         enabled = enabled == null || enabled;
@@ -25,5 +25,7 @@ public record RateLimitProperties(Boolean enabled, Duration window, Integer logi
         shareResolve = shareResolve == null ? 60 : shareResolve;
         // 실시간 연결 (사람마다)
         wsConnect = wsConnect == null ? 20 : wsConnect;
+        // 프로필 바꾸기 · 사진 올리기 (사람마다, 사진을 다시 만드는 일이 무거워서)
+        profileUpdate = profileUpdate == null ? 10 : profileUpdate;
     }
 }

@@ -35,7 +35,7 @@ public class RateLimiter {
     }
 
     public enum Rule {
-        LOGIN, SEARCH, FRIEND_REQUEST, SHARE_RESOLVE, WS_CONNECT
+        LOGIN, SEARCH, FRIEND_REQUEST, SHARE_RESOLVE, WS_CONNECT, PROFILE_UPDATE
     }
 
     /** 허용되면 true */
@@ -61,6 +61,7 @@ public class RateLimiter {
             case FRIEND_REQUEST -> props.friendRequest();
             case SHARE_RESOLVE -> props.shareResolve();
             case WS_CONNECT -> props.wsConnect();
+            case PROFILE_UPDATE -> props.profileUpdate();
         };
     }
 }
