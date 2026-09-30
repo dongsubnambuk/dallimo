@@ -1,7 +1,7 @@
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { CursorPage } from '@/shared/api/contract';
 
-import type { CourseTitles, MyStanding, RankingEntry, RankingPeriod, RankingScope, TitleHolder } from '../types';
+import type { CourseSegments, CourseTitles, MyStanding, RankingEntry, RankingPeriod, RankingScope, TitleHolder } from '../types';
 import { RankingRepositoryError, type RankingRepository } from './rankingRepository';
 
 // 43장 GET /api/v1/courses/{id}/rankings (RNK-001~004)와 /rankings/me (RNK-005).
@@ -68,6 +68,19 @@ export function createHttpRankingRepository(): RankingRepository {
           legend: { periodDays: l.periodDays, minFinishes: l.minFinishes, holder: toHolder(l.holder), finishCount: l.finishCount, me: l.me },
         };
         return titles;
+      }),
+
+    // 124장 GET /courses/{id}/segments
+    getSegments: (courseId) =>
+      call(async () => {
+        const d = await apiRequest<{ courseLengthM: number; segments: (Omit<CourseSegments['segments'][number], 'leader'> & { leader: (Omit<HolderDto, 'profileImageUrl'> & { timeSec: number }) | null })[] }>(
+          `/api/v1/courses/${encodeURIComponent(courseId)}/segments`,
+        );
+        const out: CourseSegments = {
+          courseLengthM: d.courseLengthM,
+          segments: d.segments.map((s) => ({ ...s, leader: s.leader ? { userId: String(s.leader.userId), name: s.leader.name, relation: s.leader.relation, timeSec: s.leader.timeSec } : null })),
+        };
+        return out;
       }),
   };
 }

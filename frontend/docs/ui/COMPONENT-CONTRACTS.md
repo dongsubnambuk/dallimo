@@ -53,6 +53,7 @@ type TextTone =
 | GpsStatus | quality,copy | acquiring,good,fair,poor,unavailable | icon + text + semantic color |
 | GapIndicator | delta,direction,label | ahead,behind,tied,noData | direction + numeric gap |
 | RankingRow | rank,user,time,relation,titles | normal,self,friend,podium,nearby | self anchor over decoration |
+| SegmentAttackBanner | engine,segments | active,partial,justFinished | one line + note, glanceable (124장) |
 | CourseTitleBadge | kind | crown,legend | shape + spoken name, not color only (124장) |
 | VerificationBadge | status | pending,verified,unverified,rejected | compact factual status |
 | ParticipantChip | name,status,progress | invited,ready,running,disconnected,finished,DNF | state first |

@@ -17,7 +17,8 @@ import { elevation, fontFamily, OBLIQUE_SKEW, radius, spacing, touchTarget, typo
 import { formatCount, formatDistanceKm } from '@/shared/format';
 import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
 import { CourseTitlesCard } from '@/features/ranking/components/CourseTitlesCard';
-import { useCourseTitles } from '@/features/ranking/useCourseTitles';
+import { useCourseSegments, useCourseTitles } from '@/features/ranking/useCourseTitles';
+import { CourseSegmentsCard } from '@/features/ranking/components/CourseSegmentsCard';
 
 import { CompetitionCard } from './components/CompetitionCard';
 import { CourseRouteMap } from './components/CourseRouteMap';
@@ -162,6 +163,8 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
 
       {/* 124장 코스 크라운 · 로컬 레전드 */}
       <CourseTitlesSection courseId={course.id} />
+      {/* 124장 Segment Attack 구간 */}
+      <CourseSegmentsSection courseId={course.id} />
 
       <Section title="이번 주 랭킹" note="인증된 기록만 반영돼요">
         {comp ? (
@@ -294,6 +297,16 @@ function BigStat({ label, value, unit, plain }: { label: string; value: string; 
         {label}
       </AppText>
     </View>
+  );
+}
+
+function CourseSegmentsSection({ courseId }: { courseId: string }) {
+  const segments = useCourseSegments(courseId);
+  if (!segments.data || segments.data.segments.length === 0) return null;
+  return (
+    <Section title="코스 구간 도전" note="약 1km마다, 달리면서 비교해요">
+      <CourseSegmentsCard data={segments.data} />
+    </Section>
   );
 }
 

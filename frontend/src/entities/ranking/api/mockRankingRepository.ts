@@ -1,7 +1,7 @@
 import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
 import type { CourseDetail } from '@/entities/course/types';
 
-import type { CourseTitles, MyStanding, RankingEntry, RankingPage, RankingPeriod, RankingQuery, RankingScope } from '../types';
+import type { CourseSegments, CourseTitles, MyStanding, RankingEntry, RankingPage, RankingPeriod, RankingQuery, RankingScope } from '../types';
 import { RankingRepositoryError, type RankingRepository } from './rankingRepository';
 
 // 개발 빌드에서 랭킹 상태를 만들어 QA하기 위한 값 (SCREEN-SPECS Ranking: loading, empty, user unranked, self visible, cursor loading).
@@ -101,6 +101,35 @@ export function createMockRankingRepository(scenario: RankingScenario): RankingR
       if (!b.me) return { total: b.entries.length, entry: null, around: [] };
       const i = b.me.rank - 1;
       return { total: b.entries.length, entry: b.me, around: b.entries.slice(Math.max(0, i - 2), i + 3) };
+    },
+    // 코스를 약 1km씩 같은 길이로 (서버와 같은 규칙). 1위 · 내 최고는 코스 1위 · 내 PB를 구간 길이만큼 나눈 값에 조금씩 차이를 둔다
+    async getSegments(courseId): Promise<CourseSegments> {
+      if (scenario === 'loading') return new Promise(() => {});
+      await wait(DELAY_MS);
+      if (scenario === 'error') throw new RankingRepositoryError('랭킹 서버에 연결하지 못했어요');
+      const d = await courses.getDetail(courseId).catch(() => null);
+      if (!d) return { courseLengthM: 0, segments: [] };
+      const L = d.distanceM;
+      const n = Math.round(L / 1000);
+      const count = n < 2 ? 0 : Math.min(n, 20);
+      const leaderSec = d.competition?.leaderSec ?? Math.round(d.estimatedSec * 0.75);
+      const mine = scenario === 'unranked' || scenario === 'empty' ? null : (d.myRecord?.bestSec ?? null);
+      return {
+        courseLengthM: L,
+        segments: Array.from({ length: count }, (_, i) => {
+          const f = 1 / count;
+          const wobble = 1 + (i % 2 === 0 ? -0.03 : 0.03);
+          return {
+            index: i,
+            startM: Math.round((L * i) / count),
+            endM: Math.round((L * (i + 1)) / count),
+            distanceM: Math.round(L * f),
+            leader: scenario === 'empty' ? null : { userId: `u-seg-${i}`, name: nameAt(i * 5 + 3), relation: 'normal' as const, timeSec: Math.round(leaderSec * f * wobble) },
+            myBestSec: mine == null ? null : Math.round(mine * f * (2 - wobble)),
+            runnerCount: scenario === 'empty' ? 0 : 40 + i * 7,
+          };
+        }),
+      };
     },
     // 크라운: 최근 기간 순위표 1위(이번 달 순위표로 흉내). 레전드: 호수를 자주 도는 이웃 러너
     async getTitles(courseId): Promise<CourseTitles> {

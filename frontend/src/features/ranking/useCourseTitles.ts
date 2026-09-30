@@ -20,3 +20,9 @@ export function titlesOf(titles: CourseTitles | undefined, userId: string): Cour
   if (titles.legend.holder?.userId === userId) out.push('legend');
   return out;
 }
+
+// 124장 Segment Attack 구간 (코스 상세). 1.5km 미만 코스는 구간이 없다
+export function useCourseSegments(courseId: string, scenario: RankingScenario = 'normal') {
+  const repo = useMemo(() => getRankingRepository(scenario), [scenario]);
+  return useQuery({ queryKey: ['ranking', 'segments', courseId, scenario], queryFn: () => repo.getSegments(courseId), retry: false });
+}

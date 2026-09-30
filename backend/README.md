@@ -159,6 +159,19 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **새로 가졌을 때**: 코스 공식 기록이 생긴 순간(기록 시각까지 90일)으로 이 기록을 빼고 · 넣고 비교한다. 러닝 상세 `verification { crownTaken, legendTaken, legendFinishCount }`, 친구 활동 `CROWN` · `LEGEND`(value: 그때 완주 수). 이미 가진 사람이 다시 달리면 새로 가진 것이 아니다.
 - **테스트**: `CourseTitleApiContractTest`를 MySQL · MariaDB에서(90일 경계, 같은 기록 · 같은 횟수 순서, 나 · 친구 · 비회원, 레전드 최소 2번, 실제 검증으로 크라운 · 레전드를 가짐 · 이미 가진 뒤, 활동).
 
+## 코스 구간 도전 (명세 124장 Segment Attack, 126장 `GET /courses/{id}/segments`)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/courses/{id}/segments` | 로그인 없이도. `{ courseLengthM, segments[{ index, startM, endM, distanceM, leader{ userId, name, relation, timeSec }, myBestSec, runnerCount }] }`. 1.5km 미만 코스는 빈 목록 |
+
+- **구간** (사용자 결정: 서버가 자동으로 나눈다): 구간 수 = 코스 길이(km) 반올림, 같은 길이로 나눈다(20개까지). 2개보다 적으면(1.5km 미만) 코스 전체가 곧 구간이라 두지 않는다. 코스 주인이 정하는 구간은 없다.
+- **구간 기록** (`SegmentTimer`): 코스 검증이 공식 기록을 만든 뒤(같은 트랜잭션) 정상 point를 코스 경로에 붙여 "코스 위 어디까지 왔는지"를 앞으로만 늘리고(한 point 사이 최대 60m + 초당 12m, 50m 폭 안), 구간 시작 · 끝 거리를 지난 시각을 point 사이로 나눠 구한다. 공식 기록처럼 15초 넘게 빈 곳(일시정지)은 빼고, 마지막 구간은 코스 끝 50m 안까지 오면 끝낸 것으로 본다. 끝까지 가지 못한 구간은 남기지 않는다.
+- **저장**: `tbl_course_segment_record`(V14, 러닝 · 구간마다 한 줄, `segment_count`로 구간 나누는 방법이 바뀌면 섞지 않는다). 순위는 사용자별 최고 기록, 같으면 먼저 세운 기록.
+- **러닝 상세**: `verification.segments[{ index, timeSec, previousBestSec, personalBest, rank, leaderSec }]`. 구간 PB는 그 기록 전 기록과 비교(예전 결과를 다시 봐도 같다), 순위 · 1위 기록은 지금 기준.
+- **달리는 중**: 앱이 이 값(내 최고 · 1위)으로 구간에 들어서면 음성 · 배너로 비교한다. 서버는 다른 사람의 위치를 주지 않는다(129장).
+- **테스트**: `SegmentTimerTest`(구간 나누기, 직선 · 일시정지 · 중간에 멈춤 · 끝 반경 · 사각 루프 · 재현성), `SegmentApiContractTest`를 MySQL · MariaDB에서(빈 구간, 실제 검증 러닝의 구간 기록 · PB · 순위, 나 · 남 · 비회원, 짧은 코스).
+
 ## 공유 링크 · 함께 달리기 초대 (SHR-001~004, 45장 대기실)
 
 | API | 설명 |
@@ -447,3 +460,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 레전드 최소 완주 | 2번 | 한 번씩만 달린 사람끼리는 반복 참여라 할 수 없다 |
 | 같은 값 순서 | 크라운은 먼저 세운 기록, 레전드는 그 횟수를 먼저 채운 사람 | 나중에 같은 값을 낸 사람이 빼앗지 않게 |
 | 타이틀 알림 | 활동(친구 피드)만. Push는 보내지 않는다 | 사용자 결정 "Push는 꼭 필요한 것만"(알림 항목) |
+| 구간 나누기 | 코스 길이(km) 반올림 개수로 같은 길이, 1.5km 미만은 없음 | 사용자 결정(자동). 명세 124장 "코스 내 특정 구간"에 정하는 방법이 없다 |
+| 구간 기록 재는 법 | 코스 위 진행을 앞으로만 늘리는 투영 + point 사이 보간, 일시정지 제외 | 공식 기록(출발~도착, 일시정지 제외)과 같은 기준. 루프 코스에서 출발하자마자 끝으로 붙지 않게 한 point 사이 진행을 제한 |
+| 구간 기록 대상 | 인증된 코스 러닝만 | 공식 기록과 같다. 미인증 · 거부 러닝의 구간은 남기지 않는다 |
+| 지난 기록 | 이 기능 전에 인증된 러닝은 구간 기록이 없다(다시 계산하지 않음) | 필요하면 일괄 계산 작업을 따로 한다 |

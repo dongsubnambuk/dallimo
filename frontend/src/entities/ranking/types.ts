@@ -51,3 +51,22 @@ export type LocalLegend = {
 };
 
 export type CourseTitles = { crown: CourseCrown; legend: LocalLegend };
+
+// 124장 Segment Attack (126장 GET /courses/{id}/segments). 서버가 코스를 약 1km씩 나눈다 (1.5km 미만 코스는 구간 없음)
+export type CourseSegment = {
+  // 0부터
+  index: number;
+  // 코스 위 위치(m, courseLengthM 기준)
+  startM: number;
+  endM: number;
+  distanceM: number;
+  // 구간 1위 (사용자별 최고, 전체 기간)
+  leader: { userId: string; name: string; relation: 'self' | 'friend' | 'normal'; timeSec: number } | null;
+  myBestSec: number | null;
+  runnerCount: number;
+};
+
+export type CourseSegments = { courseLengthM: number; segments: CourseSegment[] };
+
+/** "구간 1" */
+export const segmentName = (index: number) => `구간 ${index + 1}`;

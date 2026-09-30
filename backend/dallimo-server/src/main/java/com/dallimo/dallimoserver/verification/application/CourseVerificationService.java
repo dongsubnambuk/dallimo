@@ -2,6 +2,7 @@ package com.dallimo.dallimoserver.verification.application;
 
 import com.dallimo.dallimoserver.activity.application.ActivityService;
 import com.dallimo.dallimoserver.gamification.application.CourseTitleService;
+import com.dallimo.dallimoserver.gamification.application.SegmentService;
 import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.ranking.application.RankingService;
 import com.dallimo.dallimoserver.course.domain.CourseRoute;
@@ -9,6 +10,7 @@ import com.dallimo.dallimoserver.course.infrastructure.CourseJdbcRepository;
 import com.dallimo.dallimoserver.running.domain.Run;
 import com.dallimo.dallimoserver.running.domain.RunSource;
 import com.dallimo.dallimoserver.running.infrastructure.RunJpaRepository;
+import com.dallimo.dallimoserver.running.domain.RunPoint;
 import com.dallimo.dallimoserver.running.infrastructure.RunPointJdbcRepository;
 import com.dallimo.dallimoserver.verification.domain.CourseVerifier;
 import com.dallimo.dallimoserver.verification.domain.VerificationOutcome;
@@ -39,11 +41,12 @@ public class CourseVerificationService {
     private final RankingService ranking;
     private final ActivityService activities;
     private final CourseTitleService titles;
+    private final SegmentService segments;
     private final Clock clock;
 
     public CourseVerificationService(RunJpaRepository runs, RunPointJdbcRepository points, CourseJdbcRepository courses,
                                      VerificationJdbcRepository store, ChallengeService challenges, RecordBeatenNotifier recordBeaten, Clock clock, RankingService ranking, ActivityService activities,
-                                     CourseTitleService titles) {
+                                     CourseTitleService titles, SegmentService segments) {
         this.runs = runs;
         this.points = points;
         this.courses = courses;
@@ -53,6 +56,7 @@ public class CourseVerificationService {
         this.ranking = ranking;
         this.activities = activities;
         this.titles = titles;
+        this.segments = segments;
         this.clock = clock;
     }
 
@@ -65,7 +69,8 @@ public class CourseVerificationService {
         VerificationPolicy policy = policyFor(run.getSource());
         run.verifiedWith(policy.version());
         List<CourseRoute.Point> route = courses.routes(List.of(courseId)).getOrDefault(courseId, List.of());
-        VerificationResult result = CourseVerifier.verify(route, points.findAll(runId), policy);
+        List<RunPoint> runPoints = points.findAll(runId);
+        VerificationResult result = CourseVerifier.verify(route, runPoints, policy);
 
         Instant now = clock.instant();
         store.insertResult(runId, result, policy.version(), now);
@@ -80,6 +85,8 @@ public class CourseVerificationService {
             activities.onRecord(courseId, recordId, run.getUserId(), result.recordSeconds(), rank.before(), rank.after(), now);
             // 124장: 이 기록으로 코스 크라운 · 로컬 레전드가 됐으면 활동으로 남긴다
             activities.onTitles(recordId, run.getUserId(), titles.change(courseId, run.getUserId(), recordId, now), now);
+            // 124장 Segment Attack: 코스를 약 1km씩 나눈 구간 기록
+            segments.record(courseId, courseDistance, runId, run.getUserId(), route, runPoints, now);
         }
         run.completeVerification(result.outcome().name(), now);
         // 이 Run으로 진행 중인 도전 판정 (CHL-003)

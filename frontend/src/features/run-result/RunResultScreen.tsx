@@ -21,6 +21,7 @@ import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } fr
 
 import { RecordState } from './components/RecordState';
 import { ResultMap } from './components/ResultMap';
+import { SegmentResultList } from './components/SegmentResultList';
 import { SplitList } from './components/SplitList';
 import { WorkoutStepList } from './components/WorkoutStepList';
 import { outcomeOf, type Outcome } from './outcome';
@@ -174,9 +175,18 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
       ) : null}
 
       {/* 7. 구간 · 고도 */}
+      {/* 124장 Segment Attack: 코스 구간(약 1km) 기록 · 구간 PB · 순위 */}
+      {r.segments && r.segments.length > 0 ? (
+        <View style={[styles.section, { borderTopColor: colors.border.subtle }]}>
+          <AppText role="sectionTitle" accessibilityRole="header">
+            코스 구간 도전
+          </AppText>
+          <SegmentResultList segments={r.segments} />
+        </View>
+      ) : null}
       <View style={[styles.section, { borderTopColor: colors.border.subtle }]}>
         <AppText role="sectionTitle" accessibilityRole="header">
-          {r.workout ? '1km 기록' : '구간 기록'}
+          1km 기록
         </AppText>
         <SplitList splits={r.splits} />
       </View>

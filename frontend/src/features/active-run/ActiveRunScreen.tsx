@@ -17,7 +17,9 @@ import { endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSes
 import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { useGapLine, useGapVoice } from '@/features/run/voice/useCompetitionVoice';
 import { useIntervalCues } from '@/features/run/voice/useIntervalCues';
-import type { RunFinishResult, RunningEngine } from '@/features/run/engine/runningEngine';
+import { segmentLine } from '@/features/run/segment/segmentLine';
+import { useSegmentAttack, type SegmentAttack } from '@/features/run/segment/useSegmentAttack';
+import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine } from '@/features/run/engine/runningEngine';
 import { sendWatchEnd, useWatchHeartRate, useWatchLink } from '@/features/watch/useWatchLink';
 import { isManualStep, soloStrip } from '@/features/watch/watchMessages';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
@@ -28,6 +30,7 @@ import { speak } from '@/shared/voice';
 import { IntervalPanel } from './components/IntervalPanel';
 import { ModeStrip, type RunTarget } from './components/ModeStrip';
 import { RunPathMap } from './components/RunPathMap';
+import { SegmentAttackBanner } from './components/SegmentAttackBanner';
 import { runNoticeOf } from './runNotice';
 import { useElapsedSec } from './useElapsedSec';
 
@@ -65,11 +68,14 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
   useSplitAnnouncer(engine, useGapLine(engine, target), flat == null);
   useIntervalCues(engine, flat);
   const saveLabel = intervalDone ? '인터벌 기록 저장' : '완주 기록 저장';
+  // 124장 Segment Attack: 코스 러닝이면 약 1km 구간마다 내 최고 · 1위와 비교 (인터벌 달리기는 구간이 따로 있다)
+  const attack = useSegmentAttack(engine, flat ? null : (course?.id ?? null));
   // WATCH-001~004: 워치에 지금 상태를 보여 주고 워치 조작을 받는다 (휴대폰 버튼과 같은 동작)
   useWatchLink(engine, {
     context: (s, now) => ({
       title: summary,
-      strip: soloStrip(s, now, { target, flat }),
+      // 그냥 코스 러닝이면 구간 도전이 워치 한 줄이 된다 (PB · 도전은 목표 차이가 먼저)
+      strip: (s.mode === 'COURSE' && attack ? watchSegmentStrip(attack, s, now) : null) ?? soloStrip(s, now, { target, flat }),
       manualStep: isManualStep(s, flat),
       completed,
       saveLabel,
@@ -152,6 +158,7 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
             <ElapsedMetric engine={engine} size="large" />
             <AvgPaceMetric engine={engine} size="large" />
           </View>
+          {attack ? <SegmentAttackBanner engine={engine} attack={attack} /> : null}
           <ModeStrip engine={engine} target={target} />
         </View>
       ) : (
@@ -187,6 +194,12 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
       {confirming ? <FinishConfirm engine={engine} summary={summary} onContinue={() => setConfirming(false)} onFinish={finish} /> : null}
     </View>
   );
+}
+
+function watchSegmentStrip(attack: SegmentAttack, s: ActiveRunSnapshot, now: number) {
+  const fraction = s.course && s.course.lengthM > 0 ? Math.min(1, s.course.progressM / s.course.lengthM) : 0;
+  const line = segmentLine(attack, fraction, Math.floor(activeMs(s, now) / 1000));
+  return line ? { label: line.label, value: line.value, tone: line.tone } : null;
 }
 
 // ---- 위: GPS · 기록 상태 · 지도 전환 ----
