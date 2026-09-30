@@ -22,6 +22,8 @@ export type RunSummary = {
   preview: GeoPoint[];
   // 인터벌 달리기면 인터벌 이름
   workoutName: string | null;
+  // 가져온 기록이면 어디서 (122.3장 Source Badge)
+  source: RunResult['source'];
 };
 
 export type RunHistoryPage = { items: RunSummary[]; nextCursor: string | null };
@@ -46,5 +48,6 @@ export function toRunSummary(r: RunResult): RunSummary {
     pb: r.verification === 'verified' && !!r.pb?.improved,
     preview,
     workoutName: r.workout?.name ?? null,
+    source: r.source ?? null,
   };
 }

@@ -76,6 +76,15 @@
 | --- | --- | --- | --- |
 | GET · POST /workouts, GET · PUT · DELETE /workouts/{id}, POST /workouts/{id}/duplicate | `WorkoutRepository.list · get · create · update · remove · duplicate` → `httpWorkoutRepository` (서버 주소가 없으면 `mockWorkoutRepository`) | 서버 구현 (DELETE는 명세 없음) | 구성은 `blocks[{ type, repeatCount, steps[] }]` 그대로 주고받는다. id는 숫자라 앱에서 문자열로. PUT은 버전을 올린다. 앱 검증(`entities/workout/validate.ts`)은 서버 범위와 같다. 추천 인터벌 3개는 앱에 둔다(`templates.ts`) |
 
+### 3.2 외부 기록 가져오기 (122장, 126장 Integration)
+
+| API | 프론트 | 상태 | 메모 |
+| --- | --- | --- | --- |
+| POST /imported-activities/check `source, externalIds[]` | `ImportRepository.check` → `httpImportRepository` (서버 주소가 없으면 `mockImportRepository`) | 명세 없음 · 서버 구현 | 앱이 건강 앱에서 최근 30일 달리기(50개)를 읽고 이미 처리한 것만 받는다. 126장의 서버 후보 목록 · `/integrations/{provider}/sync` 대신(서버가 건강 앱을 읽을 수 없다) |
+| POST /imported-activities/{externalId}/import | `ImportRepository.importRun(run, points)` | 서버 구현 (126장 경로, 요청 모양은 명세 없음) | 건강 앱 운동 하나 + 경로 point. 응답 `status`(IMPORTED · MERGE_CANDIDATE · FAILED) · `runId` · `course{ courseId, name, matchRate }` · `verificationStatus`. 앱 id는 `srv-{runId}`. 코스와 맞으면 `GET /runs/{id}`를 2초마다 읽어 검증 결과를 보여준다 |
+| GET /integrations | `ImportRepository.integrations` | 서버 구현 (126장 경로, 응답 모양은 명세 없음) | `[{ source, importedCount, lastImportedAt }]`. 연결 · 권한은 기기가 안다(설정 `healthImport`) |
+| GET /runs · GET /runs/{id} `source, sourceDeviceName, importedAt` | `RunSummary.source` · `RunResult.source` → Source Badge "Apple Watch에서 가져옴" | 서버 구현 | 122.4장 Run 필드. `DALLIMO`면 앱은 `source: null` |
+
 ## 4. 코스 · 랭킹 (43장)
 
 | API | 프론트 | 상태 | 메모 |
@@ -207,3 +216,4 @@
 26. 요청 제한 값 · App Link 확인 파일 경로 · 공유 페이지 App Link(`/s/{code}`): 명세에 값이 없다. 도메인 · 앱 id는 배포 단계에서 정한다
 28. **추가 작업 — 이미지 저장소를 Cloudflare R2로** (사용자 결정): 지금은 서버 디스크(`LocalDiskImageStorage`). 이미지 작업은 나중에 따로 한다. 할 일: `ImageStorage`의 R2 구현(S3 호환 API, 버킷 · 키는 환경변수), 공개 주소(R2 공개 버킷 또는 커스텀 도메인)를 `public-base-url`로, 서버 디스크에 있던 사진 옮기기, R2 흉내 저장소로 테스트(MinIO 컨테이너). 서버를 여러 대로 늘리기 전에 끝내야 한다
 27. 인터벌 API 모양: 126장은 경로만 있다(`GET · POST /workouts`, `GET · PUT /workouts/{id}`, `POST /workouts/{id}/duplicate`). 지우기(`DELETE /workouts/{id}`), 목록 응답의 `lastRunAt · runCount`, 추천 템플릿은 앱에 둔 것, Run의 `workout` · `workoutSteps` · 목록 `mode` 필터, 버전별 구간(`template_version`) · 구간 결과 테이블을 서버 · 앱이 정했다. 명세에 넣어야 한다
+29. 외부 기록 가져오기 API 모양: 126장은 경로만 있다. 후보 확인(`POST /imported-activities/check`), 가져오기 요청 · 응답, 연동 목록 응답, Run의 source 필드 응답, 가져오기 기록부(`tbl_activity_import`) · Run 유일 키에 user_id를 넣은 것, 가져온 기록 검증 정책(`2026-09-imp-v1`)을 서버 · 앱이 정했다. `/integrations/{provider}/sync`는 만들지 않았다. 명세에 넣어야 한다

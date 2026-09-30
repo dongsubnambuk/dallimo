@@ -79,6 +79,10 @@ const icons = {
   duplicate: { ios: 'doc.on.doc', android: 'content_copy' },
   edit: { ios: 'pencil', android: 'edit' },
   skipNext: { ios: 'forward.end.fill', android: 'skip_next' },
+  // 외부 기록 가져오기 (122장): 가져오기 · 워치 · 건강 앱
+  imported: { ios: 'square.and.arrow.down', android: 'download' },
+  watch: { ios: 'applewatch', android: 'watch' },
+  health: { ios: 'heart.fill', android: 'favorite' },
 } satisfies Record<string, { ios: SFSymbol; android: AndroidSymbol }>;
 
 export type IconName = keyof typeof icons;

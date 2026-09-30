@@ -6,6 +6,7 @@ import com.dallimo.dallimoserver.ranking.application.RankingService;
 import com.dallimo.dallimoserver.course.domain.CourseRoute;
 import com.dallimo.dallimoserver.course.infrastructure.CourseJdbcRepository;
 import com.dallimo.dallimoserver.running.domain.Run;
+import com.dallimo.dallimoserver.running.domain.RunSource;
 import com.dallimo.dallimoserver.running.infrastructure.RunJpaRepository;
 import com.dallimo.dallimoserver.running.infrastructure.RunPointJdbcRepository;
 import com.dallimo.dallimoserver.verification.domain.CourseVerifier;
@@ -57,7 +58,8 @@ public class CourseVerificationService {
         Run run = runs.findForUpdate(runId).orElse(null);
         if (run == null || !run.awaitingVerification() || run.getCourseId() == null) return Optional.empty();
         long courseId = run.getCourseId();
-        VerificationPolicy policy = VerificationPolicy.CURRENT;
+        VerificationPolicy policy = policyFor(run.getSource());
+        run.verifiedWith(policy.version());
         List<CourseRoute.Point> route = courses.routes(List.of(courseId)).getOrDefault(courseId, List.of());
         VerificationResult result = CourseVerifier.verify(route, points.findAll(runId), policy);
 
@@ -77,6 +79,11 @@ public class CourseVerificationService {
         // 이 Run으로 진행 중인 도전 판정 (CHL-003)
         challenges.judge(runId, result.outcome() == VerificationOutcome.VERIFIED ? result.recordSeconds() : null, now);
         return Optional.of(result);
+    }
+
+    /** 122.2장 source별 verification policy: 달리모 기록은 기본, 건강 앱에서 가져온 기록은 더 엄격하게 */
+    public static VerificationPolicy policyFor(RunSource source) {
+        return source == RunSource.DALLIMO ? VerificationPolicy.CURRENT : VerificationPolicy.IMPORTED;
     }
 
     @Transactional(readOnly = true)

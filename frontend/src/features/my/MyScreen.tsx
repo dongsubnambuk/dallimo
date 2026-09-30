@@ -14,6 +14,7 @@ import type { HistoryScenario } from '@/entities/run/api/mockRunResultRepository
 import type { Me } from '@/entities/user/types';
 import { DevLinks } from '@/features/dev/DevLinks';
 import { useFriendList, useFriendRequests } from '@/features/friends/useFriends';
+import { ImportBanner } from '@/features/import/components/ImportBanner';
 import { useUnreadCount } from '@/features/notifications/useNotifications';
 import { GpsPocLink } from '@/features/gps-poc/GpsPocLink';
 import { formatCount, formatDistanceKm } from '@/shared/format';
@@ -64,6 +65,7 @@ export function MyScreen({ scenario }: { scenario: HistoryScenario }) {
         <>
           <Profile me={me.data} />
           <StatsCard me={me.data} />
+          <ImportBanner />
           {/* SCR-M04 내 코스 */}
           <AppPressable
             onPress={() => router.push('/my/courses')}

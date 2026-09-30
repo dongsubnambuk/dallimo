@@ -14,7 +14,11 @@
         "tinted": "./assets/images/icon-tinted.png"
       },
       "infoPlist": {
-        "CFBundleDisplayName": "달리모"
+        "CFBundleDisplayName": "달리모",
+        "NSHealthShareUsageDescription": "Apple 건강에 저장된 달리기 기록(Apple Watch 등)을 달리모로 가져오기 위해 운동과 경로를 읽어요."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
       }
     },
     "android": {

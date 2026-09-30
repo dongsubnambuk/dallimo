@@ -71,6 +71,7 @@ public final class CourseVerifier {
         // 7. policy aggregation: 비정상 속도는 거부, 나머지 실패는 미인증
         FailureReason reason = null;
         VerificationOutcome outcome = VerificationOutcome.VERIFIED;
+        boolean sparse = medianGapSec(segment) > policy.maxMedianGapSec();
         if (speed == CheckResult.FAIL) {
             outcome = VerificationOutcome.REJECTED;
             reason = FailureReason.SPEED_ANOMALY;
@@ -82,10 +83,21 @@ public final class CourseVerifier {
             reason = FailureReason.DISTANCE_SHORT;
         } else if (route == CheckResult.FAIL) {
             reason = FailureReason.ROUTE_MISMATCH;
+        } else if (sparse) {
+            reason = FailureReason.GPS_SPARSE;
         }
         if (reason != null && outcome == VerificationOutcome.VERIFIED) outcome = VerificationOutcome.UNVERIFIED;
         return new VerificationResult(outcome, start, end, distance, route, speed, matchRate, reason,
                 outcome == VerificationOutcome.VERIFIED ? record : null, segmentDistance);
+    }
+
+    /** point 간격(초)의 가운데 값. point가 둘보다 적으면 0 */
+    static double medianGapSec(List<RunPoint> pts) {
+        if (pts.size() < 2) return 0;
+        double[] gaps = new double[pts.size() - 1];
+        for (int i = 1; i < pts.size(); i++) gaps[i - 1] = Duration.between(pts.get(i - 1).recordedAt(), pts.get(i).recordedAt()).toMillis() / 1000.0;
+        java.util.Arrays.sort(gaps);
+        return gaps[gaps.length / 2];
     }
 
     private static VerificationResult fail(VerificationOutcome outcome, FailureReason reason, CheckResult start, CheckResult end,

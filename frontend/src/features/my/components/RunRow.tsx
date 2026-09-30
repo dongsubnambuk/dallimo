@@ -5,6 +5,7 @@ import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import type { RunSummary } from '@/entities/run/history';
+import { sourceBadgeText } from '@/features/import/labels';
 import { MODE_TITLE } from '@/features/run-ready/runPlanParams';
 import { formatDistanceKm, formatDuration, formatPace } from '@/shared/format';
 
@@ -24,7 +25,7 @@ export function RunRow({ run: r, showDate = true }: { run: RunSummary; showDate?
     <AppPressable
       onPress={() => router.push({ pathname: '/my/runs/[id]', params: { id: r.id } })}
       accessibilityRole="button"
-      accessibilityLabel={[title, sub, `${formatDistanceKm(r.distanceM)}킬로미터`, formatDuration(time), ...tags.map((t) => t.label)].join(', ')}
+      accessibilityLabel={[title, sub, `${formatDistanceKm(r.distanceM)}킬로미터`, formatDuration(time), ...tags.map((t) => t.label), r.source ? sourceBadgeText(r.source) : null].filter(Boolean).join(', ')}
       style={styles.root}
     >
       <RoutePreview points={r.preview} course={r.course != null} />
@@ -42,6 +43,7 @@ export function RunRow({ run: r, showDate = true }: { run: RunSummary; showDate?
           {tags.map((t) => (
             <Tag key={t.key} tag={t} />
           ))}
+          {r.source ? <Tag tag={{ key: 'source', label: sourceBadgeText(r.source), icon: 'imported', tone: 'secondary' }} /> : null}
         </View>
       </View>
       <AppText role="sectionTitle" tabular style={styles.bold}>
