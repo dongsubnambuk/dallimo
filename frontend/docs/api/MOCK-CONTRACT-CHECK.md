@@ -205,4 +205,5 @@
 24. 코스 신고 테이블 · 사유(`DANGER · PRIVATE_PROPERTY · WRONG_INFO · OTHER`): ERD에 없다. 신고가 쌓였을 때 숨길지는 20.2장 코스 공개 정책과 함께 정한다
 25. Activity 모양: ERD activity에 `value_int`(PB 이전 기록 · 주간 순위)를 더했고, 종류는 PB · COURSE_CREATED · CHALLENGE_WON · WEEKLY_TOP(이번 주 3위 안). 공개 범위(visibility)는 FRIENDS만 쓴다. 명세에 넣어야 한다
 26. 요청 제한 값 · App Link 확인 파일 경로 · 공유 페이지 App Link(`/s/{code}`): 명세에 값이 없다. 도메인 · 앱 id는 배포 단계에서 정한다
+28. **추가 작업 — 이미지 저장소를 Cloudflare R2로** (사용자 결정): 지금은 서버 디스크(`LocalDiskImageStorage`). 이미지 작업은 나중에 따로 한다. 할 일: `ImageStorage`의 R2 구현(S3 호환 API, 버킷 · 키는 환경변수), 공개 주소(R2 공개 버킷 또는 커스텀 도메인)를 `public-base-url`로, 서버 디스크에 있던 사진 옮기기, R2 흉내 저장소로 테스트(MinIO 컨테이너). 서버를 여러 대로 늘리기 전에 끝내야 한다
 27. 인터벌 API 모양: 126장은 경로만 있다(`GET · POST /workouts`, `GET · PUT /workouts/{id}`, `POST /workouts/{id}/duplicate`). 지우기(`DELETE /workouts/{id}`), 목록 응답의 `lastRunAt · runCount`, 추천 템플릿은 앱에 둔 것, Run의 `workout` · `workoutSteps` · 목록 `mode` 필터, 버전별 구간(`template_version`) · 구간 결과 테이블을 서버 · 앱이 정했다. 명세에 넣어야 한다
