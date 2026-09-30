@@ -18,8 +18,8 @@
 개발 서버는 내 컴퓨터에서 띄운다(기본 프로필 `dev`). 개발용 MySQL · Redis는 각자 준비하고 계정도 직접 만든다. 로컬에서는 Docker를 쓰지 않는다(사용자 결정).
 
 - 서버가 기대하는 것: 빈 `dallimo` 데이터베이스(utf8mb4), 그 DB에 테이블을 만들 수 있는 계정. 테이블 · 개발용 코스 3개는 서버가 시작할 때 Flyway가 만든다.
-- 접속 기본값(`application-dev.yaml`): MySQL `localhost:3306/dallimo`, 계정 `dallimo` / `dallimo`, Redis `localhost:6379`.
-- 다르면 IntelliJ 실행 설정의 환경변수로 바꾼다: `DB_HOST` · `DB_PORT` · `DB_NAME` · `DB_USERNAME` · `DB_PASSWORD` · `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD`. MariaDB면 `DB_DRIVER=mariadb`.
+- DB 계정은 기본값이 없다. IntelliJ 실행 설정의 환경변수로 `DB_USERNAME` · `DB_PASSWORD`를 넣는다.
+- 접속 기본값(`application-dev.yaml`): MySQL `localhost:3306/dallimo`, Redis `localhost:6379`. 다르면 환경변수로 바꾼다: `DB_HOST` · `DB_PORT` · `DB_NAME` · `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD`. MariaDB면 `DB_DRIVER=mariadb`.
 - 실행: IntelliJ에서 `DallimoServerApplication` 또는 `./gradlew bootRun`. 확인: `curl localhost:8080/actuator/health`.
 
 ## 테스트
