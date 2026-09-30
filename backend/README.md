@@ -9,7 +9,7 @@
 | 언어 · 빌드 | Java 21, Gradle(Groovy) wrapper 9.7.1 | 사용자 결정 |
 | 프레임워크 | Spring Boot 4.1.1 (Web MVC, Validation, Data JPA, JDBC, Flyway, Actuator, WebSocket, Data Redis) | 명세 40.3장 |
 | 실시간 상태 | Redis 7.4 | 명세 8장, ADR-005 |
-| DB | MySQL 8.4(로컬 · 개발) / MariaDB(운영) | 명세 15.2장, ADR-004 |
+| DB | MySQL 8.4(개발 · 운영). MariaDB 11.4와 호환은 테스트로 계속 확인 | 명세 15.2장 · ADR-004는 운영 MariaDB였으나 사용자 결정으로 운영도 MySQL(결정 로그 61항) |
 | 마이그레이션 | Flyway `src/main/resources/db/migration` (V1~V3 = 명세 22.4장 DDL 그대로, V4부터 추가분) | 명세 22.4장 |
 | 테스트 | JUnit 5 + Testcontainers (MySQL 8.4 · MariaDB 11.4 · Redis 7.4) | 명세 13.1장, 40.3장 |
 
@@ -44,7 +44,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | --- | --- | --- |
 | dev (기본) | 각자 준비한 MySQL · Redis (위 "로컬 실행") | `application-dev.yaml`. 기본값이 들어 있고 환경변수로 바꿀 수 있다. Push · 메일은 기본으로 로그만 |
 | test | Testcontainers | 테스트가 넣는다 |
-| prod | MariaDB (`DB_DRIVER=mariadb` 기본) | 아래 환경변수. `/v3/api-docs`는 끈다 |
+| prod | MySQL (`DB_DRIVER=mysql` 기본) | 아래 환경변수. `/v3/api-docs`는 끈다 |
 
 비밀 값(DB · JWT · Push · 인증키)은 저장소에 넣지 않습니다.
 
@@ -59,7 +59,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `SPRING_PROFILES_ACTIVE` | 예 | `prod`(운영) · `dev`(개발 서버) |
 | `DB_HOST` · `DB_PORT` · `DB_NAME` | 예(기본 localhost · 3306 · dallimo) | 서버가 `jdbc:{DB_DRIVER}://{DB_HOST}:{DB_PORT}/{DB_NAME}?createDatabaseIfNotExist=true`를 만든다. 주소를 통째로 주려면 `DB_URL` |
 | `DB_USERNAME` · `DB_PASSWORD` | 예 | DB 계정. DB가 없으면 만들 권한(CREATE)이 있어야 한다. 이미 있으면 그 DB의 테이블을 만들 권한 |
-| `DB_DRIVER` | 아니오 | `mariadb`(prod 기본) · `mysql`(dev 기본) |
+| `DB_DRIVER` | 아니오 | `mysql`(기본) · `mariadb` |
 | `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD` | 예 · 아니오 · 아니오 | 실시간 상태 (ADR-005) |
 | `JWT_SECRET` | 예 | Base64 32바이트 이상 (`openssl rand -base64 32`) |
 | `EXPO_ACCESS_TOKEN` | 아니오 | Expo Push "Enhanced push security"를 켰을 때 |
@@ -500,6 +500,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 비동기 실행기 | `taskExecutor` 코어 2 · 최대 8 · 대기 500, 끌 때 20초까지 하던 일을 마친다 | 명세에 값 없음. 검증 · Push 보내기용 |
 | 요청 id | `X-Request-Id` 8~64자 `[A-Za-z0-9._-]`, 아니면 서버가 UUID | 로그를 어지럽히지 않게 |
 | 프로필 | dev(기본, 내 컴퓨터) · test · prod. local은 dev에 합쳤다. 개발 MySQL · Redis는 각자 준비, 로컬에서 Docker를 쓰지 않는다 | 사용자 결정(명세 15.3장은 local/dev/test/prod) |
+| 운영 DB | MySQL 8.4 (prod 기본 드라이버 `mysql`). MariaDB 테스트(ADR-004 이중 테스트)는 그대로 둬서 바꿀 수 있게 한다 | 사용자 결정(명세 15.2장 · ADR-004는 운영 MariaDB) |
 | 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
 | 외부 추천 코스 | V15 `tbl_course.source · source_ref · attribution · license · source_url`, 관리 API `X-Admin-Key`, 1~21.1km, 같은 자리 100m · 길이 10% 안이면 중복 | 사용자 결정(명세 2.1장 MVP 제외 항목을 넣음). 값은 명세에 없어 정한 시작값 |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |

@@ -1263,3 +1263,13 @@ SCR-E02 지역 검색의 주요 요소 "최근 검색"을 넣는다. 탐색 화�
 | 설정 | `dallimo.mail.*` · `dallimo.storage.*`, 환경변수 `RESEND_API_KEY` · `MAIL_FROM` · `MAIL_PROVIDER` · `STORAGE_LOCAL_DIR` · `STORAGE_PUBLIC_BASE_URL`을 뺐다. 배포 설정 점검(`DeployConfigCheck`)에서도 뺐다. 관리자 GPX 올리기 때문에 multipart 5MB 제한은 남긴다 | |
 | R2 | 이미지 저장소를 R2로 옮기는 추가 작업은 필요 없어졌다(MOCK-CONTRACT-CHECK 12항 28번) | |
 
+## 61. 운영 DB도 MySQL
+
+사용자 결정: 배포 DB를 MySQL로 한다. 명세 15.2장 · ADR-004는 "MySQL 개발 / MariaDB 운영"이다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| prod 드라이버 | `application-prod.yaml` 기본 `DB_DRIVER`를 `mysql`로. MariaDB로 띄우려면 `DB_DRIVER=mariadb` | 사용자 결정 |
+| 버전 | MySQL 8.4 (개발 · 테스트와 같다) | 버전을 고정해 개발과 운영이 같게 |
+| 테스트 | MySQL 8.4 · MariaDB 11.4 이중 테스트는 그대로 둔다. MariaDB 드라이버도 남긴다 | ADR-004 호환성 확인은 계속, 다시 MariaDB로 바꿀 수 있게 |
+

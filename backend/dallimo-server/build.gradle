@@ -37,7 +37,7 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.mysql:mysql-connector-j'
-    // 15.2장 운영 DB MariaDB (DB_DRIVER=mariadb). 개발 MySQL은 위 드라이버
+    // MariaDB로 띄울 때 (DB_DRIVER=mariadb). 명세 15.2장은 운영 MariaDB였으나 사용자 결정으로 운영도 MySQL(결정 로그 61항)
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
