@@ -1,15 +1,17 @@
-# 명세 15.4장 CI: 백엔드 PR → 테스트(MySQL 통합 · MariaDB 호환, Testcontainers) → 빌드
+# 명세 15.4장 CI: 백엔드 PR → 테스트(MySQL 통합 · MariaDB 호환, Testcontainers, API 계약 문서 확인) → 빌드
 name: backend
 
 on:
   pull_request:
     paths:
       - 'backend/**'
+      - 'docs/api/openapi.yaml'
       - '.github/workflows/backend.yml'
   push:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'docs/api/openapi.yaml'
       - '.github/workflows/backend.yml'
 
 jobs:
