@@ -66,6 +66,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
                         // SHR-004 공유 링크 해석 · 공유 페이지는 로그인 없이
                         .requestMatchers(HttpMethod.GET, "/api/v1/shares/*", "/s/*").permitAll()
+                        // 올린 프로필 사진 (친구 · 랭킹에서 보인다, 주소는 추측할 수 없는 uuid)
+                        .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
                         // App Link · Universal Link 확인 파일
                         .requestMatchers(HttpMethod.GET, "/.well-known/apple-app-site-association", "/.well-known/assetlinks.json").permitAll()
                         // 8장 WebSocket 연결. 인증은 STOMP CONNECT의 Access Token으로 한다 (StompAuthInterceptor)

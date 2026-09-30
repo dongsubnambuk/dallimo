@@ -56,6 +56,12 @@ public class GlobalExceptionHandler {
         return respond(ErrorCode.VALIDATION_ERROR.status(), ErrorCode.VALIDATION_ERROR, "요청 본문을 읽을 수 없어요.", null);
     }
 
+    /** 올린 파일이 너무 큼 (spring.servlet.multipart.max-file-size). 413 그대로 */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiResponse<Void>> handleTooLarge(org.springframework.web.multipart.MaxUploadSizeExceededException e) {
+        return respond(org.springframework.http.HttpStatus.CONTENT_TOO_LARGE, ErrorCode.VALIDATION_ERROR, "사진은 5MB까지 올릴 수 있어요.", null);
+    }
+
     /** 경로 · 쿼리 값 형식이 틀림 (예: 숫자 id 자리에 문자) */
     @ExceptionHandler(TypeMismatchException.class)
     ResponseEntity<ApiResponse<Void>> handleTypeMismatch(TypeMismatchException e) {

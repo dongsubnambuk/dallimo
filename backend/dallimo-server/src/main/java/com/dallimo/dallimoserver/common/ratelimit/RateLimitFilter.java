@@ -51,6 +51,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if ("GET".equals(method) && (path.equals("/api/v1/users/search") || path.equals("/api/v1/courses/search"))) return Rule.SEARCH;
         if ("POST".equals(method) && path.equals("/api/v1/friends/requests")) return Rule.FRIEND_REQUEST;
         if ("GET".equals(method) && (path.startsWith("/api/v1/shares/") || path.startsWith("/s/"))) return Rule.SHARE_RESOLVE;
+        if ("PATCH".equals(method) && path.equals("/api/v1/users/me")) return Rule.PROFILE_UPDATE;
         return null;
     }
 

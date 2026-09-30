@@ -43,6 +43,7 @@ export async function currentAccessToken(): Promise<string | null> {
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  // JSON으로 보낸다. FormData면 multipart 그대로 (프로필 사진)
   body?: unknown;
   auth?: boolean;
   query?: Record<string, string>;
@@ -62,11 +63,11 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, auth =
         method,
         headers: {
           Accept: 'application/json',
-          ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...(body !== undefined && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...headers,
         },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       });
     } catch {

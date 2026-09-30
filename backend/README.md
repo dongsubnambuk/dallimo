@@ -51,13 +51,16 @@ CI: `.github/workflows/backend.yml` (backend 변경 PR · main push에서 `./gra
 | `POST /api/v1/auth/login` | `{ email, password, deviceId }` |
 | `POST /api/v1/auth/refresh` | `{ refreshToken, deviceId }` → 새 Access · Refresh Token (회전) |
 | `POST /api/v1/auth/logout` | Bearer. 이 기기 세션을 끊는다 (204) |
-| `GET · PATCH · DELETE /api/v1/users/me` | 내 정보 · 닉네임 변경 · 탈퇴(모든 기기 세션 끊음) |
+| `GET · PATCH · DELETE /api/v1/users/me` | 내 정보 · 닉네임 변경 · 탈퇴(모든 기기 세션 끊음). PATCH는 JSON `{ nickname }` 또는 multipart `nickname?, profileImage?`(41장) |
+| `DELETE /api/v1/users/me/profile-image` | 프로필 사진 빼기 (명세 없음) |
+| `GET /files/{key}` | 올린 프로필 사진 (로그인 없이, 1년 캐시) |
 | `GET /api/v1/users/nickname-availability?nickname=` | 로그인 없이. `{ available }` |
 
 - **Access Token**: JWT(HS256) 30분. `sub` = 사용자 id, `sid` = 세션 id. 요청마다 세션이 살아 있는지 확인해서 로그아웃 · 같은 기기 재로그인 · 탈퇴하면 남은 Access Token도 바로 막힌다.
 - **Refresh Token**: `{세션 id}.{256비트 무작위}` 30일. 서버에는 SHA-256 해시만(`tbl_refresh_token`, 기기마다 한 줄). refresh할 때마다 새 토큰으로 바뀌고, 바로 전 토큰은 60초 동안만 다시 받아 준다(응답 유실 재시도). 그 뒤 옛 토큰이나 다른 기기에서 온 토큰은 탈취로 보고 세션을 끊는다.
 - **오류**: 만료 `401 TOKEN_EXPIRED`(앱이 refresh 후 재시도), 그 밖 `401 AUTH_REQUIRED`(다시 로그인), 로그인 실패 `401 INVALID_CREDENTIALS`, 중복 `409 EMAIL_ALREADY_EXISTS` · `NICKNAME_ALREADY_EXISTS`.
 - **비밀번호**: 8~64자, 영문과 숫자 함께, 공백 없음. BCrypt(`{bcrypt}` 접두어)로 저장.
+- **프로필 사진**: JPG · PNG 5MB까지(넘으면 413). 서버가 가운데를 정사각형으로 잘라 512px JPEG로 다시 만든다(`ProfileImages`). EXIF(촬영 위치 등)는 남지 않고 휴대폰 사진 회전 정보는 반영한다. 사진이 틀리면 닉네임도 바꾸지 않는다. 파일은 DB 커밋 뒤 정리(바꾸면 옛 사진, 실패하면 새 사진, 빼기 · 탈퇴면 그 사진을 지운다). 저장은 `ImageStorage` 경계 뒤 서버 디스크(`LocalDiskImageStorage`, `dallimo.storage.local-dir` · `public-base-url`, 운영은 `STORAGE_LOCAL_DIR` · `STORAGE_PUBLIC_BASE_URL`). 사진을 바꾸거나 닉네임을 바꾸는 PATCH는 사람마다 분당 10번.
 - **설정**: `dallimo.auth.*` (application.yaml). 키는 환경변수 `JWT_SECRET`(Base64 32바이트 이상). local 프로필은 개발 전용 키가 들어 있다.
 - **스키마**: `V4__email_auth.sql` — 이메일 가입자는 `provider = 'EMAIL'`, `provider_user_id = 소문자 이메일`, `password_hash` 추가, Refresh Token 회전용 `previous_token_hash` · `rotated_at`.
 
@@ -285,11 +288,11 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 
 | 항목 | 내용 |
 | --- | --- |
-| 요청 제한 (27장 `RATE_LIMITED` 429) | 로그인 · 가입 IP마다 분당 10번, 사용자 · 코스 검색 사람마다 60번, 친구 요청 사람마다 20번, 공유 링크 해석 · 공유 페이지 IP마다 60번, 실시간 연결(STOMP CONNECT) 사람마다 20번. 넘으면 `Retry-After`와 함께 429 |
+| 요청 제한 (27장 `RATE_LIMITED` 429) | 로그인 · 가입 IP마다 분당 10번, 사용자 · 코스 검색 사람마다 60번, 친구 요청 사람마다 20번, 공유 링크 해석 · 공유 페이지 IP마다 60번, 실시간 연결(STOMP CONNECT) 사람마다 20번, 프로필 바꾸기(PATCH /users/me, 사진 포함) 사람마다 10번. 넘으면 `Retry-After`와 함께 429 |
 | `GET /.well-known/apple-app-site-association` · `/.well-known/assetlinks.json` | App Link · Universal Link 확인 파일(로그인 없이). 공유 페이지 `/s/*`만 앱으로. 값이 없으면 404 |
 | `GET /api/v1/users/me` | `stats { runCount, totalDistanceM, totalActiveSec }` (MY-002, 끝난 러닝만) |
 
-- **요청 제한 구현**: Redis 고정 창(INCR + 첫 번째에만 만료, Lua 하나)이라 서버가 여러 대여도 같은 값. 인증 필터 뒤에서 돌아 로그인한 사람은 사람마다 센다. Redis에 닿지 못하면 막지 않는다. 값은 `dallimo.rate-limit.*`(`enabled`, `window`, `login`, `search`, `friend-request`, `share-resolve`, `ws-connect`), 테스트 프로필은 끈다.
+- **요청 제한 구현**: Redis 고정 창(INCR + 첫 번째에만 만료, Lua 하나)이라 서버가 여러 대여도 같은 값. 인증 필터 뒤에서 돌아 로그인한 사람은 사람마다 센다. Redis에 닿지 못하면 막지 않는다. 값은 `dallimo.rate-limit.*`(`enabled`, `window`, `login`, `search`, `friend-request`, `share-resolve`, `ws-connect`, `profile-update`), 테스트 프로필은 끈다.
 - **App Link 설정**: `dallimo.share.app-links.ios-app-ids`(팀ID.번들ID), `android-package`, `android-sha256`. 운영은 `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` · `SHARE_PUBLIC_BASE_URL`. 앱은 `APP_LINK_DOMAIN` · `IOS_BUNDLE_ID` · `ANDROID_PACKAGE`로 빌드한다(frontend `app.config.ts`).
 - **테스트**: `RateLimitApiTest`(로그인 · 검색 사람마다 · 공유 해석), `AppLinksTest`, 확인 파일 없음은 `ShareAndRoomApiContractTest`, 누적 통계는 `CourseApiContractTest`.
 
@@ -355,6 +358,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 인터벌 범위 | 이름 40자 · 설명 200자, 묶음 20개, 반복 묶음 안 구간 10개, 반복 2~30회, 반복을 풀어 200구간까지. 거리 50m~50km, 시간 10초~3시간, 목표 시간 10초~10시간, 목표 페이스 2'00"~20'00"/km. 한 사람 50개까지 | 명세에 값 없음 (123.2장 "2~N회") |
 | 인터벌 버전 | `tbl_workout_block.template_version`을 더해 버전마다 구간을 따로 남긴다 | 123.3장 "템플릿 수정 이후에도 과거 러닝 결과를 재현". 초안 모델에는 버전별 구간을 둘 곳이 없다 |
 | 인터벌 구간 결과 | 앱이 달리며 잰 구간별 거리 · 시간을 finish에 받는다. 서버는 범위만 본다 | 공식 기록이 아닌 개인 훈련 기록. 직접 넘긴 구간 시점은 앱만 안다 |
+| 프로필 사진 저장 | 저장 방식을 `ImageStorage`로 나누고 지금은 서버 디스크. 주소는 `{public-base-url 또는 요청 서버 주소}/files/profile/{userId}/{uuid}.jpg` | 사용자 결정. **운영 저장소는 Cloudflare R2로 정했다(추가 작업, MOCK-CONTRACT-CHECK 12항 28번).** R2 구현 하나만 더하면 된다. 서버를 여러 대로 늘리기 전에 바꿔야 한다(디스크는 서버마다 따로) |
+| 프로필 사진 범위 | JPG · PNG, 5MB, 가로 · 세로 8000px까지, 512px 정사각형 JPEG(품질 0.85)로 다시 만든다 | 명세에 값 없음. 다시 만들어 위치 정보(EXIF GPS)가 퍼지지 않게 |
 | 인터벌 지우기 | 지운 표시(`deleted_at`)만. 달린 기록의 연결은 남긴다 | 지난 기록을 다시 볼 수 있게 |
 | 친구 프로필 API | `GET /users/{userId}` | FND-005 프로필인데 41 · 44장 표에 경로가 없다 |
 | 친구 요청 응답 | 200 + 요청 뒤 관계, 상대가 먼저 요청했으면 바로 친구 | 44장에 응답이 없다. 다시 보내도 결과가 같게 |
