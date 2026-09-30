@@ -1,7 +1,7 @@
 import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
 import type { CourseDetail } from '@/entities/course/types';
 
-import type { CourseSegments, CourseTitles, MyStanding, RankingEntry, RankingPage, RankingPeriod, RankingQuery, RankingScope } from '../types';
+import type { CourseSegments, CourseTitles, GhostRun, MyStanding, RankingEntry, RankingPage, RankingPeriod, RankingQuery, RankingScope } from '../types';
 import { RankingRepositoryError, type RankingRepository } from './rankingRepository';
 
 // 개발 빌드에서 랭킹 상태를 만들어 QA하기 위한 값 (SCREEN-SPECS Ranking: loading, empty, user unranked, self visible, cursor loading).
@@ -101,6 +101,25 @@ export function createMockRankingRepository(scenario: RankingScenario): RankingR
       if (!b.me) return { total: b.entries.length, entry: null, around: [] };
       const i = b.me.rank - 1;
       return { total: b.entries.length, entry: b.me, around: b.entries.slice(Math.max(0, i - 2), i + 3) };
+    },
+    // 고스트: 내 PB(도전이면 1위 기록)를 앞은 조금 빠르고 뒤는 조금 느린 흐름으로 (공식 기록과 끝 시간은 같다)
+    async getGhost(courseId, recordId): Promise<GhostRun | null> {
+      await wait(DELAY_MS);
+      const d = await courses.getDetail(courseId).catch(() => null);
+      if (!d || scenario === 'empty') return null;
+      const mine = recordId == null;
+      const timeSec = mine ? d.myRecord?.bestSec : (d.competition?.friendBest?.timeSec ?? d.competition?.leaderSec);
+      if (timeSec == null) return null;
+      const L = d.distanceM;
+      const samples: [number, number][] = [];
+      for (let m = 0; m < L; m += 50) {
+        const f = m / L;
+        // 처음 40%는 평균보다 4% 빠르게, 나머지는 느리게 (끝에서 맞춘다)
+        const shape = f <= 0.4 ? f * 0.96 : 0.384 + (f - 0.4) * (0.616 / 0.6);
+        samples.push([m, Math.round(timeSec * shape * 10) / 10]);
+      }
+      samples.push([L, timeSec]);
+      return { recordId: recordId ?? 'mock-pb', userId: mine ? 'me' : 'u-ghost', name: mine ? '수성러너' : (d.competition?.friendBest?.name ?? '코스 1위'), relation: mine ? 'self' : 'friend', timeSec, courseLengthM: L, samples };
     },
     // 코스를 약 1km씩 같은 길이로 (서버와 같은 규칙). 1위 · 내 최고는 코스 1위 · 내 PB를 구간 길이만큼 나눈 값에 조금씩 차이를 둔다
     async getSegments(courseId): Promise<CourseSegments> {

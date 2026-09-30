@@ -70,3 +70,15 @@ export type CourseSegments = { courseLengthM: number; segments: CourseSegment[] 
 
 /** "구간 1" */
 export const segmentName = (index: number) => `구간 ${index + 1}`;
+
+// 124장 Ghost / Pace Chase (GET /courses/{id}/ghost?recordId=). 공식 기록을 "코스 위 거리(m) → 걸린 초"로 줄인 것. 좌표는 없다
+export type GhostRun = {
+  recordId: string;
+  userId: string;
+  name: string;
+  relation: 'self' | 'friend' | 'normal';
+  timeSec: number;
+  courseLengthM: number;
+  // [코스 위 거리(m), 걸린 초], 거리 순. 첫 점 [0, 0], 끝 점 [courseLengthM, timeSec]
+  samples: [number, number][];
+};

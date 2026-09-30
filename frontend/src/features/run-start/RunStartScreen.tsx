@@ -134,7 +134,11 @@ function RunStart({ params, options, recovering }: Props) {
           engine={engine}
           summary={summary}
           course={courseQuery.data ? { id: courseQuery.data.id, name: courseQuery.data.name, route: courseQuery.data.route } : null}
-          target={plan.kind === 'course' && plan.plan.targetSec != null ? { sec: plan.plan.targetSec, label: plan.plan.targetLabel ?? '목표' } : null}
+          target={
+            plan.kind === 'course' && plan.plan.targetSec != null
+              ? { sec: plan.plan.targetSec, label: plan.plan.targetLabel ?? '목표', recordId: plan.plan.targetRecordId ?? null }
+              : null
+          }
           workout={plan.kind === 'interval' ? plan.workout : null}
         />
       </>
