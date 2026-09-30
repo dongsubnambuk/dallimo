@@ -88,6 +88,27 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.dallimo.dev.watchkitapp",
+                  "targetName": "DallimoWatch",
+                  "entitlements": {
+                    "com.apple.developer.healthkit": true
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "283cb7b2-62b8-4220-a4dc-5773de7c3efb"
+      }
     }
   }
 }
