@@ -41,7 +41,9 @@ CI: `.github/workflows/backend.yml` (backend 변경 PR · main push에서 `./gra
 | test | Testcontainers | 테스트가 넣는다 |
 | prod | MariaDB | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD`, Push `EXPO_ACCESS_TOKEN`(선택) |
 
-외부 추천 코스(모든 프로필, 선택): `EXTERNAL_COURSE_ADMIN_KEY` · `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` (아래 "외부 추천 코스")
+관리 API(모든 프로필, 선택): `ADMIN_API_KEY`(예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) · 신고 자동 숨김 기준 `COURSE_AUTO_HIDE_REPORTS`(기본 3)
+
+외부 추천 코스(모든 프로필, 선택): `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` (아래 "외부 추천 코스")
 
 비밀 값(DB · OAuth · Push · S3)은 저장소에 넣지 않습니다.
 
@@ -113,7 +115,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **주변 조회** (23.2장): 위 · 경도 bounding box로 후보를 줄인 뒤 애플리케이션에서 출발점까지 실제 거리를 계산한다. 공간 인덱스는 쓰지 않는다.
 - **숫자**: 코스 1위 · 완주자 수 · 내 기록은 공식 기록(`tbl_course_record`)만 센다. 검증(WBS 5) 전이라 지금은 비어 있다. 주간 러너 수는 최근 7일 이 코스를 끝까지 달린(FINISHED) 사람 수. 예상 시간은 6'00"/km.
 - **평가 · 러닝 환경** (REV-001 · CRS-102): ERD `course_review` 그대로 V10 + `has_toilet` · `has_water` · `updated_at`. 상세 `rating { avg, count, canReview, mine }`, `environment { signals · nightLight · crowd: LOW\|MEDIUM\|HIGH, surface: ROUGH\|NORMAL\|SMOOTH, toilet, water }`는 평가 평균(1~3을 1.67 · 2.34로 세 단계, 화장실 · 급수대는 "있다"가 절반 이상). 목록 한 줄에도 `ratingAvg` · `reviewCount` · `region`.
-- **신고** (CREG-005): `tbl_course_report`에 쌓기만 한다. 신고가 쌓였을 때 숨길지(자동 · 운영 검토)는 20.2장 "코스 공개 정책"과 함께 정한다.
+- **신고** (CREG-005): `tbl_course_report`에 한 사람 한 신고로 쌓는다. 신고가 쌓이면 자동으로 숨기고 관리자가 검토한다(아래 "코스 신고 처리").
 - **지역 · 추천 시간**: 앱이 출발점을 휴대폰 지오코더로 바꾼 지역 이름("대구 수성구")과 추천 시간대를 등록할 때 보낸다(V10 컬럼). 검색이 지역도 찾는다.
 - **로컬 코스 데이터**: local 프로필에서만 `db/seed/local/R__local_seed_courses.sql`(수성못 둘레길 · 신천 강변 왕복 · 들안로 왕복, 만든 사람 "달리모")을 넣는다. 앱 mock 코스와 같은 OpenStreetMap 경로를 10m 간격으로 찍었다. 다시 만들 때: `node --experimental-strip-types scripts/gen-local-seed.mts`.
 - **테스트**: `CourseApiContractTest`를 MySQL · MariaDB에서 모두 돌린다(등록 · 거부 · 주변 · 숨김 · 검색 · 지역 · 태그 검색 · 저장 · 내 코스 · 기록 숫자 · 평가 권한 · 다시 쓰기 · 환경 모으기 · 평가 목록 · 신고). `CourseRouteTest`는 경로 정규화.
@@ -372,7 +374,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `POST /api/v1/admin/external-courses/durunubi` | 두루누비 길 목록 · 코스 목록을 쪽마다 읽고(각각 최대 10쪽 × 100개), 새 코스만 GPX를 받아 코스로 |
 | `POST /api/v1/admin/external-courses/gpx` | multipart `file`(GPX 5MB까지) + `attribution`(출처, 필수) · `name?` · `description?` · `region?` · `difficulty?` · `sourceRef?` · `license?` · `sourceUrl?` |
 
-- **부르는 법**: 앱이 부르지 않는 관리 API다. 사용자 토큰 대신 `X-Admin-Key: {EXTERNAL_COURSE_ADMIN_KEY}` 헤더. 키가 없으면 404(닫힘), 틀리면 403. 응답은 `{ source, fetched, created, skippedExisting, skippedDuplicate, skippedInvalid, courseIds, errors }`.
+- **부르는 법**: 앱이 부르지 않는 관리 API다. 사용자 토큰 대신 `X-Admin-Key: {ADMIN_API_KEY}` 헤더(`AdminKeyGuard`, 코스 신고 검토와 같은 키). 키가 없으면 404(닫힘), 틀리면 403. 응답은 `{ source, fetched, created, skippedExisting, skippedDuplicate, skippedInvalid, courseIds, errors }`.
   ```bash
   curl -X POST https://{서버}/api/v1/admin/external-courses/osm -H "X-Admin-Key: $KEY" -H 'Content-Type: application/json' \
     -d '{"south":35.80,"west":128.55,"north":35.90,"east":128.70}'
@@ -396,6 +398,21 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
   - 운영계정: 활용신청 현황 상세보기 › 운영계정신청. 한국관광공사 담당자가 앱 URL과 개발계정 호출 이력을 확인하고 승인한다(1~3일). 활용기간은 승인일부터 24개월, 끝나기 전에 연장신청.
 - **연결하지 않은 곳**: 좌표 경로가 없는 데이터(전국길관광정보표준데이터, 서울둘레길 코스정보, 대구 산책로정보는 출발 · 도착점만)는 코스를 만들 수 없다. 행정안전부 자전거길은 자전거 도로라 달리기 코스로 쓰지 않는다(GPX로 받으면 관리자가 올릴 수는 있다). Strava API는 경쟁 앱 이용을 금지한다.
 - **테스트**: `ExternalCourseParsersTest`(Overpass 이어 붙이기 · 끊긴 relation · 막힌 길, GPX trk · rte · 떨어진 트랙 따로 · 이어진 trkseg 잇기 · XXE 거부, 두루누비 코스 · 길 목록 · 한 개 · 빈 목록 · XML 오류, HTML 설명 · 태그 정리, 다시 찍기 · 고도 보간), `DurunubiClientTest`(Encoding · Decoding 키 · 연결 오류만 다시 시도), `ExternalCourseApiContractTest`를 MySQL · MariaDB에서(가짜 Overpass · 두루누비 · 고도 서버: 관리 키 · 박스 검사 · 가져오기 · 다시 가져오기 · 상세 출처 · 두루누비 인증키 인코딩 · 필수 요청 값 · 길 이름 태그 · 순환형 · 호출 한도 XML 오류 · 자전거길 · 긴 길 제외 · GPX 중복 · 같은 파일 · 출처 필수).
+
+## 코스 신고 처리 (사용자 결정: 자동 숨김 + 관리자 검토, 명세 20.2장 "코스 공개 정책")
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/admin/courses/reported?status=&size=` | 검토할 코스. `status`가 없으면 검토 대기(열린 신고가 있거나 숨김), 있으면 그 상태 전부. `[{ id, name, status, source, creatorName, openReports, totalReports, openReasons{ DANGER: n, … }, lastReportedAt, moderatedAt }]`. 숨긴 코스 → 열린 신고 많은 순 → 최근 신고 순 |
+| `GET /api/v1/admin/courses/{id}/reports` | `{ courseId, status, moderatedAt, reports[{ id, userId, nickname, reason, content, createdAt, open }], history[{ action, fromStatus, toStatus, reportCount, note, createdAt }] }` |
+| `POST /api/v1/admin/courses/{id}/moderation` | `{ action: HIDE\|BLOCK\|RESTORE, note? }` → `{ courseId, status, moderatedAt }` |
+
+- **부르는 법**: 외부 추천 코스와 같은 관리 API(`X-Admin-Key: {ADMIN_API_KEY}`). 키가 없으면 404, 틀리면 403.
+- **열린 신고**: 관리자가 마지막으로 검토한 뒤(`tbl_course.moderated_at` 뒤) 들어온, 만든 사람이 아닌 사람의 신고. 같은 사람이 다시 신고하면 신고 시각이 바뀌어 다시 센다.
+- **자동 숨김**: 열린 신고가 `COURSE_AUTO_HIDE_REPORTS`(기본 3)건이 되면 신고를 저장한 같은 트랜잭션에서 `HIDDEN`(코스 행을 잠가 동시에 두 번 숨기지 않는다). 숨긴 코스는 목록 · 검색 · 상세(403)에서 빠지고 더 신고할 수 없다. 만든 사람의 내 코스에는 `HIDDEN`으로 남는다.
+- **관리자 검토**: `HIDE` → `HIDDEN`, `BLOCK` → `BLOCKED`, `RESTORE` → 숨기기 전 상태(기록이 없으면 `NEW`, 공개 중이면 그대로). 어느 쪽이든 검토 시각을 남겨 그때까지의 신고를 닫는다(근거 없는 신고는 `RESTORE`로 공개 유지). 모든 변경은 `tbl_course_moderation`(V16)에 남는다.
+- **알림**: 만든 사람에게 알림은 보내지 않는다(명세 NTF 종류에 없음). 앱 내 코스에 "신고로 숨김 · 검토 중" · "공개 중지"로 보인다.
+- **테스트**: `CourseModerationApiContractTest`를 MySQL · MariaDB에서(만든 사람 신고 제외 · 같은 사람 한 건 · 세 번째 신고에 숨김 · 목록 · 상세 403 · 내 코스 상태 · 관리 키 · 대기 목록 · 사유별 수 · 신고 · 처리 기록 · 다시 공개 · 검토 뒤 새 신고 · 차단 · 차단 뒤 다시 공개 · 잘못된 요청).
 
 ## 공통 규칙
 
@@ -433,6 +450,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 예상 시간 · 주간 러너 | 6'00"/km, 최근 7일 | 명세에 값 없음(앱 mock과 같은 기준) |
 | 내 코스 API | `GET /users/me/courses?kind=` | MY-005인데 41~43장 표에 경로 없음 |
 | 코스 cursor | 주변: 거리순 위치, 검색: 마지막 id (둘 다 base64url) | 27.3장 opaque cursor |
+| 코스 신고 처리 | 서로 다른 사람(만든 사람 제외)의 열린 신고 3건이면 자동 `HIDDEN`, 관리자가 `HIDE` · `BLOCK` · `RESTORE`. V16 `moderated_at` · `tbl_course_moderation` | 사용자 결정(명세 20.2장 "코스 공개 정책" 오픈 이슈). 3건은 명세에 없어 정한 시작값 |
+| 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
 | 외부 추천 코스 | V15 `tbl_course.source · source_ref · attribution · license · source_url`, 관리 API `X-Admin-Key`, 1~21.1km, 같은 자리 100m · 길이 10% 안이면 중복 | 사용자 결정(명세 2.1장 MVP 제외 항목을 넣음). 값은 명세에 없어 정한 시작값 |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |
 | 검증 기준값 (`VerificationPolicy` 2026-09-v1) | 출발 · 도착 반경 100m, 경로 허용 폭 50m, 최소 일치율 85% | 사용자 결정: 명세 10.5장 후보값. 실기기 테스트 뒤 조정하고 버전을 올린다 |

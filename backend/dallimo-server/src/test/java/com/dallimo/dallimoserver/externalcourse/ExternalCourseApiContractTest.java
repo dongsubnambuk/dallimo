@@ -52,7 +52,7 @@ abstract class ExternalCourseApiContractTest {
     @DynamicPropertySource
     static void externalApis(DynamicPropertyRegistry r) {
         String base = "http://127.0.0.1:" + STUB.getAddress().getPort();
-        r.add("dallimo.external-courses.admin-key", () -> KEY);
+        r.add("dallimo.admin.api-key", () -> KEY);
         r.add("dallimo.external-courses.osm.overpass-url", () -> base + "/overpass");
         r.add("dallimo.external-courses.durunubi.base-url", () -> base + "/durunubi");
         r.add("dallimo.external-courses.durunubi.service-key", () -> SERVICE_KEY);

@@ -13,7 +13,8 @@ type LatLng = [number, number];
 export type CourseSummaryDto = {
   id: number;
   name: string;
-  status: CourseStatus;
+  // 내 코스(만든 코스)에는 HIDDEN · BLOCKED도 온다
+  status: MyCourse['status'];
   distanceM: number;
   tags: string[];
   startDistanceM: number | null;

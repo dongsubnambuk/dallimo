@@ -173,5 +173,6 @@ export type MyCourse = CourseSummary & {
   createdAt: number | null;
   // 완주한 코스: 완주 횟수
   finishCount: number | null;
-  status: CourseStatus;
+  // 내가 만든 코스는 신고로 숨겨졌거나(HIDDEN, 검토 중) 공개가 중지된(BLOCKED) 상태도 온다 (결정 로그 53항)
+  status: CourseStatus | 'HIDDEN' | 'BLOCKED';
 };

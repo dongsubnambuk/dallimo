@@ -100,6 +100,8 @@
 | GET /courses/{id}/ghost?recordId= | `RankingRepository.getGhost(courseId, recordId)` → 달리기 `useChaseTarget` (PB 어택 · 도전) | 명세 없음 · 서버 구현 | 124장 Ghost. 404면 고스트 없이 고르게 나눈 페이스로 비교. 앱은 코스 선 위에 고스트 자리를 계산한다 |
 | 상세 `source` · 목록 `source` | `CourseDetail.source` → 코스 상세 "달리모 추천" · "출처 …" 줄(누르면 원본) | 명세 없음 · 서버 구현 | 외부 공개 데이터로 만든 추천 코스(결정 로그 52항). 상세 `source { kind: OSM · DURUNUBI · GPX, attribution, license, url }`, 사용자 코스는 null. 목록 `source`(USER · OSM · DURUNUBI · GPX)는 앱이 아직 쓰지 않는다. mock은 대구스타디움 루프를 OSM 코스로 둔다 |
 | POST /admin/external-courses/{osm · durunubi · gpx} | 없음(관리용) | 명세 없음 · 서버 구현 · 앱 미사용 | `X-Admin-Key`로 부른다. backend README "외부 추천 코스" |
+| GET /admin/courses/reported · GET /admin/courses/{id}/reports · POST /admin/courses/{id}/moderation | 없음(관리용) | 명세 없음 · 서버 구현 · 앱 미사용 | 코스 신고 검토(결정 로그 53항). backend README "코스 신고 처리" |
+| 내 코스 `status` HIDDEN · BLOCKED | `MyCourse.status` → 내 코스 "신고로 숨김 · 검토 중" · "공개 중지" | 서버 구현 | 신고 3건이면 자동 숨김. 숨긴 코스 상세는 403(앱 "볼 수 없는 코스예요") |
 | GET /courses/{id}/segments | `RankingRepository.getSegments(courseId)` → 코스 상세 `CourseSegmentsCard`, 달리기 `useSegmentAttack` · `SegmentAttackBanner` | 서버 구현 (126장 경로, 응답 모양은 명세 없음) | 124장 Segment Attack. 약 1km 자동 구간. 러닝 상세 `verification.segments` → 결과 · 기록 상세 "코스 구간 도전" |
 | GET /courses/{id}/crown · /local-legend | `RankingRepository.getTitles(courseId)` → 코스 상세 · 랭킹 `CourseTitlesCard`, 랭킹 줄 `CourseTitleBadge` | 서버 구현 (126장 경로, 응답 모양은 명세 없음) | 124장. 최근 90일, 레전드 2번 이상. 러닝 상세 `verification { crownTaken, legendTaken, legendFinishCount }` → 결과 화면, 활동 `CROWN · LEGEND`(`finishCount`) |
 | GET /users/me/courses?kind=CREATED·SAVED·FINISHED | `getMine(kind)` | 명세 없음 · 서버 구현 | MY-005. 명세 표에 경로가 없어 정했다. 완주는 공식 기록(tbl_course_record)이 있는 코스 |
@@ -228,3 +230,4 @@
 32. Segment Attack(124장): 구간을 정하는 방법이 없어 서버가 약 1km씩 자동으로 나누기로 했다(사용자 결정). 구간 기록 재는 법 · 응답 모양 · 러닝 상세 `segments`를 서버 · 앱이 정했다. 명세에 넣어야 한다
 33. Ghost(124장): 126장 표에 경로가 없다. `GET /courses/{id}/ghost?recordId=`와 응답(코스 위 거리 → 걸린 초)을 서버 · 앱이 정했다. 명세에 넣어야 한다
 34. 외부 추천 코스: 명세 2.1장은 "전국 자동 코스 생성"을 MVP에서 뺐다. 사용자 결정으로 OSM · 두루누비 · GPX에서 가져온 추천 코스를 넣었다(결정 로그 52항). 코스 출처 필드(V15), 상세 `source`, 관리 API를 서버 · 앱이 정했다. 명세 2.1장 · 43장에 넣어야 하고, 두루누비 경로를 저장해 보여 주는 것은 운영계정 승인 때 확인한다(TourAPI 활용매뉴얼)
+35. 코스 공개 정책(20.2장 오픈 이슈): 사용자 결정으로 "신고 3건이면 자동 숨김 + 관리자 검토"로 정했다(결정 로그 53항). 기준 수 · 관리 API · 처리 기록(V16)을 서버가 정했다. 등록 즉시 공개는 그대로다. 명세 20.2장에 넣어야 한다
