@@ -160,7 +160,7 @@ export function createMockRankingRepository(scenario: RankingScenario): RankingR
       const top = b.entries[0] ?? null;
       const mine = scenario === 'unranked' || scenario === 'empty' ? 0 : (d?.myRecord?.finishCount ?? 0);
       const legendCount = top ? Math.max(12, mine + 3) : null;
-      const holder = (e: RankingEntry) => ({ userId: e.userId, name: e.name, profileImageUrl: null, relation: e.relation });
+      const holder = (e: RankingEntry) => ({ userId: e.userId, name: e.name, relation: e.relation });
       return {
         crown: {
           periodDays: 90,
@@ -172,7 +172,7 @@ export function createMockRankingRepository(scenario: RankingScenario): RankingR
         legend: {
           periodDays: 90,
           minFinishes: 2,
-          holder: legendCount ? { userId: 'u-legend', name: '호수한바퀴', profileImageUrl: null, relation: 'normal' } : null,
+          holder: legendCount ? { userId: 'u-legend', name: '호수한바퀴', relation: 'normal' } : null,
           finishCount: legendCount,
           me: { finishCount: mine, needed: legendCount ? legendCount - mine + 1 : Math.max(1, 2 - mine), holder: false },
         },

@@ -21,7 +21,7 @@ spring:
       connection-init-sql: SET time_zone = '+00:00'
   jackson:
     time-zone: UTC
-  # 프로필 사진 (사진은 서버가 512px로 다시 만든다, ProfileImages)
+  # 관리자가 올리는 GPX 파일 (외부 추천 코스, 5MB까지)
   servlet:
     multipart:
       max-file-size: 5MB
@@ -65,22 +65,13 @@ dallimo:
     access-token-ttl: 30m
     refresh-token-ttl: 30d
     refresh-reuse-grace: 60s
-  # 올린 파일(프로필 사진). 지금은 서버 디스크, 주소 앞부분이 비어 있으면 요청이 들어온 서버 주소 (ImageStorage)
-  storage:
-    local-dir: ${STORAGE_LOCAL_DIR:./data/uploads}
-    public-base-url: ${STORAGE_PUBLIC_BASE_URL:}
-  # 외부 공개 데이터로 추천 코스 만들기 (ExternalCourseProperties, FOUNDATION-DECISION-LOG 52항)
-  # 메일 (MailProperties, 결정 로그 58항): 비밀번호 재설정 인증 코드 · 비밀번호 변경 알림. 보내는 주소는 Resend에서 인증한 도메인
-  mail:
-    provider: ${MAIL_PROVIDER:resend}
-    resend-api-key: ${RESEND_API_KEY:}
-    from: ${MAIL_FROM:달리모 <onboarding@resend.dev>}
   # 관리 API 키 (X-Admin-Key, AdminKeyGuard). 비어 있으면 관리 API를 모두 닫는다. EXTERNAL_COURSE_ADMIN_KEY는 예전 이름
   admin:
     api-key: ${ADMIN_API_KEY:${EXTERNAL_COURSE_ADMIN_KEY:}}
   # 코스 신고 처리 (CourseModerationProperties, FOUNDATION-DECISION-LOG 53항): 서로 다른 사람의 신고가 이만큼 쌓이면 자동으로 숨긴다
   moderation:
     auto-hide-reports: ${COURSE_AUTO_HIDE_REPORTS:3}
+  # 외부 공개 데이터로 추천 코스 만들기 (ExternalCourseProperties, FOUNDATION-DECISION-LOG 52항)
   external-courses:
     durunubi:
       # 공공데이터포털 일반 인증키(Decoding). 비어 있으면 두루누비를 부르지 않는다

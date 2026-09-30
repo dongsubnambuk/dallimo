@@ -1249,3 +1249,17 @@ SCR-E02 지역 검색의 주요 요소 "최근 검색"을 넣는다. 탐색 화�
 | 테스트 | `./gradlew test`는 그대로 Testcontainers(Docker)로 MySQL · MariaDB · Redis를 띄운다. CI도 같다 | 명세 15.4장 MySQL · MariaDB 호환 테스트. 개발 서버 실행과는 따로다 |
 | 개발용 코스 | `db/seed/dev`로 옮겼다. 파일 이름 `R__local_seed_courses.sql`은 그대로 둔다 | 이름을 바꾸면 이미 적용한 개발 DB에서 Flyway 검증이 실패한다 |
 
+## 60. 메일 발송 · 프로필 사진 뺌
+
+사용자 결정: 메일을 보내지 않고 프로필 사진도 쓰지 않는다. 기능을 통째로 뺀다. 58항의 재설정 부분과 41장의 프로필 사진(`profileImage` · `profileImageUrl`)을 바꾼다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 메일 | Resend 발송(`MailSender` · `ResendMailSender` · `LogMailSender`), 비밀번호 재설정(`/auth/password/reset-code` · `/reset`, 인증 코드), 비밀번호 변경 알림 메일, 오류 코드 `RESET_CODE_INVALID`를 뺐다. 로그인 화면의 "비밀번호를 잊었어요"와 재설정 화면도 뺐다 | 사용자 결정 |
+| 비밀번호 변경 | 그대로 둔다(설정 > 계정 > 비밀번호 바꾸기). 이 기기만 남기고 다른 기기 로그아웃. 알림 메일만 없다 | 메일이 필요 없는 기능 |
+| 비밀번호를 잊었을 때 | 앱 안에서 되찾을 방법이 없다. 필요하면 운영자가 계정을 정리한다 | 메일 없이는 본인 확인 수단이 없다 |
+| 프로필 사진 | 올리기(PATCH multipart) · 빼기(`DELETE /users/me/profile-image`) · 파일 주기(`/files/**`) · 서버 저장(`ImageStorage`)을 뺐다. 응답의 `profileImageUrl`도 뺐다(내 정보 · 친구 · 코스 크라운/레전드). 앱은 닉네임 첫 글자 동그라미만 보인다. `expo-image-picker`와 사진 보관함 권한 문구도 뺐다 | 사용자 결정 |
+| DB | V18: V17의 `tbl_password_reset`을 지우고 `tbl_user.profile_image_url` 값을 비운다. 컬럼은 명세 22.4장 DDL이라 남긴다(쓰지 않는다) | 이미 적용한 DB에서 마이그레이션을 지울 수 없다 |
+| 설정 | `dallimo.mail.*` · `dallimo.storage.*`, 환경변수 `RESEND_API_KEY` · `MAIL_FROM` · `MAIL_PROVIDER` · `STORAGE_LOCAL_DIR` · `STORAGE_PUBLIC_BASE_URL`을 뺐다. 배포 설정 점검(`DeployConfigCheck`)에서도 뺐다. 관리자 GPX 올리기 때문에 multipart 5MB 제한은 남긴다 | |
+| R2 | 이미지 저장소를 R2로 옮기는 추가 작업은 필요 없어졌다(MOCK-CONTRACT-CHECK 12항 28번) | |
+

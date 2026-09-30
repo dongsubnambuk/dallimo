@@ -13,7 +13,6 @@ function profile(): MyProfile {
     userId: a?.userId ?? 'me',
     email: a?.email ?? DEMO_EMAIL,
     nickname: a?.nickname ?? '수성러너',
-    profileImageUrl: a?.profileImageUrl ?? null,
     friendCode: a?.friendCode ?? 'RUN-7Q2KSU',
   };
 }
@@ -49,13 +48,10 @@ export function createMockUserRepository(scenario: HistoryScenario = 'normal'): 
     async updateMe(update) {
       await new Promise((r) => setTimeout(r, 500));
       const me = profile();
-      const local = update.nickname != null ? checkNicknameLocal(update.nickname) : null;
+      const local = checkNicknameLocal(update.nickname);
       if (local) throw new Error(local);
-      if (update.nickname != null && nicknameTaken(update.nickname.trim(), me.userId)) throw new Error('taken');
-      await updateMockAccount(me.userId, {
-        ...(update.nickname != null ? { nickname: update.nickname.trim() } : {}),
-        ...(update.profileImageUri !== undefined ? { profileImageUrl: update.profileImageUri } : {}),
-      });
+      if (nicknameTaken(update.nickname.trim(), me.userId)) throw new Error('taken');
+      await updateMockAccount(me.userId, { nickname: update.nickname.trim() });
       return profile();
     },
     async checkNickname(nickname) {

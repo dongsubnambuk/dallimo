@@ -7,7 +7,6 @@ import { fontFamily, spacing, touchTarget } from '@/design/tokens';
 
 type Props = {
   nickname: string;
-  imageUrl: string | null;
   caption?: string;
   // 누르면 프로필 (없으면 누를 수 없다)
   onPress?: () => void;
@@ -16,10 +15,10 @@ type Props = {
 };
 
 // 친구 · 요청 · 검색 결과 한 줄. 이름 쪽을 누르면 프로필, 오른쪽은 관계 버튼
-export function FriendRow({ nickname, imageUrl, caption, onPress, trailing }: Props) {
+export function FriendRow({ nickname, caption, onPress, trailing }: Props) {
   const body = (
     <>
-      <Avatar nickname={nickname} imageUrl={imageUrl} size={44} />
+      <Avatar nickname={nickname} size={44} />
       <View style={styles.text}>
         <AppText role="body" numberOfLines={1} style={styles.name}>
           {nickname}

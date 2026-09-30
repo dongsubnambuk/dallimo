@@ -1,32 +1,30 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
+import { Avatar } from '@/components/Avatar';
 import { SecondaryButton } from '@/components/SecondaryButton';
-import { AppIcon, AppPressable, AppText, type IconName } from '@/design/primitives';
+import { AppIcon, AppText, type IconName } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { getUserRepository } from '@/entities/user/api';
 import { checkNicknameLocal, NICKNAME_MAX } from '@/entities/user/api/mockUserRepository';
-import { ProfilePhotoError } from '@/entities/user/api/userRepository';
 import type { MyProfile, NicknameCheck } from '@/entities/user/types';
 
-// AUTH-002 프로필 수정: 프로필 이미지 선택, 닉네임 중복 확인. 닉네임 확인 문구(nicknameStatus)는 가입 화면도 쓴다.
+// AUTH-002 프로필 수정: 닉네임 중복 확인. 닉네임 확인 문구(nicknameStatus)는 가입 화면도 쓴다.
+// 프로필 사진은 뺐다 (사용자 결정, 결정 로그 60항). 동그라미에는 닉네임 첫 글자만 보인다.
 export function ProfileForm({
   initial,
   submitLabel,
   onDone,
 }: {
-  initial: Pick<MyProfile, 'nickname' | 'profileImageUrl'>;
+  initial: Pick<MyProfile, 'nickname'>;
   submitLabel: string;
   onDone: (profile: MyProfile) => void;
 }) {
   const { colors } = useTheme();
   const repo = useMemo(() => getUserRepository(), []);
   const [nickname, setNickname] = useState(initial.nickname);
-  const [image, setImage] = useState<string | null>(initial.profileImageUrl);
   const [touched, setTouched] = useState(false);
   const [debounced, setDebounced] = useState(initial.nickname.trim());
 
@@ -48,45 +46,17 @@ export function ProfileForm({
   const result: NicknameCheck | 'checking' | 'unchanged' | null = local ?? (unchanged ? 'unchanged' : check.data && debounced === trimmed ? check.data : 'checking');
 
   const save = useMutation({
-    // 사진은 바꿨을 때만 보낸다 (새로 고른 사진이면 올리고, 뺐으면 지운다)
-    mutationFn: () => repo.updateMe({ ...(unchanged ? {} : { nickname: trimmed }), ...(image !== initial.profileImageUrl ? { profileImageUri: image } : {}) }),
+    mutationFn: () => repo.updateMe({ nickname: trimmed }),
     onSuccess: onDone,
   });
-  const failed = save.error instanceof ProfilePhotoError ? 'photo' : save.error instanceof Error ? (save.error.message === 'taken' ? 'taken' : 'error') : null;
-  const canSave = (result === 'ok' || (result === 'unchanged' && image !== initial.profileImageUrl)) && !save.isPending;
-
-  const pick = async () => {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-    if (!r.canceled && r.assets[0]) {
-      setImage(r.assets[0].uri);
-      save.reset();
-    }
-  };
+  const failed = save.error instanceof Error ? (save.error.message === 'taken' ? 'taken' : 'error') : null;
+  const canSave = result === 'ok' && !save.isPending;
 
   const status = nicknameStatus(failed === 'taken' ? 'taken' : result, touched);
 
   return (
     <View style={styles.root}>
-      <View style={styles.avatarRow}>
-        <AppPressable onPress={pick} accessibilityRole="button" accessibilityLabel={image ? '프로필 사진 바꾸기' : '프로필 사진 고르기'} style={styles.avatarWrap}>
-          <View style={[styles.avatar, { backgroundColor: colors.action.secondary }]}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.avatarImage} contentFit="cover" accessibilityIgnoresInvertColors />
-            ) : (
-              <AppText role="screenTitle" style={{ color: colors.action.onSecondary }}>
-                {trimmed.slice(0, 1) || ' '}
-              </AppText>
-            )}
-          </View>
-          <View style={[styles.cameraBadge, { backgroundColor: colors.bg.elevated, borderColor: colors.bg.canvas }]}>
-            <AppIcon name="camera" size={16} color={colors.text.primary} />
-          </View>
-        </AppPressable>
-        <View style={styles.avatarActions}>
-          <SecondaryButton label={image ? '사진 바꾸기' : '사진 고르기'} size="sm" onPress={pick} />
-          {image ? <SecondaryButton label="사진 빼기" size="sm" onPress={() => setImage(null)} /> : null}
-        </View>
-      </View>
+      <Avatar nickname={trimmed} size={88} />
 
       <View style={styles.field}>
         <AppText role="label" tone="secondary" nativeID="nickname-label">
@@ -130,10 +100,6 @@ export function ProfileForm({
         <AppText role="label" style={{ color: colors.status.warning }} accessibilityLiveRegion="polite">
           저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요.
         </AppText>
-      ) : failed === 'photo' ? (
-        <AppText role="label" style={{ color: colors.status.warning }} accessibilityLiveRegion="polite">
-          {save.error?.message} 다른 사진을 골라 주세요.
-        </AppText>
       ) : null}
 
       <SecondaryButton label={save.isPending ? '저장하는 중' : submitLabel} emphasized disabled={!canSave} onPress={() => save.mutate()} style={styles.submit} />
@@ -161,42 +127,6 @@ export function nicknameStatus(result: NicknameCheck | 'checking' | 'unchanged' 
 const styles = StyleSheet.create({
   root: {
     gap: spacing.xl,
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-  },
-  avatarWrap: {
-    width: 88,
-    height: 88,
-  },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: 88,
-    height: 88,
-  },
-  cameraBadge: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarActions: {
-    gap: spacing.sm,
-    alignItems: 'flex-start',
   },
   field: {
     gap: spacing.sm,

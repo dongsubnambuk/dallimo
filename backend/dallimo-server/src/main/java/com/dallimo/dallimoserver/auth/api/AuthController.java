@@ -3,9 +3,7 @@ package com.dallimo.dallimoserver.auth.api;
 import com.dallimo.dallimoserver.auth.api.AuthDtos.AuthResponse;
 import com.dallimo.dallimoserver.auth.api.AuthDtos.LoginRequest;
 import com.dallimo.dallimoserver.auth.api.AuthDtos.PasswordChangeRequest;
-import com.dallimo.dallimoserver.auth.api.AuthDtos.PasswordResetRequest;
 import com.dallimo.dallimoserver.auth.api.AuthDtos.RefreshRequest;
-import com.dallimo.dallimoserver.auth.api.AuthDtos.ResetCodeRequest;
 import com.dallimo.dallimoserver.auth.api.AuthDtos.SignupRequest;
 import com.dallimo.dallimoserver.auth.application.AuthService;
 import com.dallimo.dallimoserver.auth.application.PasswordService;
@@ -61,20 +59,6 @@ public class AuthController {
     @PostMapping("/password/change")
     public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PasswordChangeRequest req) {
         passwords.change(Long.parseLong(jwt.getSubject()), ((Number) jwt.getClaims().get("sid")).longValue(), req.currentPassword(), req.newPassword());
-        return ResponseEntity.noContent().build();
-    }
-
-    /** 비밀번호 재설정 인증 코드를 메일로. 가입하지 않은 이메일이어도 같은 응답(202) */
-    @PostMapping("/password/reset-code")
-    public ResponseEntity<Void> resetCode(@Valid @RequestBody ResetCodeRequest req) {
-        passwords.requestReset(req.email());
-        return ResponseEntity.accepted().build();
-    }
-
-    /** 인증 코드로 비밀번호 재설정. 모든 기기가 로그아웃된다 */
-    @PostMapping("/password/reset")
-    public ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetRequest req) {
-        passwords.reset(req.email(), req.code(), req.newPassword());
         return ResponseEntity.noContent().build();
     }
 }

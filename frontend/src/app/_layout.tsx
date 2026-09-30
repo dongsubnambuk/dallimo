@@ -108,7 +108,6 @@ export default function RootLayout() {
           <Stack.Protected guard={auth === 'signedOut'}>
             <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
             <Stack.Screen name="signup" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
-            <Stack.Screen name="password-reset" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
           </Stack.Protected>
           {/* 약관 · 개인정보 처리방침은 로그인 전에도 본다 */}
           <Stack.Screen name="legal/[kind]" options={{ headerShown: false }} />

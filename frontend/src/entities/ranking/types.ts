@@ -30,7 +30,7 @@ export type MyStanding = {
 
 // 124장 코스 타이틀 (126장 GET /courses/{id}/crown · /local-legend). 최근 90일 검증 기록만 센다.
 // Crown은 기록, Local Legend는 반복 참여를 보상한다 (둘을 합치지 않는다)
-export type TitleHolder = { userId: string; name: string; profileImageUrl: string | null; relation: 'self' | 'friend' | 'normal' };
+export type TitleHolder = { userId: string; name: string; relation: 'self' | 'friend' | 'normal' };
 
 export type CourseCrown = {
   periodDays: number;

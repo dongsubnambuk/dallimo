@@ -85,7 +85,6 @@ function SearchResults({ scenario, query }: { scenario: FriendScenario; query: s
         <FriendRow
           key={u.userId}
           nickname={u.nickname}
-          imageUrl={u.profileImageUrl}
           caption={RELATION_CAPTION[u.relation]}
           onPress={() => openProfile(u.userId)}
           trailing={<RelationButtons user={u} busy={action.isPending} onAction={(a) => action.mutate(a)} />}
@@ -139,12 +138,11 @@ function Overview({ scenario }: { scenario: FriendScenario }) {
             <FriendRow
               key={r.requestId}
               nickname={r.nickname}
-              imageUrl={r.profileImageUrl}
               caption={agoLabel(r.requestedAt)}
               onPress={() => openProfile(r.userId)}
               trailing={
                 <RelationButtons
-                  user={{ userId: r.userId, nickname: r.nickname, profileImageUrl: r.profileImageUrl, relation: 'received', requestId: r.requestId }}
+                  user={{ userId: r.userId, nickname: r.nickname, relation: 'received', requestId: r.requestId }}
                   busy={busy}
                   onAction={(a) => action.mutate(a)}
                 />
@@ -160,7 +158,7 @@ function Overview({ scenario }: { scenario: FriendScenario }) {
             아직 친구가 없어요. 닉네임으로 찾거나, 아래 내 친구 코드를 보내 보세요. 친구가 되면 코스 친구 랭킹과 함께 달리기 초대에 나와요.
           </AppText>
         ) : (
-          friends.data.map((f) => <FriendRow key={f.userId} nickname={f.nickname} imageUrl={f.profileImageUrl} onPress={() => openProfile(f.userId)} />)
+          friends.data.map((f) => <FriendRow key={f.userId} nickname={f.nickname} onPress={() => openProfile(f.userId)} />)
         )}
       </Section>
 
@@ -170,7 +168,6 @@ function Overview({ scenario }: { scenario: FriendScenario }) {
             <FriendRow
               key={r.requestId}
               nickname={r.nickname}
-              imageUrl={r.profileImageUrl}
               caption={`${agoLabel(r.requestedAt)} 요청`}
               onPress={() => openProfile(r.userId)}
               trailing={<SecondaryButton label="요청 취소" size="sm" disabled={busy} onPress={() => action.mutate({ kind: 'remove', userId: r.userId })} />}

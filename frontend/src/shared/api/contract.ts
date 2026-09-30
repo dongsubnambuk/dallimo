@@ -25,9 +25,8 @@ export type ApiErrorCode =
   | 'INVALID_CREDENTIALS' // 401
   | 'EMAIL_ALREADY_EXISTS' // 409
   | 'NICKNAME_ALREADY_EXISTS' // 409
-  // 비밀번호 변경 · 재설정 (결정 로그 58항). 401이면 앱이 로그아웃하므로 400
+  // 비밀번호 변경 (결정 로그 58항). 401이면 앱이 로그아웃하므로 400
   | 'PASSWORD_MISMATCH' // 400
-  | 'RESET_CODE_INVALID' // 400
   | 'RESOURCE_NOT_FOUND' // 404 (명세 표에 없음: 도메인 코드가 없는 404. backend/README 결정 사항)
   | 'RUN_NOT_FOUND' // 404
   | 'COURSE_NOT_FOUND' // 404

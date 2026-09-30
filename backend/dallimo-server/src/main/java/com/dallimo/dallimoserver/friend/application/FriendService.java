@@ -49,13 +49,13 @@ public class FriendService {
     }
 
     /** requestId: 관계가 요청 중일 때 그 요청 id (받은 요청을 승인 · 거절할 때) */
-    public record UserSummary(long userId, String nickname, String profileImageUrl, FriendRelation relation, Long requestId) {
+    public record UserSummary(long userId, String nickname, FriendRelation relation, Long requestId) {
     }
 
-    public record Friend(long userId, String nickname, String profileImageUrl, Instant since) {
+    public record Friend(long userId, String nickname, Instant since) {
     }
 
-    public record Request(long requestId, long userId, String nickname, String profileImageUrl, Instant requestedAt) {
+    public record Request(long requestId, long userId, String nickname, Instant requestedAt) {
     }
 
     public record Requests(List<Request> received, List<Request> sent) {
@@ -170,7 +170,7 @@ public class FriendService {
 
     @Transactional(readOnly = true)
     public List<Friend> friends(long me) {
-        return store.friends(me).stream().map(l -> new Friend(l.user().userId(), l.user().nickname(), l.user().profileImageUrl(), l.at())).toList();
+        return store.friends(me).stream().map(l -> new Friend(l.user().userId(), l.user().nickname(), l.at())).toList();
     }
 
     /** 친구 랭킹 · 함께 달리기 초대에서 쓴다 */
@@ -220,11 +220,11 @@ public class FriendService {
             relation = p.requesterId() == viewerId ? FriendRelation.SENT : FriendRelation.RECEIVED;
             requestId = p.id();
         }
-        return new UserSummary(u.userId(), u.nickname(), u.profileImageUrl(), relation, requestId);
+        return new UserSummary(u.userId(), u.nickname(), relation, requestId);
     }
 
     private static Request request(Link l) {
-        return new Request(l.id(), l.user().userId(), l.user().nickname(), l.user().profileImageUrl(), l.at());
+        return new Request(l.id(), l.user().userId(), l.user().nickname(), l.at());
     }
 
     // cursor는 앱이 해석하지 않는 값 (27.3장). 검색 결과 안 위치

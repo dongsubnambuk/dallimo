@@ -77,9 +77,9 @@ export function createMockFriendRepository(scenario: FriendScenario = 'normal'):
   const summary = (p: Person): UserSummary => {
     const l = links().find((x) => x.userId === p.userId);
     const relation: FriendRelation = !l ? 'none' : l.status === 'friend' ? 'friend' : l.requester === 'me' ? 'sent' : 'received';
-    return { userId: p.userId, nickname: p.nickname, profileImageUrl: null, relation, requestId: l?.status === 'pending' ? l.id : null };
+    return { userId: p.userId, nickname: p.nickname, relation, requestId: l?.status === 'pending' ? l.id : null };
   };
-  const toRequest = (l: Link): FriendRequest => ({ requestId: l.id, userId: l.userId, nickname: person(l.userId).nickname, profileImageUrl: null, requestedAt: l.at });
+  const toRequest = (l: Link): FriendRequest => ({ requestId: l.id, userId: l.userId, nickname: person(l.userId).nickname, requestedAt: l.at });
 
   return {
     async search(query) {
@@ -127,7 +127,7 @@ export function createMockFriendRepository(scenario: FriendScenario = 'normal'):
       await guard();
       return links()
         .filter((l) => l.status === 'friend')
-        .map((l): FriendItem => ({ userId: l.userId, nickname: person(l.userId).nickname, profileImageUrl: null, since: l.at }))
+        .map((l): FriendItem => ({ userId: l.userId, nickname: person(l.userId).nickname, since: l.at }))
         .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ko'));
     },
     async profile(userId) {

@@ -314,40 +314,6 @@ paths:
       - bearerAuth: []
       tags:
       - 인증 (41장)
-  /api/v1/auth/password/reset:
-    post:
-      operationId: resetPassword
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PasswordResetRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-      security:
-      - {}
-      - bearerAuth: []
-      tags:
-      - 인증 (41장)
-  /api/v1/auth/password/reset-code:
-    post:
-      operationId: resetCode
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ResetCodeRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-      security:
-      - {}
-      - bearerAuth: []
-      tags:
-      - 인증 (41장)
   /api/v1/auth/refresh:
     post:
       operationId: refresh
@@ -1651,27 +1617,12 @@ paths:
       tags:
       - 사용자 (41장)
     patch:
-      operationId: updateMeWithImage
-      parameters:
-      - in: query
-        name: nickname
-        required: false
-        schema:
-          type: string
-          maxLength: 40
-          minLength: 0
+      operationId: updateMe
       requestBody:
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateMeRequest"
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                profileImage:
-                  type: string
-                  format: binary
         required: true
       responses:
         "200":
@@ -1741,20 +1692,6 @@ paths:
       - bearerAuth: []
       tags:
       - 알림 (14.2장)
-  /api/v1/users/me/profile-image:
-    delete:
-      operationId: removeImage
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiResponseUserResponse"
-          description: OK
-      security:
-      - bearerAuth: []
-      tags:
-      - 사용자 (41장)
   /api/v1/users/me/push-token:
     delete:
       operationId: unregisterToken
@@ -3199,8 +3136,6 @@ components:
       properties:
         nickname:
           type: string
-        profileImageUrl:
-          type: string
         since:
           type: string
           format: date-time
@@ -3260,8 +3195,6 @@ components:
       type: object
       properties:
         name:
-          type: string
-        profileImageUrl:
           type: string
         relation:
           type: string
@@ -3545,8 +3478,6 @@ components:
           type: string
         nickname:
           type: string
-        profileImageUrl:
-          type: string
         stats:
           $ref: "#/components/schemas/Totals"
         userId:
@@ -3682,26 +3613,6 @@ components:
           pattern: "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,64}$"
       required:
       - currentPassword
-      - newPassword
-    PasswordResetRequest:
-      type: object
-      properties:
-        code:
-          type: string
-          minLength: 1
-          pattern: "\\d{6}"
-        email:
-          type: string
-          format: email
-          maxLength: 191
-          minLength: 0
-        newPassword:
-          type: string
-          minLength: 1
-          pattern: "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,64}$"
-      required:
-      - code
-      - email
       - newPassword
     PointBatchRequest:
       type: object
@@ -4038,8 +3949,6 @@ components:
       properties:
         nickname:
           type: string
-        profileImageUrl:
-          type: string
         requestId:
           type: integer
           format: int64
@@ -4060,16 +3969,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Request"
-    ResetCodeRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-          maxLength: 191
-          minLength: 0
-      required:
-      - email
     Resolved:
       type: object
       properties:
@@ -4564,8 +4463,6 @@ components:
           type: string
         nickname:
           type: string
-        profileImageUrl:
-          type: string
         userId:
           type: integer
           format: int64
@@ -4573,8 +4470,6 @@ components:
       type: object
       properties:
         nickname:
-          type: string
-        profileImageUrl:
           type: string
         relation:
           type: string

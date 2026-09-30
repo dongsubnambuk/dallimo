@@ -6,15 +6,14 @@ import { FriendError, type FriendRepository } from './friendRepository';
 
 // 44장 Friend API + GET /users/search · /users/{id} (backend FriendController · UserLookupController)
 
-type SummaryDto = { userId: number; nickname: string; profileImageUrl: string | null; relation: 'NONE' | 'FRIEND' | 'SENT' | 'RECEIVED'; requestId: number | null };
-type RequestDto = { requestId: number; userId: number; nickname: string; profileImageUrl: string | null; requestedAt: string };
-type FriendDto = { userId: number; nickname: string; profileImageUrl: string | null; since: string };
+type SummaryDto = { userId: number; nickname: string; relation: 'NONE' | 'FRIEND' | 'SENT' | 'RECEIVED'; requestId: number | null };
+type RequestDto = { requestId: number; userId: number; nickname: string; requestedAt: string };
+type FriendDto = { userId: number; nickname: string; since: string };
 type ProfileDto = { user: SummaryDto; lastRunAt: string | null; records: { recordId: number; courseId: number; courseName: string; bestSec: number; recordedAt: string }[] };
 
 const toSummary = (u: SummaryDto): UserSummary => ({
   userId: String(u.userId),
   nickname: u.nickname,
-  profileImageUrl: u.profileImageUrl,
   relation: u.relation.toLowerCase() as FriendRelation,
   requestId: u.requestId != null ? String(u.requestId) : null,
 });
@@ -23,7 +22,6 @@ const toRequest = (r: RequestDto) => ({
   requestId: String(r.requestId),
   userId: String(r.userId),
   nickname: r.nickname,
-  profileImageUrl: r.profileImageUrl,
   requestedAt: Date.parse(r.requestedAt),
 });
 
@@ -61,7 +59,7 @@ export function createHttpFriendRepository(): FriendRepository {
     list: () =>
       call(async () =>
         (await apiRequest<FriendDto[]>('/api/v1/friends')).map(
-          (f): FriendItem => ({ userId: String(f.userId), nickname: f.nickname, profileImageUrl: f.profileImageUrl, since: Date.parse(f.since) }),
+          (f): FriendItem => ({ userId: String(f.userId), nickname: f.nickname, since: Date.parse(f.since) }),
         ),
       ),
     profile: (userId) =>

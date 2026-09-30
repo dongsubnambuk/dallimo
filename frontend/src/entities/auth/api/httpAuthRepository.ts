@@ -6,7 +6,7 @@ import type { AuthSession } from '../types';
 import { AuthError, type AuthRepository } from './authRepository';
 
 // 서버 응답 (backend AuthDtos.AuthResponse · UserResponse)
-export type UserDto = { userId: number; email: string | null; nickname: string; profileImageUrl: string | null; friendCode: string };
+export type UserDto = { userId: number; email: string | null; nickname: string; friendCode: string };
 type AuthResponseDto = {
   accessToken: string;
   accessTokenExpiresAt: string;
@@ -19,7 +19,6 @@ export const toProfile = (u: UserDto): MyProfile => ({
   userId: String(u.userId),
   email: u.email ?? '',
   nickname: u.nickname,
-  profileImageUrl: u.profileImageUrl,
   friendCode: u.friendCode,
 });
 
@@ -50,8 +49,6 @@ function toAuthError(e: unknown): never {
         throw new AuthError('invalid', e.message);
       case 'PASSWORD_MISMATCH':
         throw new AuthError('passwordMismatch', e.message);
-      case 'RESET_CODE_INVALID':
-        throw new AuthError('resetCodeInvalid', e.message);
       default:
         if (e.status === 401) throw new AuthError('unauthorized', e.message);
         throw new AuthError('network', e.message);
@@ -72,9 +69,5 @@ export function createHttpAuthRepository(): AuthRepository {
     withdraw: () => apiRequest<void>('/api/v1/users/me', { method: 'DELETE' }).catch(toAuthError),
     changePassword: (currentPassword, newPassword) =>
       apiRequest<void>('/api/v1/auth/password/change', { method: 'POST', body: { currentPassword, newPassword } }).catch(toAuthError),
-    requestPasswordReset: (email) =>
-      apiRequest<void>('/api/v1/auth/password/reset-code', { method: 'POST', auth: false, body: { email } }).catch(toAuthError),
-    resetPassword: (email, code, newPassword) =>
-      apiRequest<void>('/api/v1/auth/password/reset', { method: 'POST', auth: false, body: { email, code, newPassword } }).catch(toAuthError),
   };
 }
