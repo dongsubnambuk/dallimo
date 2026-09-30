@@ -1,3 +1,5 @@
+import { createUuid } from '@/shared/uuid';
+
 import { API_BASE_URL } from './config';
 import type { ApiErrorCode, ApiResponse } from './contract';
 
@@ -54,6 +56,8 @@ type RequestOptions = {
 export async function apiRequest<T>(path: string, { method = 'GET', body, auth = true, query, headers }: RequestOptions = {}): Promise<T> {
   if (!API_BASE_URL) throw new ApiRequestError(0, 'NETWORK', '서버 주소가 설정되지 않았어요');
   const url = `${API_BASE_URL}${path}${query ? `?${new URLSearchParams(query).toString()}` : ''}`;
+  // 21.1장 관측성: 요청 id. 서버 로그 줄마다 찍히고 응답 헤더로 돌아온다. 토큰을 새로 받아 다시 보내도 같은 요청이다
+  const requestId = createUuid();
 
   const send = async (token: string | null) => {
     const controller = new AbortController();
@@ -63,6 +67,7 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, auth =
         method,
         headers: {
           Accept: 'application/json',
+          'X-Request-Id': requestId,
           ...(body !== undefined && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...headers,

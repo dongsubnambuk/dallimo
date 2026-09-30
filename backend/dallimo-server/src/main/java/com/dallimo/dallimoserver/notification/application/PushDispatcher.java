@@ -60,9 +60,18 @@ public class PushDispatcher {
         data.put("notificationId", n.id());
         data.put("type", n.type().name());
         if (n.link() != null) data.put("link", n.link());
-        for (PushSender.Result r : sender.send(to.stream().map(t -> new PushSender.Message(t, n.title(), n.body(), data)).toList())) {
-            if (r.deviceGone()) tokens.deleteToken(r.to());
+        int ok = 0;
+        int gone = 0;
+        List<PushSender.Result> results = sender.send(to.stream().map(t -> new PushSender.Message(t, n.title(), n.body(), data)).toList());
+        for (PushSender.Result r : results) {
+            if (r.ok()) ok++;
+            if (r.deviceGone()) {
+                gone++;
+                tokens.deleteToken(r.to());
+            }
         }
+        // 34장 Push: 알림 종류 · provider ticket 결과 (토큰 · 내용은 남기지 않는다)
+        log.info("push.sent notificationId={} type={} tokens={} ok={} failed={} deviceGone={}", n.id(), n.type(), results.size(), ok, results.size() - ok, gone);
     }
 
     private static boolean enabled(Settings s, Category c) {

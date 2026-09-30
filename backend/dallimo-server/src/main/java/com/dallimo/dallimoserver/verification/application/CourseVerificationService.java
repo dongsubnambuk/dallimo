@@ -17,6 +17,8 @@ import com.dallimo.dallimoserver.verification.domain.VerificationOutcome;
 import com.dallimo.dallimoserver.verification.domain.VerificationPolicy;
 import com.dallimo.dallimoserver.verification.domain.VerificationResult;
 import com.dallimo.dallimoserver.verification.infrastructure.VerificationJdbcRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,8 @@ import java.util.Optional;
  */
 @Service
 public class CourseVerificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(CourseVerificationService.class);
 
     private final RunJpaRepository runs;
     private final RunPointJdbcRepository points;
@@ -89,6 +93,9 @@ public class CourseVerificationService {
             segments.record(courseId, courseDistance, runId, run.getUserId(), route, runPoints, now);
         }
         run.completeVerification(result.outcome().name(), now);
+        // 34장 Verification: runId · policyVersion · matchRate · failureReason
+        log.info("run.verification runId={} courseId={} outcome={} policyVersion={} matchRate={} failureReason={} recordSec={}", runId, courseId,
+                result.outcome(), policy.version(), result.matchRate(), result.failureReason(), result.recordSeconds());
         // 이 Run으로 진행 중인 도전 판정 (CHL-003)
         challenges.judge(runId, result.outcome() == VerificationOutcome.VERIFIED ? result.recordSeconds() : null, now);
         return Optional.of(result);

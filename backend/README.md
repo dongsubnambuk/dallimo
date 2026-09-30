@@ -421,6 +421,14 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **시간** (명세 40.4장): 서버 · JDBC · JSON 모두 UTC. 도메인은 `Instant`, 현재 시각은 `Clock` 빈으로.
 - **스키마**: Flyway만 바꿉니다(JPA `ddl-auto: validate`). 이미 적용된 migration은 고치지 않고 새 버전을 추가합니다.
 - **패키지** (명세 40.1장): `com.dallimo.dallimoserver.<도메인>/{api, application, domain, infrastructure}`, 공통은 `common/{config, error, security, time, web}`.
+- **관측성** (명세 21.1장 "Run 생성 → 업로드 → Finish → Verification 상관관계 추적", 34장 키): `common/observability`
+  - 요청 id: 앱이 보낸 `X-Request-Id`(8~64자 영문 · 숫자 · `._-`)를 쓰고, 없거나 모양이 틀리면 서버가 만든다. 응답 헤더로 돌려준다(CORS 노출). 앱은 요청마다 UUID를 보낸다(토큰을 새로 받아 다시 보내도 같은 id).
+  - 로그 줄마다 `[req=… user=… run=…]` (`logging.pattern.correlation`). user는 내부 id만, 위치 · 닉네임 · 이메일 · 토큰은 남기지 않는다.
+  - Run 흐름: `run.create`(clientRunUuid · runId · mode · courseId) → `run.batch`(batchUuid · fromSeq · toSeq · 결과 ACCEPTED · DUPLICATE(재전송) · CONFLICT · REJECTED) → `run.state`(일시정지 · 계속) → `run.finish`(FINISHING · FINISHED, 빠진 seq) → `run.verification`(outcome · policyVersion · matchRate · failureReason). 커밋 뒤 비동기 검증도 finish 요청 id를 잇는다.
+  - Push: `push.sent`(알림 id · 종류 · 보낸 수 · 성공 · 실패 · 지운 토큰). Live: `live.connect` · `live.subscribe`(roomId) · `live.disconnect`(세션 id · 종료 코드).
+  - 비동기 실행기: WebSocket 실행기가 있으면 Spring Boot 기본 실행기가 만들어지지 않아 `@Async`가 작업마다 새 스레드를 만들고 있었다. `taskExecutor`(2~8개, 대기 500)를 직접 두고 MDC를 넘긴다(`AsyncConfig`, `ObservabilityConfig`).
+  - 테스트: `CorrelationLogTest`(요청 id 돌려주기 · 새로 만들기, 생성 → Batch → 재전송 → Finish → 비동기 검증이 같은 요청 id · 사용자 · Run으로 이어짐, 좌표가 로그에 없음).
+  - 아직 없는 것: 34장 DB(query name · duration), Sync `retryCount`(앱만 안다), 메트릭 수집(Micrometer · 대시보드). 운영 로그 수집 방식이 정해지면 붙인다.
 
 ## 결정 사항 (명세에 없어 정한 것)
 
@@ -451,6 +459,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 내 코스 API | `GET /users/me/courses?kind=` | MY-005인데 41~43장 표에 경로 없음 |
 | 코스 cursor | 주변: 거리순 위치, 검색: 마지막 id (둘 다 base64url) | 27.3장 opaque cursor |
 | 코스 신고 처리 | 서로 다른 사람(만든 사람 제외)의 열린 신고 3건이면 자동 `HIDDEN`, 관리자가 `HIDE` · `BLOCK` · `RESTORE`. V16 `moderated_at` · `tbl_course_moderation` | 사용자 결정(명세 20.2장 "코스 공개 정책" 오픈 이슈). 3건은 명세에 없어 정한 시작값 |
+| 비동기 실행기 | `taskExecutor` 코어 2 · 최대 8 · 대기 500, 끌 때 20초까지 하던 일을 마친다 | 명세에 값 없음. 검증 · Push 보내기용 |
+| 요청 id | `X-Request-Id` 8~64자 `[A-Za-z0-9._-]`, 아니면 서버가 UUID | 로그를 어지럽히지 않게 |
 | 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
 | 외부 추천 코스 | V15 `tbl_course.source · source_ref · attribution · license · source_url`, 관리 API `X-Admin-Key`, 1~21.1km, 같은 자리 100m · 길이 10% 안이면 중복 | 사용자 결정(명세 2.1장 MVP 제외 항목을 넣음). 값은 명세에 없어 정한 시작값 |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |

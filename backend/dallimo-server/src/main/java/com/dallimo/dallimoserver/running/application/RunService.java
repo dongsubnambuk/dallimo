@@ -3,6 +3,7 @@ package com.dallimo.dallimoserver.running.application;
 import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
+import com.dallimo.dallimoserver.common.observability.Correlation;
 import com.dallimo.dallimoserver.common.web.CursorPage;
 import com.dallimo.dallimoserver.live.infrastructure.LiveMemberJdbcRepository;
 import com.dallimo.dallimoserver.running.domain.Run;
@@ -17,6 +18,8 @@ import com.dallimo.dallimoserver.workout.application.WorkoutService;
 import com.dallimo.dallimoserver.running.infrastructure.RunJpaRepository;
 import com.dallimo.dallimoserver.running.infrastructure.RunPointJdbcRepository;
 import com.dallimo.dallimoserver.running.infrastructure.RunSyncBatchRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
@@ -42,6 +45,9 @@ import java.util.Set;
  */
 @Service
 public class RunService {
+
+    // 21.1장 관측성 · 34장 Run lifecycle · Sync: 상태 전이와 Batch 결과만 남긴다 (GPS 좌표는 남기지 않는다)
+    private static final Logger log = LoggerFactory.getLogger(RunService.class);
 
     public static final int MAX_POINTS_PER_BATCH = 500;
 
@@ -107,7 +113,12 @@ public class RunService {
     public Created create(long userId, String clientRunUuid, RunMode mode, Long courseId, Long challengeId, Long liveRoomId, WorkoutLink workout,
                           Instant startedAt) {
         var existing = runs.findByClientRunUuid(clientRunUuid);
-        if (existing.isPresent()) return new Created(owned(existing.get(), userId, ErrorCode.IDEMPOTENCY_CONFLICT), false);
+        if (existing.isPresent()) {
+            Run r = owned(existing.get(), userId, ErrorCode.IDEMPOTENCY_CONFLICT);
+            Correlation.run(r.getId());
+            log.info("run.create replay clientRunUuid={} runId={} status={}", clientRunUuid, r.getId(), r.getStatus());
+            return new Created(r, false);
+        }
         if (courseId != null && !courseExists(courseId)) throw new ApiException(ErrorCode.COURSE_NOT_FOUND);
         checkWorkout(userId, mode, courseId, workout);
         try {
@@ -117,6 +128,8 @@ public class RunService {
             // 참가하지 않은 방이면 아무것도 바뀌지 않는다
             if (liveRoomId != null) liveMembers.linkRun(liveRoomId, userId, created.getId());
             if (challengeId != null) challenges.attachRun(userId, challengeId, courseId, created.getId());
+            Correlation.run(created.getId());
+            log.info("run.create clientRunUuid={} runId={} mode={} courseId={} status={}", clientRunUuid, created.getId(), mode, courseId, created.getStatus());
             return new Created(created, true);
         } catch (DataIntegrityViolationException race) {
             Run r = runs.findByClientRunUuid(clientRunUuid).orElseThrow(() -> race);
@@ -130,31 +143,47 @@ public class RunService {
      */
     @Transactional
     public BatchResult uploadPoints(long userId, long runId, String batchUuid, int fromSeq, int toSeq, List<RunPoint> batch) {
+        Correlation.run(runId);
         Run run = owned(runs.findForUpdate(runId).orElseThrow(() -> new ApiException(ErrorCode.RUN_NOT_FOUND)), userId, ErrorCode.RESOURCE_FORBIDDEN);
         var received = new RunSyncBatchRepository.Received(fromSeq, toSeq, batch.size());
         var seen = batches.find(runId, batchUuid);
         if (seen.isPresent()) {
-            if (!seen.get().equals(received)) throw new ApiException(ErrorCode.IDEMPOTENCY_CONFLICT);
-            return new BatchResult(batchUuid, true, points.lastContiguousSeq(runId));
+            if (!seen.get().equals(received)) {
+                log.warn("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=CONFLICT", runId, batchUuid, fromSeq, toSeq);
+                throw new ApiException(ErrorCode.IDEMPOTENCY_CONFLICT);
+            }
+            int last = points.lastContiguousSeq(runId);
+            // 응답을 못 받은 앱의 재전송
+            log.info("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=DUPLICATE lastSeq={}", runId, batchUuid, fromSeq, toSeq, last);
+            return new BatchResult(batchUuid, true, last);
         }
-        if (!run.getStatus().acceptsPoints()) throw new ApiException(ErrorCode.RUN_INVALID_STATE);
+        if (!run.getStatus().acceptsPoints()) {
+            log.warn("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=REJECTED status={}", runId, batchUuid, fromSeq, toSeq, run.getStatus());
+            throw new ApiException(ErrorCode.RUN_INVALID_STATE);
+        }
         validate(fromSeq, toSeq, batch);
         points.insertAll(runId, batch);
         batches.insert(runId, batchUuid, received, clock.instant());
-        return new BatchResult(batchUuid, true, points.lastContiguousSeq(runId));
+        int last = points.lastContiguousSeq(runId);
+        log.info("run.batch runId={} batchUuid={} fromSeq={} toSeq={} count={} result=ACCEPTED lastSeq={}", runId, batchUuid, fromSeq, toSeq, batch.size(), last);
+        return new BatchResult(batchUuid, true, last);
     }
 
     @Transactional
     public Run pause(long userId, long runId) {
         Run run = lockOwned(userId, runId);
+        RunStatus from = run.getStatus();
         run.pause(clock.instant());
+        log.info("run.state runId={} {}->{}", runId, from, run.getStatus());
         return run;
     }
 
     @Transactional
     public Run resume(long userId, long runId) {
         Run run = lockOwned(userId, runId);
+        RunStatus from = run.getStatus();
         run.resume(clock.instant());
+        log.info("run.state runId={} {}->{}", runId, from, run.getStatus());
         return run;
     }
 
@@ -179,8 +208,11 @@ public class RunService {
             steps.forEach(RunWorkoutStep::validate);
         }
         if (run.getStatus() == RunStatus.CANCELED) throw new ApiException(ErrorCode.RUN_INVALID_STATE);
-        if (lastSeq > 0 && points.lastContiguousSeq(runId) < lastSeq) {
+        int serverSeq = points.lastContiguousSeq(runId);
+        if (lastSeq > 0 && serverSeq < lastSeq) {
             run.markFinishing(clock.instant());
+            // 빠진 Batch가 있어 확정하지 않는다 (앱이 채운 뒤 다시 요청)
+            log.info("run.finish runId={} status=FINISHING lastSeq={} serverSeq={}", runId, lastSeq, serverSeq);
             return new Finished(run);
         }
         Instant end = endedAt.isBefore(run.getStartedAt()) ? run.getStartedAt() : endedAt;
@@ -192,6 +224,8 @@ public class RunService {
         if (steps != null && !steps.isEmpty()) workoutSteps.insertAll(runId, steps);
         // 코스 러닝이면 커밋 뒤 완주 검증 (26장)
         if (run.awaitingVerification()) events.publishEvent(new RunFinishedEvent(runId));
+        log.info("run.finish runId={} status={} lastSeq={} distanceM={} activeSec={} verification={}", runId, run.getStatus(), lastSeq, distance, elapsed,
+                run.awaitingVerification() ? "PENDING" : "NONE");
         return new Finished(run);
     }
 
@@ -265,6 +299,7 @@ public class RunService {
     }
 
     private Run lockOwned(long userId, long runId) {
+        Correlation.run(runId);
         return owned(runs.findForUpdate(runId).orElseThrow(() -> new ApiException(ErrorCode.RUN_NOT_FOUND)), userId, ErrorCode.RESOURCE_FORBIDDEN);
     }
 

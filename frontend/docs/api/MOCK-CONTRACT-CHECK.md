@@ -24,6 +24,7 @@
 | 7.4 시간 ISO-8601 offset 포함 | 앱 안에서는 epoch ms | 변환 | `toIso` · `fromIso` 추가 |
 | 7.4 페이스 sec/km 정수 | 엔진 결과가 소수였다 | 이번에 고침 | 엔진 결과 · mock 모두 정수로 반올림 |
 | 7.4 거리 m 정수 | 기기 계산 거리는 소수 | 변환 | 공식 거리는 서버가 RunPoint로 다시 계산한다(42.3장). 서버 값은 정수로 받는다 |
+| 21.1장 관측성 request correlation | `apiRequest`가 요청마다 `X-Request-Id`(UUID)를 보낸다 | 서버 구현 | 서버 로그 줄마다 같은 id, 응답 헤더로 돌아온다. 토큰을 새로 받아 다시 보내도 같은 id (결정 로그 55항) |
 | 6.3장 enum 대문자(`PENDING`, `VERIFIED` …) | 검증 상태는 소문자(`pending` …) | 변환 | RunVerification · RecordVerification. 다른 enum(RunMode, LiveRoomStatus 등)은 명세와 같다 |
 
 ### 1.1 오류 코드 → 앱 오류
