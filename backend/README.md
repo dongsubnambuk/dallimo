@@ -66,9 +66,18 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `SHARE_PUBLIC_BASE_URL` · `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` | 아니오(prod) | 공유 링크 주소 · App Link |
 | `RESEND_API_KEY` · `MAIL_FROM` | 예(prod) · 아니오 | 비밀번호 재설정 코드 · 변경 알림 메일(Resend). 보내는 주소 기본 `달리모 <onboarding@resend.dev>`는 Resend 계정 본인에게만 간다. 도메인을 인증하고 그 주소로 바꾼다. 키가 없으면 서버는 뜨고 메일만 못 보낸다 |
 | `MAIL_PROVIDER` | 아니오 | `resend`(기본) · `log`(보내지 않고 로그로, local 기본) |
+| `SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES` | 아니오 | 프록시가 사설 · 루프백 주소가 아닐 때만. 그 프록시 주소의 정규식 (아래 "프록시") |
 | `ADMIN_API_KEY` | 아니오 | 관리 API 키. 없으면 관리 API가 닫힌다 (예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) |
 | `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
 | `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
+
+### 프록시 (nginx · 로드밸런서 뒤)
+
+- 서버는 프록시가 보낸 `X-Forwarded-For` · `X-Forwarded-Proto` · `X-Forwarded-Host`로 실제 사용자 IP와 https 주소를 쓴다(`server.forward-headers-strategy: native`).
+- 프록시 설정: 사용자 IP를 `X-Forwarded-For`에 덧붙이고(nginx `proxy_add_x_forwarded_for`), `X-Forwarded-Proto`와 `Host`(또는 `X-Forwarded-Host`)를 넘긴다. `/ws`는 WebSocket 업그레이드(`Upgrade` · `Connection` 헤더)를 통과시킨다.
+- 헤더는 믿는 프록시에서 온 것만 쓴다. 기본은 사설 · 루프백 주소(10.x, 172.16~31.x, 192.168.x, 127.x 등)다. 프록시가 공인 IP면 `SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES`에 그 주소의 정규식을 넣는다. 서버에 바로 붙은 사람이 보낸 헤더는 무시한다.
+- 이게 없으면 모든 요청이 프록시 IP로 보여 IP마다 세는 요청 제한(로그인 · 가입 · 비밀번호 재설정 · 공유 링크)을 모든 사용자가 나눠 쓰고, 공유 링크 · 사진 주소가 내부 주소(http)로 만들어진다.
+- 확인: `ProxyClientIpTest`(프록시 뒤 사용자마다 따로 세기, 앞에 붙인 가짜 IP 무시), `UntrustedProxyClientIpTest`(믿지 않는 곳의 헤더 무시).
 
 ### DB · 스키마
 

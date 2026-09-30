@@ -29,6 +29,11 @@ spring:
 
 server:
   shutdown: graceful
+  # 프록시(nginx · 로드밸런서) 뒤에서 실제 사용자 IP · https 주소를 쓴다. 안 하면 모든 요청이 프록시 IP로 보여
+  # IP마다 세는 요청 제한(로그인 · 공유 링크)을 모든 사용자가 나눠 쓰게 된다.
+  # 프록시가 보낸 X-Forwarded-For · Proto · Host만 믿는다. 믿는 프록시는 사설 · 루프백 주소(Tomcat 기본)다.
+  # 프록시가 공인 IP면 SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES(정규식)로 그 주소를 넣는다
+  forward-headers-strategy: native
 
 # 57장 API Contract: /v3/api-docs(.yaml). API만 (공유 페이지 · actuator 제외), 키 순서를 고정해 문서가 매번 같게
 springdoc:
