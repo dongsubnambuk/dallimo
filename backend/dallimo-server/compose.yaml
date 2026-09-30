@@ -1,6 +1,6 @@
 # 운영 배포용 (gamjabox). 로컬 개발에는 쓰지 않는다 (결정 로그 59항)
 # 비밀 값(DB_PASSWORD · DB_ROOT_PASSWORD · JWT_SECRET · ADMIN_API_KEY)은 여기 적지 않는다. 배포 도구의 환경변수 파일(.env)로 넣는다. 키 설명은 .env.example
-# 배포 도구가 compose를 검증할 때는 .env가 없어서 필수 표시(:?)를 쓰지 않는다. 값이 없으면 MySQL · 서버가 시작하지 않는다
+# .env에 없는 값은 빈 문자열로 들어간다. 비밀 값이 비면 MySQL · 서버가 시작하지 않는다
 services:
   dallimo-server:
     build: .
@@ -16,34 +16,34 @@ services:
       DB_PORT: 3306
       DB_NAME: dallimo
       DB_USERNAME: dallimo
-      DB_PASSWORD: ${DB_PASSWORD:-}
+      DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
       # ── 인증 ──────────────────────────────────────────────────
       # openssl rand -base64 32
-      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_SECRET: ${JWT_SECRET}
 
       # ── 공개 주소 · App Link ────────────────────────────────────
-      SHARE_PUBLIC_BASE_URL: ${SHARE_PUBLIC_BASE_URL:-}
-      APP_LINK_IOS_APP_IDS: ${APP_LINK_IOS_APP_IDS:-}
-      APP_LINK_ANDROID_PACKAGE: ${APP_LINK_ANDROID_PACKAGE:-}
-      APP_LINK_ANDROID_SHA256: ${APP_LINK_ANDROID_SHA256:-}
+      SHARE_PUBLIC_BASE_URL: ${SHARE_PUBLIC_BASE_URL}
+      APP_LINK_IOS_APP_IDS: ${APP_LINK_IOS_APP_IDS}
+      APP_LINK_ANDROID_PACKAGE: ${APP_LINK_ANDROID_PACKAGE}
+      APP_LINK_ANDROID_SHA256: ${APP_LINK_ANDROID_SHA256}
 
       # ── 관리 API (X-Admin-Key). 비어 있으면 관리 API를 모두 닫는다 ──────
       # openssl rand -hex 24. application-dev.yaml의 개발 키는 공개돼 있어서 쓰지 않는다
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
-      COURSE_AUTO_HIDE_REPORTS: ${COURSE_AUTO_HIDE_REPORTS:-3}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      COURSE_AUTO_HIDE_REPORTS: 3
 
       # ── 외부 추천 코스 ──────────────────────────────────────────
-      DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:-e1b62338c3bf254ea990f9b43b06d8bd1baeb10fd90232e55143e49e821aeaca}
-      EXTERNAL_COURSE_CRON: ${EXTERNAL_COURSE_CRON:--}
-      EXTERNAL_COURSE_OSM_BOXES: ${EXTERNAL_COURSE_OSM_BOXES:-}
-      EXTERNAL_ELEVATION_ENABLED: ${EXTERNAL_ELEVATION_ENABLED:-false}
+      DATA_GO_KR_SERVICE_KEY: e1b62338c3bf254ea990f9b43b06d8bd1baeb10fd90232e55143e49e821aeaca
+      EXTERNAL_COURSE_CRON: "-"
+      EXTERNAL_COURSE_OSM_BOXES: ${EXTERNAL_COURSE_OSM_BOXES}
+      EXTERNAL_ELEVATION_ENABLED: "false"
 
       # ── Push ─────────────────────────────────────────────────
-      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN}
     depends_on:
       mysql:
         condition: service_healthy
@@ -56,8 +56,8 @@ services:
     environment:
       MYSQL_DATABASE: dallimo
       MYSQL_USER: dallimo
-      MYSQL_PASSWORD: ${DB_PASSWORD:-}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
