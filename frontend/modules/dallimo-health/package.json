@@ -1,0 +1,6 @@
+{
+  "name": "dallimo-health",
+  "version": "1.0.0",
+  "private": true,
+  "description": "달리모 Apple 건강(HealthKit) 연동 로컬 Expo 모듈"
+}

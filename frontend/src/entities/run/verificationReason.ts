@@ -7,6 +7,8 @@ const REASON: Record<string, string> = {
   SPEED_ANOMALY: '비정상적으로 빠른 구간이 있어 기록이 거부됐어요',
   GPS_INSUFFICIENT: 'GPS 기록이 부족해 확인하지 못했어요',
   COURSE_UNAVAILABLE: '코스 정보를 확인할 수 없어요',
+  // 가져온 기록 (122장): 경로 point가 너무 성기다
+  GPS_SPARSE: '가져온 기록의 경로가 촘촘하지 않아 확인하지 못했어요',
 };
 
 export function verificationReasonText(code: string | null): string | null {

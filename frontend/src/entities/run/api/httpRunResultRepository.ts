@@ -29,6 +29,9 @@ type ServerSummary = {
   verificationStatus: string;
   // 인터벌 달리기면 인터벌 이름
   workoutName?: string | null;
+  // 가져온 기록 (122.3장)
+  source?: string;
+  sourceDeviceName?: string | null;
 };
 // 판정 전(PENDING)이면 status만 있다
 type ServerVerification = {
@@ -125,6 +128,7 @@ function fromServer(
     ...judged,
     ...challengeOf(c),
     workout: toWorkoutResult(w, s.workoutName),
+    source: s.source && s.source !== 'DALLIMO' ? { kind: s.source as NonNullable<RunResult['source']>['kind'], device: s.sourceDeviceName ?? null } : null,
   };
 }
 

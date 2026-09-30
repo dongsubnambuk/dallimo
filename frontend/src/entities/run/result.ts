@@ -48,4 +48,8 @@ export type RunResult = {
   challenge?: Challenge | null;
   // 인터벌 달리기: 달린 인터벌과 구간별 실제 거리 · 시간 (123.2장)
   workout?: RunWorkoutResult | null;
+  // 122.3장 Source Badge: 건강 앱에서 가져온 기록이면 어디서 (달리모로 기록했으면 없다)
+  source?: RunSourceInfo | null;
 };
+
+export type RunSourceInfo = { kind: 'APPLE_HEALTH' | 'HEALTH_CONNECT' | 'GARMIN' | 'COROS' | 'GPX_IMPORT'; device: string | null };

@@ -10,6 +10,7 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { radius, spacing, touchTarget } from '@/design/tokens';
+import { SOURCE_LABEL } from '@/entities/import/types';
 import { getNotificationRepository } from '@/entities/notification/api';
 import { runResultRepository } from '@/entities/run/api';
 import { hasRunInProgress, signOut, withdraw } from '@/features/auth/session';
@@ -142,6 +143,17 @@ export function SettingsScreen() {
             onChange={(v) => setPreference('voiceSplitKm', v)}
           />
           <SettingRow kind="toggle" label="진동" caption="출발 · 일시정지 · GPS 약함 · 완주를 진동으로 알려요" value={prefs.haptics} onChange={(v) => setPreference('haptics', v)} />
+        </SettingSection>
+
+        {/* 122.3장 연동 설정 */}
+        <SettingSection title="외부 기록">
+          <SettingRow
+            kind="link"
+            label={SOURCE_LABEL.APPLE_HEALTH}
+            caption="Apple Watch · 다른 앱으로 달린 기록 가져오기"
+            value={prefs.healthImport ? '연결됨' : undefined}
+            onPress={() => router.push('/import')}
+          />
         </SettingSection>
 
         <SettingSection title="알림" footer="휴대폰 설정에서 달리모 알림을 끄면 여기 설정과 관계없이 알림이 오지 않아요.">

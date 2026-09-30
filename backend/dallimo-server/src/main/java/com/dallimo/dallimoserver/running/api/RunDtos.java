@@ -6,6 +6,7 @@ import com.dallimo.dallimoserver.running.domain.Run;
 import com.dallimo.dallimoserver.running.domain.RunMetrics;
 import com.dallimo.dallimoserver.running.domain.RunMode;
 import com.dallimo.dallimoserver.running.domain.RunPoint;
+import com.dallimo.dallimoserver.running.domain.RunSource;
 import com.dallimo.dallimoserver.running.domain.RunStatus;
 import com.dallimo.dallimoserver.running.domain.RunWorkoutStep;
 import com.dallimo.dallimoserver.workout.domain.EndConditionType;
@@ -121,13 +122,14 @@ public final class RunDtos {
     public record RunStatusResponse(long runId, RunStatus status, Instant at) {
     }
 
-    /** 히스토리 한 줄 (GET /runs). courseName은 코스 러닝일 때, workoutName은 인터벌 달리기일 때 */
+    /** 히스토리 한 줄 (GET /runs). courseName은 코스 러닝일 때, workoutName은 인터벌 달리기일 때, source · sourceDeviceName · importedAt은 가져온 기록일 때(122.3장 Source Badge) */
     public record RunSummaryResponse(long runId, String clientRunUuid, RunMode mode, RunStatus status, Long courseId, String courseName,
                                      Instant startedAt, Instant endedAt, int distanceM, int elapsedSeconds, Integer avgPaceSecPerKm,
-                                     String verificationStatus, String workoutName) {
+                                     String verificationStatus, String workoutName, RunSource source, String sourceDeviceName, Instant importedAt) {
         static RunSummaryResponse from(Run r, String courseName) {
             return new RunSummaryResponse(r.getId(), r.getClientRunUuid(), r.getMode(), r.getStatus(), r.getCourseId(), courseName, r.getStartedAt(),
-                    r.getEndedAt(), r.getDistanceM(), r.getElapsedSeconds(), r.getAvgPaceSecPerKm(), r.getVerificationStatus(), r.getWorkoutName());
+                    r.getEndedAt(), r.getDistanceM(), r.getElapsedSeconds(), r.getAvgPaceSecPerKm(), r.getVerificationStatus(), r.getWorkoutName(),
+                    r.getSource(), r.getSourceDeviceName(), r.getImportedAt());
         }
     }
 

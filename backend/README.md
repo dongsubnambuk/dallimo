@@ -310,6 +310,21 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **확인**: 인터벌 달리기(INTERVAL)는 인터벌이 있어야 하고 코스가 없어야 한다. 다른 모드에 인터벌 · 구간 결과가 오면 400. 저장한 인터벌이면 내 것(지운 것 포함, 달리는 동안 지웠을 수 있다)이고 그 버전이 있어야 한다(아니면 404).
 - **테스트**: `WorkoutApiContractTest`를 MySQL · MariaDB에서(저장 · 고치기 버전 · 복제 · 지우기 · 남의 것 · 잘못된 구성 11가지 · 50개 제한 · 인터벌 달리기 구간 결과 · 지난 버전 유지 · 추천 인터벌 · mode 목록 · 잘못된 연결).
 
+## 외부 기록 가져오기 (명세 122장 External Activity Integration)
+
+| API | 설명 |
+| --- | --- |
+| `POST /api/v1/imported-activities/check` | `{ source, externalIds[] }`(200개까지) → 이미 처리한 것만 `[{ externalId, status, runId, mergedRunId, failureReason }]`. 처음 보는 id는 없다 |
+| `POST /api/v1/imported-activities/{externalId}/import` | `{ source, sourceProvider, sourceDeviceName?, startedAt, endedAt, activeSeconds, distanceM?, points[{ latitude, longitude, altitudeM?, accuracyM?, speedMps?, recordedAt }] }` → `{ externalId, status, runId, mergedRunId, failureReason, course{ courseId, name, matchRate }, verificationStatus }`. 같은 기록은 같은 결과 |
+| `GET /api/v1/integrations` | `[{ source, importedCount, lastImportedAt }]` (APPLE_HEALTH · HEALTH_CONNECT) |
+
+- **흐름** (122.2장): 앱(Provider Adapter)이 건강 앱에서 읽어 보낸다 → Normalize(시각 순 · 같은 시각 하나 · 시작 전후 2분 밖 point 버림) → 중복 확인 → Run → 코스 매칭 → 검증. 서버는 HealthKit을 읽을 수 없어 후보 목록은 앱이 만들고 `/check`로 이미 처리한 것만 뺀다.
+- **Run 필드** (122.4장): `source · source_provider · provider_activity_id · source_device_name · imported_at · trust_level · verification_policy_version · import_status · import_failure_reason`. 달리모 기록은 `DALLIMO · HIGH`, 건강 앱은 `MEDIUM`, GPX는 `LOW`(순위에 넣지 않음).
+- **결과**: `IMPORTED`(Run을 만듦), `MERGE_CANDIDATE`(같은 시간에 달리모로 기록한 러닝이 있음, Run을 만들지 않고 겹친 Run id), `FAILED`(형식 오류, 다시 보낼 수 있음).
+- **코스 매칭**: 경로 근처(출발점 반경 안에 point가 지나는) 코스를 가까운 순으로 30개까지 골라 검증기를 미리 돌려 본다(저장하지 않음). 인증되는 코스가 있으면 일치율이 가장 높은 코스로 이어 COURSE Run이 되고 보통 검증(비동기)을 거친다. 없으면 코스 없는 FREE Run. 매칭 중 오류가 나도 Run은 남기고 `import_failure_reason = COURSE_MATCH_FAILED`.
+- **검증 정책**: 가져온 기록은 `2026-09-imp-v1`(따라 달린 비율 90% 이상, 출발~도착 point 간격 가운데 값 5초 이하, 넘으면 `GPS_SPARSE`). 결과에 정책 버전을 남긴다.
+- **테스트**: `ImportApiContractTest`를 MySQL · MariaDB에서(코스 매칭 → 인증 · 같은 요청 같은 결과 · check · integrations · 달리모 기록과 겹침 · 성긴 경로 → 코스 없음 · 실내 · 자유 · 실패 기록 뒤 다시 시도 · 잘못된 요청 · 로그인).
+
 ## 공통 규칙
 
 - **응답** (명세 7.1장): `{ success, data, error, timestamp }`. `common/web/ApiResponse`
@@ -409,3 +424,9 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 알림 API 추가분 | 모두 읽음 · 안 읽은 수 · Push 토큰 · 알림 설정 | 7장 표에는 목록 · 읽음만 있다 |
 | Push 발송 경계 | `PushSender`(Expo · 로그 · 테스트용), 커밋 뒤 비동기 | 40장: Push 같은 외부 경계만 Port로 |
 | receipt | ticket 단계의 DeviceNotRegistered만 처리. 나중에 오는 receipt 확인은 발송량이 늘면 붙인다 | 초기 규모 |
+| 가져오기 기록부 | `tbl_activity_import`(사용자 · source · 원본 id UNIQUE)에 결과를 남긴다. Run에도 `uk(user_id, source, provider_activity_id)` | 122.2장 "provider + provider_activity_id로 중복 방지". Run이 생기지 않는 결과(겹침 · 실패)도 다시 후보에 뜨지 않게. 같은 원본을 다른 사람이 가져올 수 없게 되지 않도록 user_id를 넣었다 |
+| 가져오기 후보 | 앱이 건강 앱에서 만든다. 서버는 `/imported-activities/check`로 처리한 것만 알려준다 | 126장 Integration API의 서버 후보 목록 · `/integrations/{provider}/sync`는 서버가 건강 앱을 읽을 수 없어 만들지 않았다 |
+| 가져온 기록 코스 연결 | 미리 돌린 검증이 인증일 때만 코스를 잇는다 | 122.1장 "추가 검증 후 가능". 코스 근처를 지났다고 미인증 코스 기록을 만들지 않는다 |
+| 가져온 기록 검증 기준 | 따라 달린 비율 90%, point 간격 가운데 값 5초 이하 | 명세에 값 없음. 다른 앱이 잰 기록이라 달리모 기록(80%)보다 엄하게 |
+| 달리모 기록과 겹침 | 짧은 쪽 시간의 50% 이상 겹치면 같은 러닝으로 보고 Run을 만들지 않는다 | 122.2장 "Merge Candidate". 워치로 함께 기록한 운동이 두 번 쌓이지 않게. 앱은 달리모가 건강 앱에 쓴 운동(`DallimoClientRunUuid` 메타데이터, 워치 작업에서 쓴다)을 먼저 뺀다 |
+| 가져오기 범위 | point 20,000개, 24시간, 한 번에 확인 200개 | 명세에 값 없음 |

@@ -15,5 +15,7 @@ public enum FailureReason {
     // 코스 경로를 충분히 따라 달리지 않았다
     ROUTE_MISMATCH,
     // 사람이 낼 수 없는 속도가 이어졌다
-    SPEED_ANOMALY
+    SPEED_ANOMALY,
+    // 가져온 기록의 경로 point가 너무 성기다 (IMPORTED 정책)
+    GPS_SPARSE
 }

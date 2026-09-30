@@ -15,6 +15,7 @@ import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { getCourseRepository } from '@/entities/course/api';
 import type { CourseDetail } from '@/entities/course/types';
 import type { RunResult } from '@/entities/run/result';
+import { SourceBadge } from '@/features/import/components/SourceBadge';
 import { RecordState } from '@/features/run-result/components/RecordState';
 import { ResultMap } from '@/features/run-result/components/ResultMap';
 import { SplitList } from '@/features/run-result/components/SplitList';
@@ -75,6 +76,7 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
         <AppText role="screenTitle" accessibilityRole="header">
           {runTitle({ ...r, workoutName: r.workout?.name })}
         </AppText>
+        {r.source ? <SourceBadge source={r.source} /> : null}
         {r.course || pb || r.workout ? (
           <View style={styles.modeLine}>
             {r.course || r.workout ? (

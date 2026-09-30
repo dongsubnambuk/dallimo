@@ -72,6 +72,35 @@ public class Run {
     @Column(name = "workout_name", length = 40)
     private String workoutName;
 
+    // 122.4장: 어디서 기록했는가. 달리모로 기록했으면 DALLIMO, 가져온 기록이면 원본 정보와 가져온 결과
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private RunSource source = RunSource.DALLIMO;
+
+    @Column(name = "source_provider", length = 100)
+    private String sourceProvider;
+
+    @Column(name = "provider_activity_id", length = 191)
+    private String providerActivityId;
+
+    @Column(name = "source_device_name", length = 100)
+    private String sourceDeviceName;
+
+    @Column(name = "imported_at")
+    private Instant importedAt;
+
+    @Column(name = "trust_level", nullable = false, length = 10)
+    private String trustLevel = RunSource.DALLIMO.trustLevel();
+
+    @Column(name = "verification_policy_version", length = 30)
+    private String verificationPolicyVersion;
+
+    @Column(name = "import_status", length = 20)
+    private String importStatus;
+
+    @Column(name = "import_failure_reason", length = 200)
+    private String importFailureReason;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -93,6 +122,33 @@ public class Run {
         r.createdAt = now;
         r.updatedAt = now;
         return r;
+    }
+
+    /** 122.2장: 가져온 기록. 원본 시각으로 만들고 곧바로 끝낸다(finish). courseId는 코스 자동 매칭 결과 */
+    public static Run imported(long userId, String clientRunUuid, RunSource source, String sourceProvider, String providerActivityId,
+                               String sourceDeviceName, Long courseId, Instant startedAt, Instant now) {
+        Run r = start(userId, clientRunUuid, courseId != null ? RunMode.COURSE : RunMode.FREE, courseId, startedAt, now);
+        r.source = source;
+        r.sourceProvider = sourceProvider;
+        r.providerActivityId = providerActivityId;
+        r.sourceDeviceName = sourceDeviceName;
+        r.importedAt = now;
+        r.trustLevel = source.trustLevel();
+        r.importStatus = IMPORT_IMPORTED;
+        return r;
+    }
+
+    public static final String IMPORT_IMPORTED = "IMPORTED";
+
+    /** 가져온 뒤 일부 단계(코스 매칭)가 실패하면 기록은 남기고 사유를 둔다 (122.2장) */
+    public void importProblem(String reason, Instant now) {
+        this.importFailureReason = reason;
+        this.updatedAt = now;
+    }
+
+    /** 검증 결과를 남길 때 어떤 정책으로 판정했는지 */
+    public void verifiedWith(String policyVersion) {
+        this.verificationPolicyVersion = policyVersion;
     }
 
     /** 인터벌 달리기: 만들 때 한 번 */
@@ -131,7 +187,7 @@ public class Run {
         this.distanceM = distanceM;
         this.avgPaceSecPerKm = avgPaceSecPerKm;
         // 25.3장: 코스 러닝이면 완주 검증 대기. 검증은 커밋 뒤 따로 돈다 (verification 패키지)
-        this.verificationStatus = mode.usesCourse() && courseId != null ? VERIFICATION_PENDING : VERIFICATION_NONE;
+        this.verificationStatus = mode.usesCourse() && courseId != null && source.rankable() ? VERIFICATION_PENDING : VERIFICATION_NONE;
         this.updatedAt = now;
     }
 
@@ -197,6 +253,38 @@ public class Run {
 
     public String getVerificationStatus() {
         return verificationStatus;
+    }
+
+    public RunSource getSource() {
+        return source;
+    }
+
+    public String getSourceProvider() {
+        return sourceProvider;
+    }
+
+    public String getProviderActivityId() {
+        return providerActivityId;
+    }
+
+    public String getSourceDeviceName() {
+        return sourceDeviceName;
+    }
+
+    public Instant getImportedAt() {
+        return importedAt;
+    }
+
+    public String getTrustLevel() {
+        return trustLevel;
+    }
+
+    public String getImportStatus() {
+        return importStatus;
+    }
+
+    public String getImportFailureReason() {
+        return importFailureReason;
     }
 
     public Long getWorkoutTemplateId() {
