@@ -15,28 +15,35 @@
 
 ## 로컬 실행
 
-개발 서버는 내 컴퓨터에서 띄운다(기본 프로필 `dev`). MySQL 8.4 · Redis 7.4를 `docker run`으로 한 번 만들어 두고 켜고 끈다.
+개발 서버는 내 컴퓨터에서 띄운다(기본 프로필 `dev`). MySQL · Redis는 Docker 없이 컴퓨터에 직접 설치한다(사용자 결정).
+
+처음 한 번 (Mac, Homebrew):
 
 ```bash
-# 처음 한 번: MySQL 8.4 (utf8mb4) · Redis 7.4
-docker run -d --name dallimo-mysql --restart unless-stopped \
-  -e MYSQL_DATABASE=dallimo -e MYSQL_USER=dallimo -e MYSQL_PASSWORD=dallimo \
-  -e MYSQL_ROOT_PASSWORD=dallimo-root -e TZ=UTC \
-  -v dallimo-mysql:/var/lib/mysql -p 3306:3306 \
-  mysql:8.4 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-docker run -d --name dallimo-redis --restart unless-stopped -p 6379:6379 redis:7.4-alpine
+brew install mysql@8.4 redis
+brew link mysql@8.4 --force          # mysql 명령을 PATH에
+brew services start mysql@8.4        # 로그인할 때 자동으로 켜진다
+brew services start redis
 
-# 서버 (Flyway가 테이블과 개발용 코스 3개를 만든다)
+mysql -uroot <<'SQL'
+CREATE DATABASE dallimo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'dallimo'@'%' IDENTIFIED BY 'dallimo';
+GRANT ALL PRIVILEGES ON dallimo.* TO 'dallimo'@'%';
+SQL
+```
+
+서버 (Flyway가 테이블과 개발용 코스 3개를 만든다):
+
+```bash
 cd backend/dallimo-server
 ./gradlew bootRun
 curl localhost:8080/actuator/health
 ```
 
-- 끄기 · 켜기: `docker stop dallimo-mysql dallimo-redis` · `docker start dallimo-mysql dallimo-redis`. DB 데이터는 `dallimo-mysql` 볼륨에 남는다.
-- 처음부터 다시: `docker rm -f dallimo-mysql && docker volume rm dallimo-mysql` 뒤 위 명령.
-- 값을 바꾸려면 환경변수(`DB_HOST` · `DB_PORT` · `DB_NAME` · `DB_USERNAME` · `DB_PASSWORD` · `REDIS_HOST` 등, `application-dev.yaml`). 운영과 같은 MariaDB로 확인하려면 `DB_DRIVER=mariadb`.
-
-Docker만 있으면 DB 없이도 `TestDallimoServerApplication`(테스트 소스)을 실행해 Testcontainers MySQL로 띄울 수 있습니다.
+- `application-dev.yaml` 기본값이 위 계정(`dallimo` / `dallimo`, localhost:3306)과 Redis(localhost:6379)다. 다르면 환경변수로 바꾼다(`DB_HOST` · `DB_PORT` · `DB_NAME` · `DB_USERNAME` · `DB_PASSWORD` · `REDIS_HOST` 등).
+- 끄기 · 켜기: `brew services stop mysql@8.4 redis` · `brew services start mysql@8.4 redis`.
+- 개발 DB 처음부터 다시: `mysql -uroot -e "DROP DATABASE dallimo; CREATE DATABASE dallimo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"` 뒤 서버를 다시 띄운다.
+- 운영과 같은 MariaDB로 확인하려면 MariaDB를 설치하고 `DB_DRIVER=mariadb`.
 
 ## 테스트
 
@@ -58,7 +65,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 
 | 프로필 | DB | 접속 정보 |
 | --- | --- | --- |
-| dev (기본) | 내 컴퓨터의 MySQL 8.4 · Redis 7.4 (`docker run`, 위 "로컬 실행") | `application-dev.yaml`. 기본값이 들어 있고 환경변수로 바꿀 수 있다. Push · 메일은 기본으로 로그만 |
+| dev (기본) | 내 컴퓨터에 설치한 MySQL 8.4 · Redis (위 "로컬 실행") | `application-dev.yaml`. 기본값이 들어 있고 환경변수로 바꿀 수 있다. Push · 메일은 기본으로 로그만 |
 | test | Testcontainers | 테스트가 넣는다 |
 | prod | MariaDB (`DB_DRIVER=mariadb` 기본) | 아래 환경변수. `/v3/api-docs`는 끈다 |
 
@@ -133,7 +140,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 ### 앱과 연결
 
 ```bash
-cd backend/dallimo-server && ./gradlew bootRun   # MySQL · Redis는 위 "로컬 실행"의 docker run
+cd backend/dallimo-server && ./gradlew bootRun   # MySQL · Redis는 위 "로컬 실행"
 cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아이폰은 노트북 IP
 ```
 
@@ -498,7 +505,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | --- | --- | --- |
 | `RESOURCE_NOT_FOUND` (404) | 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드(RUN_NOT_FOUND 등)가 없는 404에 쓴다 | 모든 오류를 같은 모양으로 돌려주기 위해 |
 | Spring MVC 기본 오류 | 원래 HTTP 상태(400 · 405 · 415 …)는 유지하고 코드는 `VALIDATION_ERROR` | 27.1장에 해당 코드가 없음 |
-| 문자셋 | DB 서버 기본값을 utf8mb4로(개발 `docker run` · 테스트). 22.4장 DDL은 그대로 | 한글 · 이모지 닉네임 |
+| 문자셋 | 개발 DB를 utf8mb4로 만든다("로컬 실행"). 테스트 DB도 utf8mb4. 22.4장 DDL은 그대로 | 한글 · 이모지 닉네임 |
 | MariaDB 테스트 버전 | 11.4(LTS). 운영 버전이 정해지면 `MariaDbTestcontainersConfiguration`을 같은 버전으로 | 13.1장 "운영과 동일 MariaDB 버전" |
 | MySQL 이미지 | `mysql:latest` 대신 `mysql:8.4`로 고정 | 테스트 결과가 이미지 업데이트로 바뀌지 않게 |
 | 토큰 유효 시간 | Access 30분, Refresh 30일(회전할 때마다 연장), 재시도 허용 60초 | 명세에 값 없음 |
@@ -524,7 +531,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 비동기 실행기 | `taskExecutor` 코어 2 · 최대 8 · 대기 500, 끌 때 20초까지 하던 일을 마친다 | 명세에 값 없음. 검증 · Push 보내기용 |
 | 요청 id | `X-Request-Id` 8~64자 `[A-Za-z0-9._-]`, 아니면 서버가 UUID | 로그를 어지럽히지 않게 |
 | 비밀번호 재설정 | 메일로 숫자 6자리 코드(10분 · 5번 틀리면 잠김), 계정마다 60초 1번 · 1시간 5번. 변경은 다른 기기 로그아웃, 재설정은 모든 기기 로그아웃. 오류는 400 | 사용자 요청(Resend). 명세에 이메일 로그인 · 비밀번호 찾기가 없음 |
-| 프로필 | dev(기본, 내 컴퓨터) · test · prod. local은 dev에 합쳤고 docker compose는 쓰지 않는다 | 사용자 결정(명세 15.3장은 local/dev/test/prod) |
+| 프로필 | dev(기본, 내 컴퓨터) · test · prod. local은 dev에 합쳤다. 개발 MySQL · Redis는 Docker 없이 직접 설치 | 사용자 결정(명세 15.3장은 local/dev/test/prod) |
 | 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
 | 외부 추천 코스 | V15 `tbl_course.source · source_ref · attribution · license · source_url`, 관리 API `X-Admin-Key`, 1~21.1km, 같은 자리 100m · 길이 10% 안이면 중복 | 사용자 결정(명세 2.1장 MVP 제외 항목을 넣음). 값은 명세에 없어 정한 시작값 |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |
