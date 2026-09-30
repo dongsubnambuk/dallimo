@@ -79,8 +79,34 @@ class ExternalCourseParsersTest {
     void gpxReadsTrackPointsWithElevation() {
         GpxParser.Gpx g = GpxParser.parse(gpx("해파랑길 1코스", north(LAT, LNG, 0, 1000, 10), true).getBytes(StandardCharsets.UTF_8));
         assertThat(g.name()).isEqualTo("해파랑길 1코스");
-        assertThat(g.points()).hasSize(11);
-        assertThat(g.points()).allSatisfy(p -> assertThat(p.altitudeM()).isNotNull());
+        assertThat(g.line(null)).hasSize(11);
+        assertThat(g.line(null)).allSatisfy(p -> assertThat(p.altitudeM()).isNotNull());
+    }
+
+    @Test
+    void gpxKeepsSeparateTracksAndPicksTheOneNearTheListedLength() {
+        // 실제 두루누비 GPX(남파랑길 51코스 14km): 트랙 두 개(14.6km, 15.2km)가 9km 떨어져 있다. 이어 붙이면 39km가 된다
+        String two = """
+                <gpx version="1.1"><trk><name>코스</name><trkseg>%s</trkseg></trk><trk><name>다른 코스</name><trkseg>%s</trkseg></trk></gpx>"""
+                .formatted(trkpts(north(LAT, LNG, 0, 14_000, 28)), trkpts(north(LAT + 0.2, LNG, 0, 15_000, 30)));
+        GpxParser.Gpx g = GpxParser.parse(two.getBytes(StandardCharsets.UTF_8));
+        assertThat(g.lines()).hasSize(2);
+        assertThat(CourseRoute.lengthM(g.line(null))).isCloseTo(14_000, within(1.0));
+        assertThat(CourseRoute.lengthM(g.line(15_200.0))).isCloseTo(15_000, within(1.0));
+        assertThat(CourseRoute.lengthM(g.line(14_000.0))).isCloseTo(14_000, within(1.0));
+
+        // 이어진 trkseg는 한 선으로 (겹친 점은 한 번)
+        String joined = """
+                <gpx version="1.1"><trk><trkseg>%s</trkseg><trkseg>%s</trkseg></trk></gpx>"""
+                .formatted(trkpts(north(LAT, LNG, 0, 500, 5)), trkpts(north(LAT, LNG, 500, 1000, 5)));
+        GpxParser.Gpx j = GpxParser.parse(joined.getBytes(StandardCharsets.UTF_8));
+        assertThat(j.lines()).hasSize(1);
+        assertThat(j.line(null)).hasSize(11);
+    }
+
+    private static String trkpts(List<double[]> line) {
+        return line.stream().map(p -> String.format(java.util.Locale.ROOT, "<trkpt lat=\"%.7f\" lon=\"%.7f\"/>", p[0], p[1]))
+                .collect(java.util.stream.Collectors.joining());
     }
 
     @Test
@@ -89,7 +115,7 @@ class ExternalCourseParsersTest {
                 <gpx version="1.0"><rte><name>경로</name><rtept lat="35.1" lon="129.1"/><rtept lat="35.2" lon="129.2"/></rte></gpx>""";
         GpxParser.Gpx g = GpxParser.parse(rte.getBytes(StandardCharsets.UTF_8));
         assertThat(g.name()).isEqualTo("경로");
-        assertThat(g.points()).extracting(CourseRoute.Point::altitudeM).containsExactly(null, null);
+        assertThat(g.line(null)).extracting(CourseRoute.Point::altitudeM).containsExactly(null, null);
 
         String xxe = """
                 <?xml version="1.0"?><!DOCTYPE gpx [<!ENTITY x SYSTEM "file:///etc/passwd">]><gpx><trk><name>&x;</name></trk></gpx>""";

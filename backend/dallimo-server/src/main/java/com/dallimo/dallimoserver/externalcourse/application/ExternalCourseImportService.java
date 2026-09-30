@@ -182,7 +182,8 @@ public class ExternalCourseImportService {
         if (routeName != null) tags.add(ExternalCourse.tag(routeName));
         if (item.loop()) tags.add("순환형");
         save(new ExternalCourse(CourseSource.DURUNUBI, item.crsIdx(), item.name(), item.description(), item.region(), item.difficulty(), tags,
-                gpx.points(), DurunubiParser.ATTRIBUTION, DurunubiParser.LICENSE, null), t);
+                // 트랙이 여럿이면 목록 길이에 가장 가까운 트랙
+                gpx.line(item.distanceKm() == null ? null : item.distanceKm() * 1000), DurunubiParser.ATTRIBUTION, DurunubiParser.LICENSE, null), t);
     }
 
     /** 관리자가 올린 GPX 하나 (등산 · 트레킹 GPX, 자전거길 GPX 등) */
@@ -195,11 +196,13 @@ public class ExternalCourseImportService {
         }
         String name = meta.name() != null ? meta.name() : gpx.name();
         if (name == null) throw new ApiException(ErrorCode.VALIDATION_ERROR, "코스 이름(name)을 넣어 주세요. GPX에도 이름이 없어요.");
-        if (gpx.points().size() < 2) throw new ApiException(ErrorCode.VALIDATION_ERROR, "GPX에 경로 point가 없어요.");
+        // 떨어진 트랙이 여럿이면 첫 트랙 (코스마다 파일을 따로 올린다)
+        List<CourseRoute.Point> line = gpx.line(null);
+        if (line.size() < 2) throw new ApiException(ErrorCode.VALIDATION_ERROR, "GPX에 경로 point가 없어요.");
         String ref = meta.sourceRef() != null ? meta.sourceRef() : "sha256:" + sha256(file).substring(0, 32);
         Tally t = new Tally(CourseSource.GPX);
         t.fetched++;
-        save(new ExternalCourse(CourseSource.GPX, ref, name, meta.description(), meta.region(), meta.difficulty(), List.of(), gpx.points(),
+        save(new ExternalCourse(CourseSource.GPX, ref, name, meta.description(), meta.region(), meta.difficulty(), List.of(), line,
                 meta.attribution(), meta.license(), meta.sourceUrl()), t);
         return t.report();
     }
