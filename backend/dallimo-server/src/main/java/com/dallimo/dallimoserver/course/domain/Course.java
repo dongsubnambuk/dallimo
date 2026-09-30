@@ -79,7 +79,38 @@ public class Course {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    // 외부 데이터로 만든 코스의 원본과 출처 (V15). 사용자 코스는 source가 USER이고 나머지는 null
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private CourseSource source;
+
+    @Column(name = "source_ref", length = 100)
+    private String sourceRef;
+
+    @Column(length = 200)
+    private String attribution;
+
+    @Column(length = 50)
+    private String license;
+
+    @Column(name = "source_url", length = 500)
+    private String sourceUrl;
+
     protected Course() {
+    }
+
+    /** 외부 공개 데이터로 만든 추천 코스. 만든 사람은 달리모 시스템 사용자 */
+    public static Course createExternal(long systemUserId, String name, String description, String region, String difficulty,
+                                        CourseRoute.Normalized route, CourseSource source, String sourceRef, String attribution,
+                                        String license, String sourceUrl, Instant now) {
+        Course c = create(systemUserId, name, description, region, null, route, now);
+        c.difficulty = difficulty;
+        c.source = source;
+        c.sourceRef = sourceRef;
+        c.attribution = attribution;
+        c.license = license;
+        c.sourceUrl = sourceUrl;
+        return c;
     }
 
     public static Course create(long creatorId, String name, String description, String region, String recommendedTime, CourseRoute.Normalized route,
@@ -100,6 +131,7 @@ public class Course {
         c.elevationGainM = route.elevationGainM() == null ? null : BigDecimal.valueOf(route.elevationGainM()).setScale(2, RoundingMode.HALF_UP);
         c.status = CourseStatus.NEW;
         c.visibility = CourseVisibility.PUBLIC;
+        c.source = CourseSource.USER;
         c.createdAt = now;
         c.updatedAt = now;
         return c;
@@ -173,5 +205,25 @@ public class Course {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public CourseSource getSource() {
+        return source;
+    }
+
+    public String getSourceRef() {
+        return sourceRef;
+    }
+
+    public String getAttribution() {
+        return attribution;
+    }
+
+    public String getLicense() {
+        return license;
+    }
+
+    public String getSourceUrl() {
+        return sourceUrl;
     }
 }

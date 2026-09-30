@@ -2,8 +2,10 @@ package com.dallimo.dallimoserver.course.api;
 
 import com.dallimo.dallimoserver.course.application.CourseReviewService;
 import com.dallimo.dallimoserver.course.application.CourseService.CourseView;
+import com.dallimo.dallimoserver.course.domain.Course;
 import com.dallimo.dallimoserver.course.domain.CourseReportReason;
 import com.dallimo.dallimoserver.course.domain.CourseRoute;
+import com.dallimo.dallimoserver.course.domain.CourseSource;
 import com.dallimo.dallimoserver.course.domain.CourseStatus;
 import com.dallimo.dallimoserver.course.infrastructure.CourseReviewJdbcRepository;
 import com.dallimo.dallimoserver.course.infrastructure.ReviewSummary;
@@ -50,14 +52,25 @@ public final class CourseDtos {
                                         Integer startDistanceM, List<double[]> displayRoute, int estimatedSec,
                                         Integer myBestSec, int myFinishCount, Integer leaderSec, int finisherCount,
                                         int weeklyRunnerCount, boolean bookmarked, Instant createdAt, String region, Double ratingAvg,
-                                        int reviewCount) {
+                                        int reviewCount, CourseSource source) {
         static CourseSummaryResponse from(CourseView v) {
             return new CourseSummaryResponse(v.course().getId(), v.course().getName(), v.course().getStatus(), v.course().getDistanceM(),
                     v.tags(), v.startDistanceM() == null ? null : (int) Math.round(v.startDistanceM()),
                     CourseRoute.decimate(v.route(), CourseRoute.SUMMARY_MAX_POINTS), v.estimatedSec(),
                     v.stats().myBestSec(), v.stats().myFinishCount(), v.stats().leaderSec(), v.stats().finisherCount(),
                     v.stats().weeklyRunnerCount(), v.bookmarked(), v.course().getCreatedAt(), v.course().getRegion(), oneDecimal(v.reviews().ratingAvg()),
-                    v.reviews().reviewCount());
+                    v.reviews().reviewCount(), v.course().getSource());
+        }
+    }
+
+    /**
+     * 외부 데이터로 만든 추천 코스의 출처 (FOUNDATION-DECISION-LOG 52항). 사용자 코스는 null.
+     * attribution은 코스 상세에 그대로 보여 준다 (OSM은 ODbL 출처 표시 의무)
+     */
+    public record SourceInfo(CourseSource kind, String attribution, String license, String url) {
+        static SourceInfo from(Course c) {
+            if (c.getSource() == null || !c.getSource().external()) return null;
+            return new SourceInfo(c.getSource(), c.getAttribution(), c.getLicense(), c.getSourceUrl());
         }
     }
 
@@ -135,7 +148,7 @@ public final class CourseDtos {
                                        int distanceM, int estimatedSec, String difficulty, Double elevationGainM, List<String> tags,
                                        List<double[]> route, List<double[]> elevationProfile, int finisherCount, int weeklyRunnerCount,
                                        MyRecord myRecord, Competition competition, boolean bookmarked, Instant createdAt, String region,
-                                       String recommendedTime, Environment environment, Rating rating) {
+                                       String recommendedTime, Environment environment, Rating rating, SourceInfo source) {
         static CourseDetailResponse from(CourseView v, RankingService.WeeklyPreview weekly, CourseReviewService.Mine mine, Long viewerId) {
             var s = v.stats();
             MyRecord my = s.myBestSec() == null ? null : new MyRecord(s.myBestSec(), s.myLastSec(), s.myFinishCount());
@@ -147,7 +160,7 @@ public final class CourseDtos {
                     RankingEntryResponse.from(weekly.me()), weekly.friendBest()), v.bookmarked(), v.course().getCreatedAt(), v.course().getRegion(),
                     v.course().getRecommendedTime(), Environment.from(v.reviews()),
                     new Rating(oneDecimal(v.reviews().ratingAvg()), v.reviews().reviewCount(), mine.canReview(),
-                            mine.review() == null ? null : ReviewResponse.from(mine.review(), viewerId)));
+                            mine.review() == null ? null : ReviewResponse.from(mine.review(), viewerId)), SourceInfo.from(v.course()));
         }
     }
 

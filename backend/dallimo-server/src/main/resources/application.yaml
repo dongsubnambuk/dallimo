@@ -44,3 +44,19 @@ dallimo:
   storage:
     local-dir: ${STORAGE_LOCAL_DIR:./data/uploads}
     public-base-url: ${STORAGE_PUBLIC_BASE_URL:}
+  # 외부 공개 데이터로 추천 코스 만들기 (ExternalCourseProperties, FOUNDATION-DECISION-LOG 52항)
+  external-courses:
+    # 관리 API 키. 비어 있으면 관리 API를 닫는다
+    admin-key: ${EXTERNAL_COURSE_ADMIN_KEY:}
+    durunubi:
+      # 공공데이터포털 일반 인증키(Decoding). 비어 있으면 두루누비를 부르지 않는다
+      service-key: ${DATA_GO_KR_SERVICE_KEY:}
+    elevation:
+      # Open-Meteo 무료 API는 비상업 이용 조건이라 기본은 끈다
+      enabled: ${EXTERNAL_ELEVATION_ENABLED:false}
+      url: ${EXTERNAL_ELEVATION_URL:https://api.open-meteo.com/v1/elevation}
+    schedule:
+      # 예: "0 0 4 * * MON" (매주 월요일 04:00 UTC). "-"면 돌지 않는다
+      cron: ${EXTERNAL_COURSE_CRON:-}
+      # 예: "35.80,128.55,35.90,128.70;37.50,126.90,37.60,127.05" (south,west,north,east를 ;로 잇는다)
+      osm-boxes: ${EXTERNAL_COURSE_OSM_BOXES:}

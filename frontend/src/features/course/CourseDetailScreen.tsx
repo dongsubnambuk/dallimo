@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
-import { ScrollView, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Linking, ScrollView, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrimaryRunButton } from '@/components/PrimaryRunButton';
@@ -142,8 +142,8 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
       {/* 1차: 코스가 어떤 곳인지 */}
       <View style={styles.titleBlock}>
         <AppText role="label" tone="secondary" numberOfLines={1}>
-          {/* 6.3장 CourseStatus NEW: 막 등록되어 아직 완주 기록이 없는 코스 */}
-          {[course.status === 'NEW' ? '새 코스' : null, course.region, ...course.tags].filter(Boolean).join(' · ')}
+          {/* 6.3장 CourseStatus NEW: 막 등록되어 아직 완주 기록이 없는 코스. 외부 데이터로 만든 코스는 "달리모 추천" (결정 로그 52항) */}
+          {[course.source ? '달리모 추천' : course.status === 'NEW' ? '새 코스' : null, course.region, ...course.tags].filter(Boolean).join(' · ')}
         </AppText>
         <AppText role="screenTitle" accessibilityRole="header">
           {course.name}
@@ -241,7 +241,12 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
         <View style={styles.meta}>
           {course.recommendedTime ? <MetaRow icon="time" text={`추천 시간대 ${course.recommendedTime}`} /> : null}
           <MetaRow icon="finished" text={`완주 ${formatCount(course.finisherCount)}명 · 이번 주 ${formatCount(course.weeklyRunnerCount)}명`} />
-          <MetaRow icon="tabMy" text={`만든 사람 ${course.creatorName}`} />
+          {course.source ? (
+            // 추천 코스는 만든 사람 대신 원본 출처 (OSM은 ODbL 출처 표시 의무)
+            <SourceRow source={course.source} />
+          ) : (
+            <MetaRow icon="tabMy" text={`만든 사람 ${course.creatorName}`} />
+          )}
         </View>
       </Section>
 
@@ -361,6 +366,34 @@ function EnvItem({ icon, label, value }: { icon: IconName; label: string; value:
     </View>
   );
 }
+
+// 출처 · 라이선스. 원본 주소가 있으면 누르면 연다
+function SourceRow({ source }: { source: NonNullable<CourseDetail['source']> }) {
+  const { colors } = useTheme();
+  const text = `출처 ${[source.attribution ?? SOURCE_NAME[source.kind], source.license].filter(Boolean).join(' · ')}`;
+  if (!source.url) return <MetaRow icon="document" text={text} />;
+  const url = source.url;
+  return (
+    <AppPressable
+      onPress={() => Linking.openURL(url).catch(() => undefined)}
+      accessibilityRole="link"
+      accessibilityLabel={`${text}, 원본 보기`}
+      style={[styles.metaRow, styles.sourceRow]}
+    >
+      <AppIcon name="document" size={15} color={colors.text.secondary} />
+      <AppText role="label" tone="secondary" style={styles.flexShrink}>
+        {text}
+      </AppText>
+      <AppIcon name="external" size={13} color={colors.text.secondary} />
+    </AppPressable>
+  );
+}
+
+const SOURCE_NAME: Record<NonNullable<CourseDetail['source']>['kind'], string> = {
+  OSM: 'OpenStreetMap',
+  DURUNUBI: '한국관광공사 두루누비',
+  GPX: '공개 GPX',
+};
 
 function MetaRow({ icon, text }: { icon: IconName; text: string }) {
   const { colors } = useTheme();
@@ -543,6 +576,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  flexShrink: {
+    flexShrink: 1,
+  },
+  // 누르는 줄도 다른 정보 줄처럼 왼쪽 정렬 (AppPressable 기본은 가운데)
+  sourceRow: {
+    justifyContent: 'flex-start',
   },
   ctaBar: {
     position: 'absolute',
