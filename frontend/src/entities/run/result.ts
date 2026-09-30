@@ -46,6 +46,8 @@ export type RunResult = {
   friendBest: { name: string; timeSec: number } | null;
   // 124장: 이 기록으로 코스 크라운 · 로컬 레전드를 새로 가졌나 (인증된 서버 기록만, legendFinishCount는 그때 완주 수)
   titles?: { crownTaken: boolean; legendTaken: boolean; legendFinishCount: number | null } | null;
+  // 124장 Segment Attack: 이 러닝의 코스 구간 기록 (인증된 서버 기록만). personalBest는 그때 기준, rank · leaderSec는 지금 기준
+  segments?: RunSegmentResult[] | null;
   // CHL-003 이 러닝으로 한 도전 (서버 판정). 서버에 올라가기 전 · 도전이 아니면 없다
   challenge?: Challenge | null;
   // 인터벌 달리기: 달린 인터벌과 구간별 실제 거리 · 시간 (123.2장)
@@ -53,5 +55,7 @@ export type RunResult = {
   // 122.3장 Source Badge: 건강 앱에서 가져온 기록이면 어디서 (달리모로 기록했으면 없다)
   source?: RunSourceInfo | null;
 };
+
+export type RunSegmentResult = { index: number; timeSec: number; previousBestSec: number | null; personalBest: boolean; rank: number; leaderSec: number };
 
 export type RunSourceInfo = { kind: 'APPLE_HEALTH' | 'HEALTH_CONNECT' | 'GARMIN' | 'COROS' | 'GPX_IMPORT'; device: string | null };

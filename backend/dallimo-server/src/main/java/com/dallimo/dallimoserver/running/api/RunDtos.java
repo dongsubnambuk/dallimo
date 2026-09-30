@@ -1,6 +1,7 @@
 package com.dallimo.dallimoserver.running.api;
 
 import com.dallimo.dallimoserver.challenge.api.ChallengeController;
+import com.dallimo.dallimoserver.gamification.application.SegmentService;
 import com.dallimo.dallimoserver.ranking.application.RankingService;
 import com.dallimo.dallimoserver.running.domain.Run;
 import com.dallimo.dallimoserver.running.domain.RunMetrics;
@@ -142,7 +143,8 @@ public final class RunDtos {
     public record VerificationResponse(String status, String failureReason, Double matchRate, Integer recordSeconds,
                                        Integer previousBestSec, Boolean personalBest, String policyVersion,
                                        Integer weeklyRankBefore, Integer weeklyRankAfter, RankingService.FriendBest friendBest,
-                                       Boolean crownTaken, Boolean legendTaken, Integer legendFinishCount) {
+                                       Boolean crownTaken, Boolean legendTaken, Integer legendFinishCount,
+                                       List<SegmentService.RunSegmentResult> segments) {
     }
 
     /** 상세 (GET /runs/{id}): 요약 + 스플릿 + 표시용 경로([위도, 경도]) + 검증(코스 러닝일 때) + 이 Run으로 한 도전(CHL-003) + 인터벌 결과 */

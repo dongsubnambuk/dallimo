@@ -4,7 +4,7 @@ import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { CursorPage } from '@/shared/api/contract';
 
 import { toRunSummary, type RunSummary } from '../history';
-import type { RunResult, RunVerification } from '../result';
+import type { RunResult, RunSegmentResult, RunVerification } from '../result';
 import type { RunMode, RunSplit } from '../types';
 import { verificationReasonText } from '../verificationReason';
 import { RunResultNotFoundError, type NewRunResult, type RunResultRepository } from './runResultRepository';
@@ -49,6 +49,8 @@ type ServerVerification = {
   crownTaken?: boolean | null;
   legendTaken?: boolean | null;
   legendFinishCount?: number | null;
+  // 124장: 이 러닝의 코스 구간 기록
+  segments?: RunSegmentResult[] | null;
 };
 // 인터벌 달리기 구간 결과 (RunDtos.WorkoutStepDto)
 type ServerWorkoutStep = Omit<StepResult, 'elapsedSec'> & { elapsedSeconds: number };
@@ -99,6 +101,7 @@ function verdict(v: ServerVerification | null, status: string) {
       verification === 'verified' && v?.crownTaken != null
         ? { crownTaken: v.crownTaken, legendTaken: v.legendTaken === true, legendFinishCount: v.legendFinishCount ?? null }
         : null,
+    segments: verification === 'verified' ? (v?.segments ?? []) : null,
   };
 }
 

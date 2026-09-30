@@ -18,6 +18,7 @@ import type { RunResult } from '@/entities/run/result';
 import { SourceBadge } from '@/features/import/components/SourceBadge';
 import { RecordState } from '@/features/run-result/components/RecordState';
 import { ResultMap } from '@/features/run-result/components/ResultMap';
+import { SegmentResultList } from '@/features/run-result/components/SegmentResultList';
 import { SplitList } from '@/features/run-result/components/SplitList';
 import { WorkoutStepList } from '@/features/run-result/components/WorkoutStepList';
 import { useRunResult } from '@/features/run-result/useRunResult';
@@ -141,9 +142,19 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
         />
       ) : null}
 
+      {/* 124장 Segment Attack: 코스 구간(약 1km) 기록 */}
+      {r.segments && r.segments.length > 0 ? (
+        <View style={[styles.section, { borderTopColor: colors.border.subtle }]}>
+          <AppText role="sectionTitle" accessibilityRole="header">
+            코스 구간 도전
+          </AppText>
+          <SegmentResultList segments={r.segments} />
+        </View>
+      ) : null}
+
       <View style={[styles.section, { borderTopColor: colors.border.subtle }]}>
         <AppText role="sectionTitle" accessibilityRole="header">
-          {r.workout ? '1km 기록' : '구간 기록'}
+          1km 기록
         </AppText>
         <SplitList splits={r.splits} />
       </View>

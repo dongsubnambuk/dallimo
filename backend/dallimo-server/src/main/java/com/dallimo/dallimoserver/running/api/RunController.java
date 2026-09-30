@@ -7,6 +7,7 @@ import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.ApiResponse;
 import com.dallimo.dallimoserver.common.web.CursorPage;
 import com.dallimo.dallimoserver.gamification.application.CourseTitleService;
+import com.dallimo.dallimoserver.gamification.application.SegmentService;
 import com.dallimo.dallimoserver.running.api.RunDtos.CreateRunRequest;
 import com.dallimo.dallimoserver.running.api.RunDtos.CreateRunResponse;
 import com.dallimo.dallimoserver.running.api.RunDtos.FinishRunRequest;
@@ -54,15 +55,17 @@ public class RunController {
     private final RankingService ranking;
     private final ChallengeService challenges;
     private final CourseTitleService titles;
+    private final SegmentService segments;
     private final Clock clock;
 
     public RunController(RunService runs, CourseVerificationService verification, RankingService ranking, ChallengeService challenges, CourseTitleService titles,
-                         Clock clock) {
+                         SegmentService segments, Clock clock) {
         this.runs = runs;
         this.verification = verification;
         this.ranking = ranking;
         this.challenges = challenges;
         this.titles = titles;
+        this.segments = segments;
         this.clock = clock;
     }
 
@@ -146,9 +149,11 @@ public class RunController {
                             rank == null ? null : rank.before(), rank == null ? null : rank.after(),
                             v.recordSeconds() == null ? null : ranking.friendBest(v.courseId(), r.getUserId()),
                             titleChange == null ? null : titleChange.crownTaken(), titleChange == null ? null : titleChange.legendTaken(),
-                            titleChange == null ? null : titleChange.legendFinishes());
+                            titleChange == null ? null : titleChange.legendFinishes(),
+                            // 124장 Segment Attack: 이 러닝의 구간 기록 (인증된 러닝만)
+                            v.recordId() == null ? List.of() : segments.forRun(v.courseId(), r.getId(), r.getUserId()));
                 })
-                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null, null, null, null, null, null, null));
+                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null, null, null, null, null, null, null, List.of()));
     }
 
     private static long userId(Jwt jwt) {

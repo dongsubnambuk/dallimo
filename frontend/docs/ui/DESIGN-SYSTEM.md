@@ -50,6 +50,7 @@ Spacing
 | PlayModeCard | mode picker | selected/default/locked |
 | RankingRow | ranking | self, friend, podium, nearby |
 | CourseTitleBadge | ranking, course detail | crown(왕관), legend(불꽃) |
+| SegmentAttackBanner | active run (코스) | 구간 도전 중, 처음부터 못 잰 구간, 방금 끝난 구간 |
 | GapIndicator | PB/Challenge/Live | ahead, behind, tied |
 | GpsStatus | Ready/Run | good, fair, poor, unavailable |
 | ParticipantChip | Together | invited, ready, running, disconnected, finished |
