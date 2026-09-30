@@ -32,6 +32,8 @@ yarn-error.*
 
 # local env files
 .env*.local
+# 배포 서버 주소만 들어 있다 (비밀 값 없음)
+!.env.development
 
 # typescript
 *.tsbuildinfo

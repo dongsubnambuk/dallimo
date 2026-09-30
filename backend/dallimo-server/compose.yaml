@@ -24,9 +24,11 @@ services:
       # ── 인증 ──────────────────────────────────────────────────
       # openssl rand -base64 32
       JWT_SECRET: ${JWT_SECRET}
+      # 웹으로 띄운 앱(npx expo start --web)에서 이 서버를 부를 수 있게
+      CORS_ALLOWED_ORIGINS: http://localhost:8081
 
-      # ── 공개 주소 · App Link ────────────────────────────────────
-      SHARE_PUBLIC_BASE_URL: ${SHARE_PUBLIC_BASE_URL}
+      # ── 공개 주소(gamjabox 도메인) · App Link ─────────────────────────
+      SHARE_PUBLIC_BASE_URL: https://dallimo.gamjabox.cloud
       APP_LINK_IOS_APP_IDS: ${APP_LINK_IOS_APP_IDS}
       APP_LINK_ANDROID_PACKAGE: ${APP_LINK_ANDROID_PACKAGE}
       APP_LINK_ANDROID_SHA256: ${APP_LINK_ANDROID_SHA256}

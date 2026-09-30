@@ -41,14 +41,14 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 
 | 이름 | 값 | 읽는 곳 | 없으면 |
 | --- | --- | --- | --- |
-| `EXPO_PUBLIC_API_URL` | 서버 주소. 반드시 `https://` (예: `https://dallimo.app`) | `src/shared/api/config.ts` | **앱이 서버 없이 mock 데이터로만 돈다.** 지금 `eas.json` production에 없다 |
+| `EXPO_PUBLIC_API_URL` | 서버 주소. 반드시 `https://`. **`eas.json` production에 `https://dallimo.gamjabox.cloud`로 넣었다** | `src/shared/api/config.ts` | 앱이 서버 없이 mock 데이터로만 돈다 |
 | `IOS_BUNDLE_ID` | App Store Connect의 번들 ID | `app.config.ts` | 개발용 `com.dallimo.dev`로 빌드된다 |
 | `APPLE_TEAM_ID` | Apple 팀 ID | `app.config.ts` (휴대폰 · 워치 서명) | Xcode에서 팀을 골라야 한다 |
 | `ANDROID_PACKAGE` | Play Console 패키지 이름 | `app.config.ts` | App Link를 쓸 때 패키지가 빠진다 |
-| `APP_LINK_DOMAIN` | 서버 도메인만 (예: `dallimo.app`, `https://` 없이) | `app.config.ts` | 공유 링크 `https://{도메인}/s/{code}`를 눌러도 앱이 바로 열리지 않는다 |
+| `APP_LINK_DOMAIN` | 서버 도메인만(`https://` 없이). **`eas.json` production에 `dallimo.gamjabox.cloud`로 넣었다** | `app.config.ts` | 공유 링크 `https://{도메인}/s/{code}`를 눌러도 앱이 바로 열리지 않는다 |
 
 - 실시간 연결 주소는 `EXPO_PUBLIC_API_URL`에서 만든다(`https` → `wss`, `/ws`). 따로 넣을 값은 없다.
-- `development` · `gps-poc` 프로필은 지금처럼 둔다. 개발 빌드에서 서버를 쓰려면 `frontend/.env.local`의 `EXPO_PUBLIC_API_URL`을 쓴다(`.env.example` 참고).
+- `development` · `gps-poc` 프로필은 지금처럼 둔다. 개발(`npx expo start`)은 `frontend/.env.development`의 배포 서버에 붙는다. 다른 서버나 mock은 `frontend/.env.local`의 `EXPO_PUBLIC_API_URL`로 바꾼다(`.env.example` 참고).
 
 ### 2.3 Android Push (FCM)
 
@@ -76,11 +76,11 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 
 | 앱 (빌드) | 서버 (환경변수) | 예 |
 | --- | --- | --- |
-| `APP_LINK_DOMAIN` | `SHARE_PUBLIC_BASE_URL` | `dallimo.app` ↔ `https://dallimo.app` |
+| `APP_LINK_DOMAIN` | `SHARE_PUBLIC_BASE_URL` | `dallimo.gamjabox.cloud` ↔ `https://dallimo.gamjabox.cloud` (둘 다 넣었다) |
 | `APPLE_TEAM_ID` + `IOS_BUNDLE_ID` | `APP_LINK_IOS_APP_IDS` | `ABCDE12345` + `com.dallimo.app` ↔ `ABCDE12345.com.dallimo.app` |
 | `ANDROID_PACKAGE` | `APP_LINK_ANDROID_PACKAGE` | `com.dallimo.app` |
 | Play Console 앱 서명 키 SHA-256 | `APP_LINK_ANDROID_SHA256` | `AA:BB:…` |
-| `EXPO_PUBLIC_API_URL` | 서버 공개 주소 | `https://dallimo.app` |
+| `EXPO_PUBLIC_API_URL` | 서버 공개 주소 | `https://dallimo.gamjabox.cloud` |
 
 서버는 이 값으로 `/.well-known/apple-app-site-association` · `/.well-known/assetlinks.json`을 준다.
 

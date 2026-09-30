@@ -1273,3 +1273,15 @@ SCR-E02 지역 검색의 주요 요소 "최근 검색"을 넣는다. 탐색 화�
 | 버전 | MySQL 8.4 (개발 · 테스트와 같다) | 버전을 고정해 개발과 운영이 같게 |
 | 테스트 | MySQL 8.4 · MariaDB 11.4 이중 테스트는 그대로 둔다. MariaDB 드라이버도 남긴다 | ADR-004 호환성 확인은 계속, 다시 MariaDB로 바꿀 수 있게 |
 
+## 62. 배포 서버 연결 · 운영 Swagger
+
+사용자 요청: 배포한 서버 주소(`https://dallimo.gamjabox.cloud`, gamjabox)를 앱과 서버에 적용하고, Swagger를 만든다. 56항은 운영에서 API 문서를 끄기로 했었다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 앱 서버 주소 | 개발(`npx expo start`)은 `frontend/.env.development`, production 빌드는 `eas.json`의 `EXPO_PUBLIC_API_URL`. 둘 다 배포 서버. 내 컴퓨터 서버나 mock은 `.env.local`로 바꾼다(비우면 mock) | 사용자 요청. `.env.local`이 `.env.development`보다 먼저라 각자 바꿀 수 있다. `gps-poc` 빌드는 그대로 mock |
+| App Link 도메인 | production 빌드 `APP_LINK_DOMAIN=dallimo.gamjabox.cloud`, 서버 `SHARE_PUBLIC_BASE_URL=https://dallimo.gamjabox.cloud`(compose) | 둘이 같아야 공유 링크가 앱을 연다(`APP-RELEASE-SETUP` 3장). 앱 id(`APP_LINK_IOS_APP_IDS` 등)는 스토어 등록 뒤 넣는다 |
+| Swagger | 운영에서도 `/swagger-ui.html`과 `/v3/api-docs`를 연다. 누구나 볼 수 있다. 호출은 지금처럼 토큰 · 관리 키가 있어야 한다. 입력한 토큰은 새로 고침해도 유지 | 사용자 요청. 56항의 "운영에서 끈다"를 바꾼다. 서버 주소는 `/`라 Swagger가 같은 서버로 보낸다 |
+| 운영 CORS | `CORS_ALLOWED_ORIGINS`(쉼표로 여럿). compose는 `http://localhost:8081` | 웹으로 띄운 앱에서 배포 서버를 부를 수 있게. Bearer 토큰 방식이라 쿠키가 없다. 휴대폰 앱은 CORS와 상관없다 |
+| 확인한 것 | 서버 전체 빌드 · 테스트. prod jar를 MySQL 8.4 · Redis에 띄워 `/swagger-ui.html` 200, Swagger에서 가입 Try it out → 201, `/` 401. Expo가 개발 모드에서 `.env.development`를 읽고 production 모드에서는 읽지 않음. `tsc` · `expo lint` 통과. 배포 서버 `GET /api/v1/courses/nearby` 200(코스 0개) | |
+

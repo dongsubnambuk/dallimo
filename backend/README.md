@@ -35,7 +35,8 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 - 컨트롤러에서 만든 OpenAPI 3.1 문서(springdoc)를 저장소 루트 `docs/api/openapi.yaml`에 둔다. `/api/**`만 넣는다(공유 페이지 `/s/{code}` · actuator 제외).
 - **API를 바꾸면** `OpenApiContractTest`가 실패한다. 다시 만들기: `./gradlew test --tests '*OpenApiContractTest' -Dopenapi.update=true` (Docker 필요) → 바뀐 `openapi.yaml`을 같은 PR에 넣는다. 문서만 손으로 고쳐도 테스트가 다시 돌아 알려 준다.
 - 인증 방식은 `SecurityConfig`의 공개 API 목록을 그대로 쓴다: 공개(토큰 있으면 내 정보) · `bearerAuth`(Access Token) · `adminKey`(`X-Admin-Key`, 관리 API). 묶음 이름은 명세 장(예: "Run (42장)"), 새 컨트롤러는 `OpenApiConfig.TAGS`에 넣는다(빠지면 테스트 실패).
-- 로컬 · 개발 서버에서 `GET /v3/api-docs`(JSON) · `/v3/api-docs.yaml`. 운영(prod)은 끈다.
+- `GET /v3/api-docs`(JSON) · `/v3/api-docs.yaml`, Swagger UI `/swagger-ui.html`. 운영에서도 연다(결정 로그 62항): https://dallimo.gamjabox.cloud/swagger-ui.html
+- Swagger에서 인증이 필요한 API는 오른쪽 위 Authorize에 Access Token(`bearerAuth`) · 관리 키(`adminKey`)를 넣는다. 요청은 운영 DB에 그대로 반영된다.
 - 실시간(8장 · 46장 STOMP 메시지)은 OpenAPI로 적을 수 없어 이 문서에 없다(`MOCK-CONTRACT-CHECK` 7항).
 
 ## 프로필 (명세 15.3장)
@@ -44,7 +45,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | --- | --- | --- |
 | dev (기본) | 각자 준비한 MySQL · Redis (위 "로컬 실행") | `application-dev.yaml`. 기본값이 들어 있고 환경변수로 바꿀 수 있다. Push · 메일은 기본으로 로그만 |
 | test | Testcontainers | 테스트가 넣는다 |
-| prod | MySQL (`DB_DRIVER=mysql` 기본) | 아래 환경변수. `/v3/api-docs`는 끈다 |
+| prod | MySQL (`DB_DRIVER=mysql` 기본) | 아래 환경변수. gamjabox 배포는 `compose.yaml` + 환경변수 파일 `.env` |
 
 비밀 값(DB · JWT · Push · 인증키)은 저장소에 넣지 않습니다.
 
