@@ -97,6 +97,7 @@
 | POST · DELETE /courses/{id}/bookmarks | `setBookmark(id, saved)` | 서버 구현 | 204. 여러 번 보내도 같다 |
 | GET /courses/{id}/rankings `scope, period, cursor, size` | `RankingRepository.getPage(query)` → `httpRankingRepository` | 서버 구현 | scope `ALL · FRIENDS`, period `ALL · WEEKLY · MONTHLY`(한국 시간 월요일 · 1일 0시). 응답 항목: `rank, userId, name, timeSec, paceSecPerKm, relation(self · friend · normal), isPB`. 친구 랭킹은 나 + 친구 안에서 순위(친구가 없으면 나 혼자) |
 | GET /courses/{id}/rankings/me `scope, period` | `getMyStanding(courseId, scope, period)` → `{ total, entry, around }` | 명세 없음 · 서버 구현 | RNK-005. 43장 표에 경로가 없어 정했다. 내 위아래 두 명 |
+| GET /courses/{id}/crown · /local-legend | `RankingRepository.getTitles(courseId)` → 코스 상세 · 랭킹 `CourseTitlesCard`, 랭킹 줄 `CourseTitleBadge` | 서버 구현 (126장 경로, 응답 모양은 명세 없음) | 124장. 최근 90일, 레전드 2번 이상. 러닝 상세 `verification { crownTaken, legendTaken, legendFinishCount }` → 결과 화면, 활동 `CROWN · LEGEND`(`finishCount`) |
 | GET /users/me/courses?kind=CREATED·SAVED·FINISHED | `getMine(kind)` | 명세 없음 · 서버 구현 | MY-005. 명세 표에 경로가 없어 정했다. 완주는 공식 기록(tbl_course_record)이 있는 코스 |
 | POST /courses/{id}/reviews · reports | `writeReview()` · `getReviews()` · `deleteReview()` · `report()` | 서버 구현 | REV-001, CREG-005. 목록 · 지우기 경로는 명세 표에 없어 더했다 |
 
@@ -219,3 +220,4 @@
 27. 인터벌 API 모양: 126장은 경로만 있다(`GET · POST /workouts`, `GET · PUT /workouts/{id}`, `POST /workouts/{id}/duplicate`). 지우기(`DELETE /workouts/{id}`), 목록 응답의 `lastRunAt · runCount`, 추천 템플릿은 앱에 둔 것, Run의 `workout` · `workoutSteps` · 목록 `mode` 필터, 버전별 구간(`template_version`) · 구간 결과 테이블을 서버 · 앱이 정했다. 명세에 넣어야 한다
 29. 외부 기록 가져오기 API 모양: 126장은 경로만 있다. 후보 확인(`POST /imported-activities/check`), 가져오기 요청 · 응답, 연동 목록 응답, Run의 source 필드 응답, 가져오기 기록부(`tbl_activity_import`) · Run 유일 키에 user_id를 넣은 것, 가져온 기록 검증 정책(`2026-09-imp-v1`)을 서버 · 앱이 정했다. `/integrations/{provider}/sync`는 만들지 않았다. 명세에 넣어야 한다
 30. Apple Watch(WATCH-001~004): 명세에 워치 흐름 · 메시지가 없다(5장 P2). 휴대폰이 기록하고 워치는 보여 주기 · 조작 · 심박만 맡는 것으로 정했다(결정 로그 48항). 심박은 아직 서버에 보내지 않는다. 심박을 기록 · 결과에 남길지 정해야 한다
+31. 코스 크라운 · 로컬 레전드(124장): "최근 기간" 값이 없어 90일, 레전드 최소 2번, 같은 값이면 먼저 세운 · 먼저 채운 사람으로 정했다. 응답 모양 · 러닝 상세 필드 · 활동 종류를 서버 · 앱이 정했다. 명세에 넣어야 한다

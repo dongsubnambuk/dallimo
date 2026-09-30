@@ -27,3 +27,27 @@ export type MyStanding = {
   // 내 순위 바로 위·아래 사용자 (나 포함)
   around: RankingEntry[];
 };
+
+// 124장 코스 타이틀 (126장 GET /courses/{id}/crown · /local-legend). 최근 90일 검증 기록만 센다.
+// Crown은 기록, Local Legend는 반복 참여를 보상한다 (둘을 합치지 않는다)
+export type TitleHolder = { userId: string; name: string; profileImageUrl: string | null; relation: 'self' | 'friend' | 'normal' };
+
+export type CourseCrown = {
+  periodDays: number;
+  holder: TitleHolder | null;
+  timeSec: number | null;
+  paceSecPerKm: number | null;
+  // 기간 안 내 최고 기록과 크라운까지 남은 초 (내 기록이 없거나 비회원이면 null)
+  me: { bestSec: number; gapSec: number; holder: boolean } | null;
+};
+
+export type LocalLegend = {
+  periodDays: number;
+  minFinishes: number;
+  holder: TitleHolder | null;
+  finishCount: number | null;
+  // needed: 레전드가 되려면 더 달려야 하는 횟수 (지금 기준, 비회원이면 me null)
+  me: { finishCount: number; needed: number; holder: boolean } | null;
+};
+
+export type CourseTitles = { crown: CourseCrown; legend: LocalLegend };

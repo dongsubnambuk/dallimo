@@ -21,6 +21,7 @@ type Dto = {
   targetNickname: string | null;
   targetSec: number | null;
   targetIsMe: boolean;
+  finishCount?: number | null;
 };
 
 const toActivity = (a: Dto): Activity => ({
@@ -34,6 +35,7 @@ const toActivity = (a: Dto): Activity => ({
   timeSec: a.timeSec,
   previousSec: a.previousSec,
   rank: a.rank,
+  finishCount: a.finishCount ?? null,
   target: a.targetNickname != null && a.targetSec != null ? { nickname: a.targetNickname, timeSec: a.targetSec, isMe: a.targetIsMe } : null,
 });
 

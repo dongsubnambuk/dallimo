@@ -5,6 +5,8 @@ import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { EMPTY_VALUE, formatCount, formatDuration, formatPace } from '@/shared/format';
 
+import { COURSE_TITLE_LABEL, CourseTitleBadge, type CourseTitleKind } from '../CourseTitleBadge';
+
 export type RankingRelation = 'normal' | 'self' | 'friend';
 
 export type RankingRowProps = {
@@ -18,6 +20,8 @@ export type RankingRowProps = {
   isPB?: boolean;
   // 이전 대비 순위 변화. 양수면 상승.
   rankChange?: number;
+  // 124장: 이 사람이 가진 코스 타이틀 (크라운 · 로컬 레전드)
+  titles?: CourseTitleKind[];
   style?: StyleProp<ViewStyle>;
 };
 
@@ -34,6 +38,7 @@ export function RankingRow({
   relation = 'normal',
   isPB = false,
   rankChange,
+  titles = [],
   style,
 }: RankingRowProps) {
   const { colors } = useTheme();
@@ -49,6 +54,7 @@ export function RankingRow({
     name,
     isSelf ? '나' : relation === 'friend' ? '친구' : null,
     isPB ? '개인 최고 기록' : null,
+    ...titles.map((t) => COURSE_TITLE_LABEL[t]),
     time,
     rankChange ? `${Math.abs(rankChange)}계단 ${rankChange > 0 ? '상승' : '하락'}` : null,
   ]
@@ -81,6 +87,9 @@ export function RankingRow({
         {isSelf ? <Pill text="나" filled="ink" /> : null}
         {isPB ? <Pill text="PB" filled="signal" /> : null}
         {relation === 'friend' ? <Pill text="친구" /> : null}
+        {titles.map((t) => (
+          <CourseTitleBadge key={t} kind={t} />
+        ))}
       </View>
       {rankChange ? (
         <View style={styles.change}>

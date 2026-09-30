@@ -230,6 +230,16 @@ function Competition({ result: r }: { result: RunResult }) {
     <View style={[styles.card, { backgroundColor: colors.bg.surface }]}>
       <StatRow label="내 PB" value={pb} accent={verified && !!r.pb?.improved} muted={pb === waiting} />
       <StatRow label="이번 주 순위" value={rank} accent={!!rankUp} muted={rank === waiting} icon={rankUp ? 'rankUp' : undefined} />
+      {/* 124장: 이 기록으로 코스 크라운(최근 90일 최고 기록) · 로컬 레전드(최근 90일 최다 완주)를 가졌을 때 */}
+      {verified && r.titles?.crownTaken ? <StatRow label="코스 크라운" value="차지했어요" accent icon="crown" /> : null}
+      {verified && r.titles?.legendTaken ? (
+        <StatRow
+          label="로컬 레전드"
+          value={r.titles.legendFinishCount != null ? `${r.titles.legendFinishCount}번째 완주로 레전드` : '레전드가 됐어요'}
+          accent
+          icon="legend"
+        />
+      ) : null}
       {r.challenge ? <ChallengeRow challenge={r.challenge} /> : null}
       {r.friendBest && friendDiff != null ? (
         <StatRow

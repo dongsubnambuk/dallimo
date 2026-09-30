@@ -16,6 +16,8 @@ import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, OBLIQUE_SKEW, radius, spacing, touchTarget, typography } from '@/design/tokens';
 import { formatCount, formatDistanceKm } from '@/shared/format';
 import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
+import { CourseTitlesCard } from '@/features/ranking/components/CourseTitlesCard';
+import { useCourseTitles } from '@/features/ranking/useCourseTitles';
 
 import { CompetitionCard } from './components/CompetitionCard';
 import { CourseRouteMap } from './components/CourseRouteMap';
@@ -158,6 +160,9 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
         <CompetitionCard course={course} />
       </View>
 
+      {/* 124장 코스 크라운 · 로컬 레전드 */}
+      <CourseTitlesSection courseId={course.id} />
+
       <Section title="이번 주 랭킹" note="인증된 기록만 반영돼요">
         {comp ? (
           comp.weeklyTop.length > 0 ? (
@@ -289,6 +294,22 @@ function BigStat({ label, value, unit, plain }: { label: string; value: string; 
         {label}
       </AppText>
     </View>
+  );
+}
+
+function CourseTitlesSection({ courseId }: { courseId: string }) {
+  const titles = useCourseTitles(courseId);
+  if (titles.isPending) return null;
+  return (
+    <Section title="코스 타이틀" note="인증된 기록만 세요">
+      {titles.data ? (
+        <CourseTitlesCard titles={titles.data} />
+      ) : (
+        <AppText role="body" tone="secondary">
+          코스 크라운 · 로컬 레전드를 불러오지 못했어요.
+        </AppText>
+      )}
+    </Section>
   );
 }
 

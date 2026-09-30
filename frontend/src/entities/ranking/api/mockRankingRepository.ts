@@ -1,7 +1,7 @@
 import { createMockCourseRepository } from '@/entities/course/api/mockCourseRepository';
 import type { CourseDetail } from '@/entities/course/types';
 
-import type { MyStanding, RankingEntry, RankingPage, RankingPeriod, RankingQuery, RankingScope } from '../types';
+import type { CourseTitles, MyStanding, RankingEntry, RankingPage, RankingPeriod, RankingQuery, RankingScope } from '../types';
 import { RankingRepositoryError, type RankingRepository } from './rankingRepository';
 
 // 개발 빌드에서 랭킹 상태를 만들어 QA하기 위한 값 (SCREEN-SPECS Ranking: loading, empty, user unranked, self visible, cursor loading).
@@ -101,6 +101,34 @@ export function createMockRankingRepository(scenario: RankingScenario): RankingR
       if (!b.me) return { total: b.entries.length, entry: null, around: [] };
       const i = b.me.rank - 1;
       return { total: b.entries.length, entry: b.me, around: b.entries.slice(Math.max(0, i - 2), i + 3) };
+    },
+    // 크라운: 최근 기간 순위표 1위(이번 달 순위표로 흉내). 레전드: 호수를 자주 도는 이웃 러너
+    async getTitles(courseId): Promise<CourseTitles> {
+      if (scenario === 'loading') return new Promise(() => {});
+      await wait(DELAY_MS);
+      if (scenario === 'error') throw new RankingRepositoryError('랭킹 서버에 연결하지 못했어요');
+      const b = await board(courseId, 'all', 'monthly');
+      const d = await courses.getDetail(courseId).catch(() => null);
+      const top = b.entries[0] ?? null;
+      const mine = scenario === 'unranked' || scenario === 'empty' ? 0 : (d?.myRecord?.finishCount ?? 0);
+      const legendCount = top ? Math.max(12, mine + 3) : null;
+      const holder = (e: RankingEntry) => ({ userId: e.userId, name: e.name, profileImageUrl: null, relation: e.relation });
+      return {
+        crown: {
+          periodDays: 90,
+          holder: top ? holder(top) : null,
+          timeSec: top?.timeSec ?? null,
+          paceSecPerKm: top?.paceSecPerKm ?? null,
+          me: top && b.me ? { bestSec: b.me.timeSec, gapSec: Math.max(0, b.me.timeSec - top.timeSec), holder: b.me.userId === top.userId } : null,
+        },
+        legend: {
+          periodDays: 90,
+          minFinishes: 2,
+          holder: legendCount ? { userId: 'u-legend', name: '호수한바퀴', profileImageUrl: null, relation: 'normal' } : null,
+          finishCount: legendCount,
+          me: { finishCount: mine, needed: legendCount ? legendCount - mine + 1 : Math.max(1, 2 - mine), holder: false },
+        },
+      };
     },
   };
 }

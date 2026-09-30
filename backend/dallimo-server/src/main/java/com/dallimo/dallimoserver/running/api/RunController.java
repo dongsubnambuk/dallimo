@@ -6,6 +6,7 @@ import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.web.ApiResponse;
 import com.dallimo.dallimoserver.common.web.CursorPage;
+import com.dallimo.dallimoserver.gamification.application.CourseTitleService;
 import com.dallimo.dallimoserver.running.api.RunDtos.CreateRunRequest;
 import com.dallimo.dallimoserver.running.api.RunDtos.CreateRunResponse;
 import com.dallimo.dallimoserver.running.api.RunDtos.FinishRunRequest;
@@ -52,13 +53,16 @@ public class RunController {
     private final CourseVerificationService verification;
     private final RankingService ranking;
     private final ChallengeService challenges;
+    private final CourseTitleService titles;
     private final Clock clock;
 
-    public RunController(RunService runs, CourseVerificationService verification, RankingService ranking, ChallengeService challenges, Clock clock) {
+    public RunController(RunService runs, CourseVerificationService verification, RankingService ranking, ChallengeService challenges, CourseTitleService titles,
+                         Clock clock) {
         this.runs = runs;
         this.verification = verification;
         this.ranking = ranking;
         this.challenges = challenges;
+        this.titles = titles;
         this.clock = clock;
     }
 
@@ -135,12 +139,16 @@ public class RunController {
         return verification.summary(r.getId())
                 .map(v -> {
                     RankingService.RankChange rank = v.recordId() == null ? null : ranking.weeklyChange(v.courseId(), r.getUserId(), v.recordId(), v.recordedAt());
+                    // 124장: 이 기록으로 코스 크라운 · 로컬 레전드가 됐는가 (기록한 순간 기준)
+                    CourseTitleService.TitleChange titleChange = v.recordId() == null ? null : titles.change(v.courseId(), r.getUserId(), v.recordId(), v.recordedAt());
                     return new VerificationResponse(r.getVerificationStatus(), v.failureReason(), v.matchRate(), v.recordSeconds(), v.previousBestSec(),
                             v.recordSeconds() == null ? null : v.previousBestSec() == null || v.recordSeconds() < v.previousBestSec(), v.policyVersion(),
                             rank == null ? null : rank.before(), rank == null ? null : rank.after(),
-                            v.recordSeconds() == null ? null : ranking.friendBest(v.courseId(), r.getUserId()));
+                            v.recordSeconds() == null ? null : ranking.friendBest(v.courseId(), r.getUserId()),
+                            titleChange == null ? null : titleChange.crownTaken(), titleChange == null ? null : titleChange.legendTaken(),
+                            titleChange == null ? null : titleChange.legendFinishes());
                 })
-                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null, null, null, null));
+                .orElse(new VerificationResponse(r.getVerificationStatus(), null, null, null, null, null, null, null, null, null, null, null, null));
     }
 
     private static long userId(Jwt jwt) {

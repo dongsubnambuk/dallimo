@@ -22,6 +22,8 @@ const ICON: Record<ActivityType, IconName> = {
   WEEKLY_TOP: 'rankUp',
   CHALLENGE_WON: 'modeRival',
   COURSE_CREATED: 'map',
+  CROWN: 'crown',
+  LEGEND: 'legend',
 };
 
 // SCR-M06 친구 활동 (ACT-001~002). 행동형 피드: PB · 코스 등록 · 도전 성공 · 이번 주 랭킹.

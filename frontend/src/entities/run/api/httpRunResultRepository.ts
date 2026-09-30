@@ -45,6 +45,10 @@ type ServerVerification = {
   weeklyRankAfter: number | null;
   // 이 코스 친구 최고 기록 (RST-004)
   friendBest?: { userId: number; name: string; timeSec: number } | null;
+  // 124장: 이 기록으로 코스 크라운 · 로컬 레전드가 됐나
+  crownTaken?: boolean | null;
+  legendTaken?: boolean | null;
+  legendFinishCount?: number | null;
 };
 // 인터벌 달리기 구간 결과 (RunDtos.WorkoutStepDto)
 type ServerWorkoutStep = Omit<StepResult, 'elapsedSec'> & { elapsedSeconds: number };
@@ -91,6 +95,10 @@ function verdict(v: ServerVerification | null, status: string) {
     pb: verification === 'verified' && v?.personalBest != null ? { previousSec: v.previousBestSec, improved: v.personalBest } : null,
     weeklyRank: verification === 'verified' && v?.weeklyRankAfter != null ? { before: v.weeklyRankBefore, after: v.weeklyRankAfter } : null,
     friendBest: verification === 'verified' && v?.friendBest ? { name: v.friendBest.name, timeSec: v.friendBest.timeSec } : null,
+    titles:
+      verification === 'verified' && v?.crownTaken != null
+        ? { crownTaken: v.crownTaken, legendTaken: v.legendTaken === true, legendFinishCount: v.legendFinishCount ?? null }
+        : null,
   };
 }
 

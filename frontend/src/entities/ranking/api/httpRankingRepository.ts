@@ -1,7 +1,7 @@
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { CursorPage } from '@/shared/api/contract';
 
-import type { MyStanding, RankingEntry, RankingPeriod, RankingScope } from '../types';
+import type { CourseTitles, MyStanding, RankingEntry, RankingPeriod, RankingScope, TitleHolder } from '../types';
 import { RankingRepositoryError, type RankingRepository } from './rankingRepository';
 
 // 43장 GET /api/v1/courses/{id}/rankings (RNK-001~004)와 /rankings/me (RNK-005).
@@ -20,6 +20,12 @@ export type RankingEntryDto = {
 export function toRankingEntry(e: RankingEntryDto): RankingEntry {
   return { rank: e.rank, userId: String(e.userId), name: e.name, timeSec: e.timeSec, paceSecPerKm: e.paceSecPerKm, relation: e.relation, isPB: e.isPB };
 }
+
+type HolderDto = { userId: number; name: string; profileImageUrl: string | null; relation: TitleHolder['relation'] };
+type CrownDto = { periodDays: number; holder: HolderDto | null; timeSec: number | null; paceSecPerKm: number | null; me: { bestSec: number; gapSec: number; holder: boolean } | null };
+type LegendDto = { periodDays: number; minFinishes: number; holder: HolderDto | null; finishCount: number | null; me: { finishCount: number; needed: number; holder: boolean } | null };
+
+const toHolder = (h: HolderDto | null): TitleHolder | null => (h ? { userId: String(h.userId), name: h.name, profileImageUrl: h.profileImageUrl, relation: h.relation } : null);
 
 const PERIOD: Record<RankingPeriod, string> = { all: 'ALL', weekly: 'WEEKLY', monthly: 'MONTHLY' };
 const SCOPE: Record<RankingScope, string> = { all: 'ALL', friends: 'FRIENDS' };
@@ -50,6 +56,18 @@ export function createHttpRankingRepository(): RankingRepository {
         });
         const standing: MyStanding = { total: s.total, entry: s.entry ? toRankingEntry(s.entry) : null, around: s.around.map(toRankingEntry) };
         return standing;
+      }),
+
+    // 124장 GET /courses/{id}/crown · /local-legend
+    getTitles: (courseId) =>
+      call(async () => {
+        const base = `/api/v1/courses/${encodeURIComponent(courseId)}`;
+        const [c, l] = await Promise.all([apiRequest<CrownDto>(`${base}/crown`), apiRequest<LegendDto>(`${base}/local-legend`)]);
+        const titles: CourseTitles = {
+          crown: { periodDays: c.periodDays, holder: toHolder(c.holder), timeSec: c.timeSec, paceSecPerKm: c.paceSecPerKm, me: c.me },
+          legend: { periodDays: l.periodDays, minFinishes: l.minFinishes, holder: toHolder(l.holder), finishCount: l.finishCount, me: l.me },
+        };
+        return titles;
       }),
   };
 }
