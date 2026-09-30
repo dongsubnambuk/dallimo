@@ -32,6 +32,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.flywaydb:flyway-mysql'
+    // 57장 API Contract(docs/api/openapi.yaml): 컨트롤러에서 OpenAPI 문서를 만든다 (UI 없이 JSON · YAML만)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.1'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.mysql:mysql-connector-j'
@@ -60,6 +62,10 @@ tasks.named('test') {
     useJUnitPlatform()
     // 40.4장: 서버 기준 시간은 UTC
     systemProperty 'user.timezone', 'UTC'
+    // 57장 API Contract: -Dopenapi.update=true면 docs/api/openapi.yaml을 다시 만든다 (OpenApiContractTest)
+    systemProperty 'openapi.update', System.getProperty('openapi.update', 'false')
+    // 문서만 바뀌어도 테스트를 다시 돌린다 (바뀌지 않은 것으로 보고 건너뛰지 않게)
+    inputs.files(file('../../docs/api/openapi.yaml')).withPropertyName('openApiContract')
 }
 
 tasks.named('bootRun') {

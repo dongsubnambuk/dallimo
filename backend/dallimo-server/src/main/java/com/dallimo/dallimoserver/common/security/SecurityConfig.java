@@ -46,6 +46,12 @@ import java.util.List;
 @EnableConfigurationProperties(AuthProperties.class)
 public class SecurityConfig {
 
+    // 토큰 없이 부를 수 있는 API. OpenAPI 문서(OpenApiConfig)도 이 목록으로 인증 방식을 적는다
+    public static final String[] PUBLIC_API_POST = {"/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh"};
+    // 43장 코스 조회는 로그인 없이도 (User/Optional, 토큰이 있으면 내 기록 · 저장 여부를 함께 준다). SHR-004 공유 링크 해석도 로그인 없이
+    public static final String[] PUBLIC_API_GET = {"/api/v1/users/nickname-availability", "/api/v1/courses/**", "/api/v1/shares/*"};
+    public static final String ADMIN_API = "/api/v1/admin/**";
+
     // 서버와 기기 시계가 조금 어긋나도 막 만든 토큰을 거절하지 않도록
     private static final Duration CLOCK_SKEW = Duration.ofSeconds(30);
 
@@ -64,12 +70,10 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/users/nickname-availability").permitAll()
-                        // 43장 코스 조회는 로그인 없이도 (User/Optional). 토큰이 있으면 내 기록 · 저장 여부를 함께 준다
-                        .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
-                        // SHR-004 공유 링크 해석 · 공유 페이지는 로그인 없이
-                        .requestMatchers(HttpMethod.GET, "/api/v1/shares/*", "/s/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, PUBLIC_API_POST).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_API_GET).permitAll()
+                        // SHR-004 공유 페이지는 로그인 없이
+                        .requestMatchers(HttpMethod.GET, "/s/*").permitAll()
                         // 올린 프로필 사진 (친구 · 랭킹에서 보인다, 주소는 추측할 수 없는 uuid)
                         .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
                         // App Link · Universal Link 확인 파일
@@ -77,7 +81,9 @@ public class SecurityConfig {
                         // 8장 WebSocket 연결. 인증은 STOMP CONNECT의 Access Token으로 한다 (StompAuthInterceptor)
                         .requestMatchers("/ws", "/ws/**").permitAll()
                         // 관리 API(외부 추천 코스 · 코스 신고 검토): 사용자 토큰 대신 X-Admin-Key로 컨트롤러가 확인한다 (AdminKeyGuard)
-                        .requestMatchers("/api/v1/admin/**").permitAll()
+                        .requestMatchers(ADMIN_API).permitAll()
+                        // 57장 API 계약 문서 (운영 프로필에서는 끈다, springdoc.api-docs.enabled)
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o

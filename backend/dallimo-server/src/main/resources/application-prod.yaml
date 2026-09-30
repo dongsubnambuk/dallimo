@@ -10,6 +10,11 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+# API 문서는 운영에서 열지 않는다 (저장소의 docs/api/openapi.yaml을 본다)
+springdoc:
+  api-docs:
+    enabled: false
+
 management:
   endpoint:
     health:
