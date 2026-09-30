@@ -37,6 +37,8 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.mysql:mysql-connector-j'
+    // 15.2장 운영 DB MariaDB (DB_DRIVER=mariadb). 개발 MySQL은 위 드라이버
+    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
@@ -52,7 +54,6 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers-mysql'
     // 13.1장 · ADR-004: 운영(MariaDB)과 같은 DB로 migration · SQL 호환을 CI에서 확인한다
     testImplementation 'org.testcontainers:testcontainers-mariadb'
-    testRuntimeOnly 'org.mariadb.jdbc:mariadb-java-client'
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'

@@ -45,15 +45,36 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | 프로필 | DB | 접속 정보 |
 | --- | --- | --- |
 | local (기본) | docker compose MySQL · Redis | `application-local.yaml` (로컬 전용 값, `DB_USERNAME` · `DB_PASSWORD`로 덮어쓰기 가능) |
-| dev | MySQL | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD`, Push `EXPO_ACCESS_TOKEN`(선택) |
+| dev | MySQL (`DB_DRIVER=mysql` 기본) | 아래 환경변수 |
 | test | Testcontainers | 테스트가 넣는다 |
-| prod | MariaDB | 환경변수 `DB_URL` · `DB_USERNAME` · `DB_PASSWORD`, Redis `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD`, Push `EXPO_ACCESS_TOKEN`(선택) |
+| prod | MariaDB (`DB_DRIVER=mariadb` 기본) | 아래 환경변수. `/v3/api-docs`는 끈다 |
 
-관리 API(모든 프로필, 선택): `ADMIN_API_KEY`(예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) · 신고 자동 숨김 기준 `COURSE_AUTO_HIDE_REPORTS`(기본 3)
+비밀 값(DB · JWT · Push · 인증키)은 저장소에 넣지 않습니다.
 
-외부 추천 코스(모든 프로필, 선택): `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` (아래 "외부 추천 코스")
+### 배포 환경변수 (dev · prod)
 
-비밀 값(DB · OAuth · Push · S3)은 저장소에 넣지 않습니다.
+| 이름 | 필수 | 설명 |
+| --- | --- | --- |
+| `SPRING_PROFILES_ACTIVE` | 예 | `prod`(운영) · `dev`(개발 서버) |
+| `DB_HOST` · `DB_PORT` · `DB_NAME` | 예(기본 localhost · 3306 · dallimo) | 서버가 `jdbc:{DB_DRIVER}://{DB_HOST}:{DB_PORT}/{DB_NAME}?createDatabaseIfNotExist=true`를 만든다. 주소를 통째로 주려면 `DB_URL` |
+| `DB_USERNAME` · `DB_PASSWORD` | 예 | DB 계정. DB가 없으면 만들 권한(CREATE)이 있어야 한다. 이미 있으면 그 DB의 테이블을 만들 권한 |
+| `DB_DRIVER` | 아니오 | `mariadb`(prod 기본) · `mysql`(dev 기본) |
+| `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD` | 예 · 아니오 · 아니오 | 실시간 상태 (ADR-005) |
+| `JWT_SECRET` | 예 | Base64 32바이트 이상 (`openssl rand -base64 32`) |
+| `EXPO_ACCESS_TOKEN` | 아니오 | Expo Push "Enhanced push security"를 켰을 때 |
+| `STORAGE_LOCAL_DIR` · `STORAGE_PUBLIC_BASE_URL` | 아니오 | 프로필 사진 저장 폴더 · 공개 주소 (R2로 바꾸기 전) |
+| `SHARE_PUBLIC_BASE_URL` · `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` | 아니오(prod) | 공유 링크 주소 · App Link |
+| `ADMIN_API_KEY` | 아니오 | 관리 API 키. 없으면 관리 API가 닫힌다 (예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) |
+| `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
+| `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
+
+### DB · 스키마
+
+- **테이블은 서버가 시작할 때 만든다.** Flyway가 `db/migration`의 V1~V16을 적용한다(이미 적용한 것은 건너뛴다). SQL을 따로 실행하지 않는다. JPA는 `ddl-auto: validate`로 엔티티와 스키마가 맞는지만 본다(테이블 29개 중 JPA 엔티티는 5개이고 나머지는 JDBC로 쓴다. `ddl-auto`로는 테이블 · 유니크 키 · 인덱스를 만들 수 없다).
+- **빈 DB 서버**에도 붙는다: DB가 없으면 만들고(`createDatabaseIfNotExist`), DB 기본 문자셋이 utf8mb4가 아니면 마이그레이션 전에 utf8mb4로 바꾼다(`Utf8mb4MigrationStrategy`, 한글 닉네임 · 코스 이름). 바꿀 권한이 없으면 실행할 SQL을 알려 주고 시작하지 않는다.
+- DB 세션 시간대는 UTC(`SET time_zone = '+00:00'`), 서버 JVM도 UTC.
+- MariaDB 드라이버는 접속 주소에 비밀번호를 넣는다. Hibernate가 시작할 때 이 주소를 찍어서 그 로그(`org.hibernate.orm.connections.pooling`)는 끈다.
+- 확인: `Latin1MariaDbSchemaTest`(서버 기본 문자셋이 latin1인 MariaDB → utf8mb4 테이블 · 한글 저장 · 로그에 비밀번호 없음). 운영과 같게 prod 프로필 jar를 빈 MariaDB 11.4(latin1)에 `DB_HOST` · `DB_NAME` · 계정만 주고 띄워 DB 생성 · 테이블 30개(Flyway 기록 포함) · 한글 가입 · `/v3/api-docs` 404를 확인했다.
 
 ## 인증 (사용자 결정: 이메일 · 비밀번호 · 닉네임, 소셜 로그인 없음)
 
