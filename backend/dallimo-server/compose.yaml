@@ -1,5 +1,6 @@
 # 운영 배포용 (gamjabox). 로컬 개발에는 쓰지 않는다 (결정 로그 59항)
-# 비밀 값은 여기 적지 않는다. 같은 폴더의 .env(저장소에 올리지 않는다)나 배포 환경변수로 넣는다. 키 설명은 .env.example
+# 비밀 값(DB_PASSWORD · DB_ROOT_PASSWORD · JWT_SECRET · ADMIN_API_KEY)은 여기 적지 않는다. 배포 도구의 환경변수 파일(.env)로 넣는다. 키 설명은 .env.example
+# 배포 도구가 compose를 검증할 때는 .env가 없어서 필수 표시(:?)를 쓰지 않는다. 값이 없으면 MySQL · 서버가 시작하지 않는다
 services:
   dallimo-server:
     build: .
@@ -15,14 +16,14 @@ services:
       DB_PORT: 3306
       DB_NAME: dallimo
       DB_USERNAME: dallimo
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 필요}
+      DB_PASSWORD: ${DB_PASSWORD:-}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
 
       # ── 인증 ──────────────────────────────────────────────────
       # openssl rand -base64 32
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 필요}
+      JWT_SECRET: ${JWT_SECRET:-}
 
       # ── 공개 주소 · App Link ────────────────────────────────────
       SHARE_PUBLIC_BASE_URL: ${SHARE_PUBLIC_BASE_URL:-}
@@ -55,8 +56,8 @@ services:
     environment:
       MYSQL_DATABASE: dallimo
       MYSQL_USER: dallimo
-      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 필요}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD 필요}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-}
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
