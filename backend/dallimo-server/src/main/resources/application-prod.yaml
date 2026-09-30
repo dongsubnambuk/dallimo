@@ -12,17 +12,15 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
-# API 문서는 운영에서 열지 않는다 (저장소의 docs/api/openapi.yaml을 본다)
-springdoc:
-  api-docs:
-    enabled: false
-
 management:
   endpoint:
     health:
       show-details: never
 
 dallimo:
+  auth:
+    # 브라우저에서 부를 수 있는 출처. 쉼표로 여럿. 앱(iOS · Android)은 CORS와 상관없다
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   # Expo Push. Enhanced push security를 켰으면 access token (저장소에 넣지 않는다)
   push:
     provider: expo

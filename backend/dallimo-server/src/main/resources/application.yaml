@@ -36,7 +36,11 @@ server:
   forward-headers-strategy: native
 
 # 57장 API Contract: /v3/api-docs(.yaml). API만 (공유 페이지 · actuator 제외), 키 순서를 고정해 문서가 매번 같게
+# Swagger UI: /swagger-ui.html (운영에서도 연다, 결정 로그 62항)
 springdoc:
+  swagger-ui:
+    # 새로 고침해도 입력한 토큰 · 관리 키를 유지
+    persist-authorization: true
   paths-to-match: /api/**
   writer-with-order-by-keys: true
   writer-with-default-pretty-printer: true

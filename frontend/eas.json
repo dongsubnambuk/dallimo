@@ -15,7 +15,11 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://dallimo.gamjabox.cloud",
+        "APP_LINK_DOMAIN": "dallimo.gamjabox.cloud"
+      }
     }
   }
 }

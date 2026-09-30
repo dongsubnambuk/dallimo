@@ -80,8 +80,8 @@ public class SecurityConfig {
                         .requestMatchers("/ws", "/ws/**").permitAll()
                         // 관리 API(외부 추천 코스 · 코스 신고 검토): 사용자 토큰 대신 X-Admin-Key로 컨트롤러가 확인한다 (AdminKeyGuard)
                         .requestMatchers(ADMIN_API).permitAll()
-                        // 57장 API 계약 문서 (운영 프로필에서는 끈다, springdoc.api-docs.enabled)
-                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
+                        // 57장 API 계약 문서 · Swagger UI (운영에서도 연다, 결정 로그 62항)
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o
