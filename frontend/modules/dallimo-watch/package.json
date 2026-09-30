@@ -1,0 +1,6 @@
+{
+  "name": "dallimo-watch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "달리모 Apple Watch 연결(WatchConnectivity) 로컬 Expo 모듈"
+}

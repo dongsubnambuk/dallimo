@@ -15,7 +15,8 @@
       },
       "infoPlist": {
         "CFBundleDisplayName": "달리모",
-        "NSHealthShareUsageDescription": "Apple 건강에 저장된 달리기 기록(Apple Watch 등)을 달리모로 가져오기 위해 운동과 경로를 읽어요."
+        "NSHealthShareUsageDescription": "Apple 건강에 저장된 달리기 기록(Apple Watch 등)을 달리모로 가져오기 위해 운동과 경로를 읽어요.",
+        "NSHealthUpdateUsageDescription": "달리모로 달린 러닝을 Apple 건강에 운동으로 남겨요."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true
@@ -81,7 +82,8 @@
         {
           "color": "#0B0B0C"
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -15,6 +15,7 @@ import { flattenBlocks } from '@/entities/workout/flatten';
 import { ActiveRunScreen } from '@/features/active-run/ActiveRunScreen';
 import { beginActiveRun, endActiveRun, type ActiveRunOptions } from '@/features/run/engine/activeRunSession';
 import { MODE_TITLE, parseRunPlan, type RunPlanParams } from '@/features/run-ready/runPlanParams';
+import { launchWatchApp, sendWatchIdle, useWatchCountdown } from '@/features/watch/useWatchLink';
 import { formatDuration } from '@/shared/format';
 import { haptics } from '@/shared/haptics';
 
@@ -79,7 +80,10 @@ function RunStart({ params, options, recovering }: Props) {
       .prepare(input)
       .then(() => engine.recover())
       .then((snap) => {
-        if (snap) return;
+        if (snap) {
+          launchWatchApp();
+          return;
+        }
         endActiveRun();
         router.replace('/');
       });
@@ -119,6 +123,9 @@ function RunStart({ params, options, recovering }: Props) {
           .filter(Boolean)
           .join(' · ');
 
+  // WATCH-001: 출발 카운트다운과 함께 워치 앱을 켜고 같은 숫자를 보여 준다
+  useWatchCountdown(summary, count, !recovering);
+
   if (count < 0) {
     return (
       <>
@@ -155,6 +162,7 @@ function RunStart({ params, options, recovering }: Props) {
           label="취소"
           onPress={() => {
             endActiveRun();
+            sendWatchIdle();
             router.back();
           }}
           style={styles.cancel}
