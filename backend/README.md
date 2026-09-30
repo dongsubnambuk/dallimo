@@ -53,6 +53,10 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 
 ### 배포 환경변수 (dev · prod)
 
+- 빈 목록: `backend/dallimo-server/.env.example` (복사해서 배포 환경에 넣는다. 비밀 값은 저장소에 넣지 않는다).
+- 서버가 뜰 때 빠진 선택 설정을 `deploy.config missing=` WARN 로그로 알려 준다(`DeployConfigCheck`, prod만). 다 있으면 `deploy.config ok`.
+- 앱 빌드 쪽 등록 · 설정은 `frontend/docs/deploy/APP-RELEASE-SETUP.md`.
+
 | 이름 | 필수 | 설명 |
 | --- | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | 예 | `prod`(운영) · `dev`(개발 서버) |
