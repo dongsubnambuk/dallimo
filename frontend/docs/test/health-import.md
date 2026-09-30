@@ -8,7 +8,7 @@ Apple 건강에서 달리기를 읽는 코드는 `modules/dallimo-health`(Swift,
 
 | 항목 | 방법 |
 | --- | --- |
-| 서버 | 노트북에서 `docker compose up -d` → `./gradlew bootRun`. 아이폰과 노트북이 같은 와이파이에 있어야 한다 |
+| 서버 | 노트북에서 MySQL · Redis를 켜고(`backend/README.md` "로컬 실행") → `./gradlew bootRun`. 아이폰과 노트북이 같은 와이파이에 있어야 한다 |
 | 개발 빌드 | `cd frontend && EXPO_PUBLIC_API_URL=http://{노트북 IP}:8080 npx expo run:ios --device` |
 | HealthKit 권한 | `app.json`에 `com.apple.developer.healthkit` entitlement와 `NSHealthShareUsageDescription`이 들어 있다. Xcode에서 서명 팀을 고르면 HealthKit capability가 붙는다. 무료 개인 팀에서 서명이 막히면 Apple Developer 계정이 필요하다 |
 | 네이티브 모듈 연결 확인 | `cd frontend && npx expo-modules-autolinking resolve --platform apple`에 `DallimoHealthModule`이 보이면 된다 |

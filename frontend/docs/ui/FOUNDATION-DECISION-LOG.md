@@ -1236,3 +1236,16 @@ SCR-E02 지역 검색의 주요 요소 "최근 검색"을 넣는다. 탐색 화�
 | 보내는 주소 | 기본값 `onboarding@resend.dev`는 Resend 계정 본인 메일로만 보낼 수 있다. 실제 사용자에게 보내려면 Resend에서 도메인을 인증하고 `MAIL_FROM`을 그 도메인 주소로 바꾼다 | Resend 제약 |
 | 로그 | `password.change` · `password.reset-code` · `password.reset result=` · `mail.sent kind=`. 코드와 비밀번호는 남기지 않는다 | 55항 관측성 |
 | 확인한 것 | 서버 테스트 259개(MySQL · MariaDB에서 비밀번호 API 3개씩, Resend 요청 모양 · 거부 2개). 웹 mock 375 · 412와 웹 + 실제 서버(local, 로그 메일): 없는 이메일 → 같은 안내 · 메일 없음, 틀린 코드 → 안내, 약한 비밀번호 → 버튼 꺼짐, 맞는 코드 → 로그인. 설정에서 같은 비밀번호 경고, 틀린 지금 비밀번호 안내, 바꾸기 완료. 옛 비밀번호 로그인 거부, 새 비밀번호 로그인 | |
+
+## 59. 개발 프로필 하나로 (local = dev), 개발 DB는 Docker 없이
+
+사용자 결정: 내 컴퓨터가 곧 개발 서버라 local과 dev 프로필을 나누지 않는다. 개발할 때 Docker를 쓰지 않는다. 명세 15.3장은 local/dev/test/prod 네 가지다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 프로필 | dev(기본) · test · prod. `application-local.yaml`을 `application-dev.yaml`에 합쳤다 | 사용자 결정 |
+| dev 값 | DB 주소 · Redis는 localhost 기본값, 환경변수로 바꿀 수 있다. DB 계정은 기본값 없이 환경변수(`DB_USERNAME` · `DB_PASSWORD`)로만 받는다(사용자 결정). 개발용 JWT 키 · 웹 CORS · 개발용 코스 3개 그대로. Push · 메일은 기본 로그(`PUSH_PROVIDER` · `MAIL_PROVIDER`로 바꾼다) | 전 local 동작 유지 |
+| DB · Redis | 개발자가 직접 준비하고 계정도 직접 만든다(IntelliJ 등). 서버는 접속 기본값만 둔다(backend README "로컬 실행"). `docker-compose.yml`은 지웠다 | 사용자 결정 |
+| 테스트 | `./gradlew test`는 그대로 Testcontainers(Docker)로 MySQL · MariaDB · Redis를 띄운다. CI도 같다 | 명세 15.4장 MySQL · MariaDB 호환 테스트. 개발 서버 실행과는 따로다 |
+| 개발용 코스 | `db/seed/dev`로 옮겼다. 파일 이름 `R__local_seed_courses.sql`은 그대로 둔다 | 이름을 바꾸면 이미 적용한 개발 DB에서 Flyway 검증이 실패한다 |
+
