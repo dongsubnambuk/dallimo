@@ -7,6 +7,7 @@ import type { AuthSession, SignupInput } from '@/entities/auth/types';
 import { getActiveRun } from '@/features/run/engine/activeRunSession';
 import { registerAuthHooks } from '@/shared/api/http';
 import { loadPreferences } from '@/shared/preferences';
+import { clearRecentSearches } from '@/shared/recentSearches';
 import { getDeviceId } from '@/shared/storage/deviceId';
 import { getItem, removeItem, setItem } from '@/shared/storage/keyValueStore';
 
@@ -140,10 +141,13 @@ export function hasRunInProgress(): boolean {
 export async function signOut() {
   await authRepository.logout().catch(() => undefined);
   await clearSession();
+  // 같은 기기를 다른 사람이 쓸 수 있어 최근 검색도 지운다 (결정 로그 54항)
+  await clearRecentSearches();
 }
 
 /** AUTH-004 탈퇴. 서버 처리가 끝나야 세션을 지운다 */
 export async function withdraw() {
   await authRepository.withdraw();
   await clearSession();
+  await clearRecentSearches();
 }

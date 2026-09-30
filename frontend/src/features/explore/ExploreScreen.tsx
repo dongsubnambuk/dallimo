@@ -16,11 +16,13 @@ import { ThemeProvider, useTheme } from '@/design/theme';
 import { elevation, fontFamily, OBLIQUE_SKEW, radius, spacing, touchTarget, typography } from '@/design/tokens';
 import { formatCount, formatDistanceKm, formatDuration } from '@/shared/format';
 import { distanceM, type GeoPoint } from '@/shared/geo';
+import { addRecentSearch, clearRecentSearches, removeRecentSearch, useRecentSearches } from '@/shared/recentSearches';
 
 import { DEFAULT_REGION_CENTER } from '@/entities/course/api/mockCourseRepository';
 import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
 import { parseScenario } from './api/scenario';
 import { ExploreMap } from './components/ExploreMap';
+import { RecentSearchPanel } from './components/RecentSearchPanel';
 import { StateNotice } from '@/components/StateNotice';
 import { recommendCourses, typicalDistance, type Recommendation } from './recommend';
 import { useNearbyCourses } from './useNearbyCourses';
@@ -105,6 +107,8 @@ export function ExploreScreen() {
     retry: false,
   });
   const searchMode = searching && searchQ.length > 0;
+  // SCR-E02 최근 검색: 검색창이 비어 있을 때 보여 준다. 검색 키를 누르거나 검색 결과에서 코스를 열면 남긴다 (결정 로그 54항)
+  const recentSearches = useRecentSearches();
   const state: typeof nearbyState = !searchMode
     ? nearbyState
     : search.isPending
@@ -137,7 +141,10 @@ export function ExploreScreen() {
   const topObscured = insets.top + spacing.sm + TOP_BAR_HEIGHT;
   const bottomObscured = SHEET_OVERLAP + (selected ? TICKET_HEIGHT + spacing.md : 0);
 
-  const openDetail = (c: CourseSummary) => router.push({ pathname: '/course/[id]', params: { id: c.id } });
+  const openDetail = (c: CourseSummary) => {
+    if (searchMode) addRecentSearch(searchQ);
+    router.push({ pathname: '/course/[id]', params: { id: c.id } });
+  };
   const select = (id: string) => {
     setSelectedId(id);
     setFocus('selection');
@@ -193,6 +200,7 @@ export function ExploreScreen() {
                 placeholderTextColor={colors.text.secondary}
                 accessibilityLabel="코스 검색"
                 returnKeyType="search"
+                onSubmitEditing={() => addRecentSearch(query)}
                 style={[styles.searchInput, { color: colors.text.primary }]}
               />
               <AppPressable
@@ -223,6 +231,21 @@ export function ExploreScreen() {
             </>
           )}
         </View>
+
+        {searching && query.trim() === '' && recentSearches.length > 0 ? (
+          <View style={[styles.recent, { top: insets.top + spacing.sm + TOP_BAR_HEIGHT + spacing.sm }]}>
+            <RecentSearchPanel
+              items={recentSearches}
+              maxHeight={mapHeight - (insets.top + spacing.sm + TOP_BAR_HEIGHT + spacing.lg)}
+              onPick={(q) => {
+                setQuery(q);
+                addRecentSearch(q);
+              }}
+              onRemove={removeRecentSearch}
+              onClear={() => void clearRecentSearches()}
+            />
+          </View>
+        ) : null}
 
         {position ? (
           <AppPressable
@@ -692,6 +715,11 @@ const styles = StyleSheet.create({
     height: TOP_BAR_HEIGHT,
     fontFamily: fontFamily.medium,
     fontSize: typography.body.fontSize,
+  },
+  recent: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
   },
   searchClose: {
     width: TOP_BAR_HEIGHT,
