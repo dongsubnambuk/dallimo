@@ -21,6 +21,11 @@ public interface RefreshSessionRepository extends JpaRepository<RefreshSession, 
     @Query("update RefreshSession s set s.revokedAt = :now where s.userId = :userId and s.revokedAt is null")
     int revokeAllOfUser(Long userId, java.time.Instant now);
 
+    /** 비밀번호 변경: 이 기기 세션만 남기고 끊는다 */
+    @Modifying
+    @Query("update RefreshSession s set s.revokedAt = :now where s.userId = :userId and s.id <> :keepId and s.revokedAt is null")
+    int revokeOthersOfUser(Long userId, Long keepId, java.time.Instant now);
+
     @Modifying
     @Query("delete from RefreshSession s where s.userId = :userId and s.deviceId = :deviceId")
     int deleteByUserIdAndDeviceId(Long userId, String deviceId);

@@ -47,7 +47,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     static Rule ruleOf(String method, String path) {
-        if ("POST".equals(method) && (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/signup"))) return Rule.LOGIN;
+        // 비밀번호 재설정 코드 요청 · 코드 확인도 로그인처럼 IP마다 (코드 맞히기 · 메일 폭탄 방지)
+        if ("POST".equals(method) && (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/signup")
+                || path.equals("/api/v1/auth/password/reset-code") || path.equals("/api/v1/auth/password/reset"))) return Rule.LOGIN;
+        // 비밀번호 변경은 사람마다 (지금 비밀번호 맞히기 방지)
+        if ("POST".equals(method) && path.equals("/api/v1/auth/password/change")) return Rule.PROFILE_UPDATE;
         if ("GET".equals(method) && (path.equals("/api/v1/users/search") || path.equals("/api/v1/courses/search"))) return Rule.SEARCH;
         if ("POST".equals(method) && path.equals("/api/v1/friends/requests")) return Rule.FRIEND_REQUEST;
         if ("GET".equals(method) && (path.startsWith("/api/v1/shares/") || path.startsWith("/s/"))) return Rule.SHARE_RESOLVE;

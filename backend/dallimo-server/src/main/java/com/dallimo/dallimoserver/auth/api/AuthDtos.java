@@ -44,6 +44,32 @@ public final class AuthDtos {
         }
     }
 
+    /** 비밀번호 변경 (로그인한 사람) */
+    public record PasswordChangeRequest(
+            @NotBlank @Size(max = 64) String currentPassword,
+            @NotBlank @Pattern(regexp = PASSWORD_RULE, message = "8~64자, 영문과 숫자를 함께 써 주세요.") String newPassword) {
+    }
+
+    /** 비밀번호 재설정 인증 코드 받기 */
+    public record ResetCodeRequest(@NotBlank @Email @Size(max = 191) String email) {
+
+        public ResetCodeRequest {
+            email = trim(email);
+        }
+    }
+
+    /** 인증 코드로 비밀번호 재설정 */
+    public record PasswordResetRequest(
+            @NotBlank @Email @Size(max = 191) String email,
+            @NotBlank @Pattern(regexp = "\\d{6}", message = "인증 코드 6자리를 넣어 주세요.") String code,
+            @NotBlank @Pattern(regexp = PASSWORD_RULE, message = "8~64자, 영문과 숫자를 함께 써 주세요.") String newPassword) {
+
+        public PasswordResetRequest {
+            email = trim(email);
+            code = trim(code);
+        }
+    }
+
     public record RefreshRequest(
             @NotBlank @Size(max = 200) String refreshToken,
             @NotBlank @Size(max = 100) String deviceId) {

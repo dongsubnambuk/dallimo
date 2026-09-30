@@ -131,6 +131,21 @@ export async function signUp(input: SignupInput) {
   set('signedIn');
 }
 
+/** 비밀번호 변경. 이 기기는 로그인이 이어진다(서버가 이 세션만 남기고 다른 기기를 로그아웃시킨다) */
+export function changePassword(currentPassword: string, newPassword: string) {
+  return authRepository.changePassword(currentPassword, newPassword);
+}
+
+/** 비밀번호 재설정 인증 코드를 메일로 보낸다 */
+export function requestPasswordReset(email: string) {
+  return authRepository.requestPasswordReset(email.trim());
+}
+
+/** 코드로 새 비밀번호를 정한다. 모든 기기가 로그아웃되므로 새 비밀번호로 다시 로그인한다 */
+export function resetPassword(email: string, code: string, newPassword: string) {
+  return authRepository.resetPassword(email.trim(), code, newPassword);
+}
+
 // AUTH-004 "진행 중 러닝 보호": 달리는 중에는 로그아웃 · 탈퇴하지 않는다
 export function hasRunInProgress(): boolean {
   const s = getActiveRun()?.getSnapshot().status;

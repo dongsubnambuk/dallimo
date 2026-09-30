@@ -298,6 +298,56 @@ paths:
       - bearerAuth: []
       tags:
       - 인증 (41장)
+  /api/v1/auth/password/change:
+    post:
+      operationId: changePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChangeRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+      security:
+      - bearerAuth: []
+      tags:
+      - 인증 (41장)
+  /api/v1/auth/password/reset:
+    post:
+      operationId: resetPassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+      security:
+      - {}
+      - bearerAuth: []
+      tags:
+      - 인증 (41장)
+  /api/v1/auth/password/reset-code:
+    post:
+      operationId: resetCode
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetCodeRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+      security:
+      - {}
+      - bearerAuth: []
+      tags:
+      - 인증 (41장)
   /api/v1/auth/refresh:
     post:
       operationId: refresh
@@ -3619,6 +3669,40 @@ components:
       - north
       - south
       - west
+    PasswordChangeRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          maxLength: 64
+          minLength: 0
+        newPassword:
+          type: string
+          minLength: 1
+          pattern: "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,64}$"
+      required:
+      - currentPassword
+      - newPassword
+    PasswordResetRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          pattern: "\\d{6}"
+        email:
+          type: string
+          format: email
+          maxLength: 191
+          minLength: 0
+        newPassword:
+          type: string
+          minLength: 1
+          pattern: "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,64}$"
+      required:
+      - code
+      - email
+      - newPassword
     PointBatchRequest:
       type: object
       properties:
@@ -3976,6 +4060,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Request"
+    ResetCodeRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 191
+          minLength: 0
+      required:
+      - email
     Resolved:
       type: object
       properties:

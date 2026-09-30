@@ -14,6 +14,9 @@ public enum ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 맞지 않아요."),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 가입한 이메일이에요."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 쓰고 있는 닉네임이에요."),
+    // 비밀번호 변경 · 재설정(사용자 결정, 결정 로그 58항). 401이 아니다: 앱이 세션이 끝난 것으로 보지 않게
+    PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "지금 비밀번호가 맞지 않아요."),
+    RESET_CODE_INVALID(HttpStatus.BAD_REQUEST, "인증 코드가 맞지 않거나 시간이 지났어요. 코드를 다시 받아 주세요."),
     // 명세 표에는 없는 코드. 없는 주소처럼 도메인 코드가 없는 404에 쓴다 (backend/README 결정 사항)
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "찾을 수 없어요."),
     RUN_NOT_FOUND(HttpStatus.NOT_FOUND, "러닝 기록을 찾을 수 없어요."),

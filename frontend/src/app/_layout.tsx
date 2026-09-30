@@ -95,6 +95,7 @@ export default function RootLayout() {
             {/* SCR-M07 설정, 프로필 수정 */}
             <Stack.Screen name="settings/index" options={{ headerShown: false }} />
             <Stack.Screen name="settings/profile" options={{ headerShown: false }} />
+            <Stack.Screen name="settings/password" options={{ headerShown: false }} />
             {/* 122.3장 외부 기록 가져오기 */}
             <Stack.Screen name="import/index" options={{ headerShown: false }} />
             {/* SCR-R05 공유 카드, SHR-004 공유 링크 열기 */}
@@ -107,6 +108,7 @@ export default function RootLayout() {
           <Stack.Protected guard={auth === 'signedOut'}>
             <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
             <Stack.Screen name="signup" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
+            <Stack.Screen name="password-reset" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
           </Stack.Protected>
           {/* 약관 · 개인정보 처리방침은 로그인 전에도 본다 */}
           <Stack.Screen name="legal/[kind]" options={{ headerShown: false }} />
