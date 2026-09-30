@@ -1,7 +1,7 @@
 import { apiRequest, ApiRequestError } from '@/shared/api/http';
 import type { CursorPage } from '@/shared/api/contract';
 
-import type { CourseSegments, CourseTitles, MyStanding, RankingEntry, RankingPeriod, RankingScope, TitleHolder } from '../types';
+import type { CourseSegments, CourseTitles, GhostRun, MyStanding, RankingEntry, RankingPeriod, RankingScope, TitleHolder } from '../types';
 import { RankingRepositoryError, type RankingRepository } from './rankingRepository';
 
 // 43장 GET /api/v1/courses/{id}/rankings (RNK-001~004)와 /rankings/me (RNK-005).
@@ -69,6 +69,19 @@ export function createHttpRankingRepository(): RankingRepository {
         };
         return titles;
       }),
+
+    // 124장 GET /courses/{id}/ghost?recordId= (404면 고스트 없음)
+    getGhost: async (courseId, recordId) => {
+      try {
+        const g = await apiRequest<Omit<GhostRun, 'recordId' | 'userId'> & { recordId: number; userId: number }>(`/api/v1/courses/${encodeURIComponent(courseId)}/ghost`, {
+          query: recordId ? { recordId } : {},
+        });
+        return { ...g, recordId: String(g.recordId), userId: String(g.userId) };
+      } catch (e) {
+        if (e instanceof ApiRequestError && e.status === 404) return null;
+        throw new RankingRepositoryError(e instanceof ApiRequestError ? e.message : '고스트 기록을 불러오지 못했어요');
+      }
+    },
 
     // 124장 GET /courses/{id}/segments
     getSegments: (courseId) =>

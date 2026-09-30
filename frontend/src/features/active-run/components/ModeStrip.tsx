@@ -5,7 +5,7 @@ import { SignalRail } from '@/components/SignalRail';
 import { AppIcon, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing } from '@/design/tokens';
-import { targetGapSec } from '@/entities/run/courseProgress';
+import { chaseGapM, chaseGapSec, type ChaseTarget } from '@/entities/run/ghost';
 import { getRunPolicySync } from '@/entities/run/policy';
 import { useRunSnapshot } from '@/features/run/engine/activeRunSession';
 import type { RunningEngine } from '@/features/run/engine/runningEngine';
@@ -13,7 +13,8 @@ import { formatDistanceKm, formatDuration, formatPace } from '@/shared/format';
 
 import { useElapsedSec } from '../useElapsedSec';
 
-export type RunTarget = { sec: number; label: string };
+// PB 어택 · 도전 목표. recordId: 도전 대상 기록(PB는 없음), ghost: 124장 고스트(실제 기록 흐름)
+export type RunTarget = ChaseTarget & { recordId?: string | null };
 
 // 92장: 모드별로 가운데 강조 strip만 바뀐다. FREE는 split, COURSE는 진행률/이탈, PB·CHALLENGE는 gap.
 export function ModeStrip({ engine, target }: { engine: RunningEngine; target: RunTarget | null }) {
@@ -103,7 +104,9 @@ function GapStrip({ engine, target }: { engine: RunningEngine; target: RunTarget
   const ratio = Math.min(1, course.progressM / course.lengthM);
   const runSec = done ? Math.round(course.completedActiveMs! / 1000) : sec;
   const enough = course.progressM >= policy.minPaceSampleM;
-  const gap = enough ? targetGapSec(done ? course.lengthM : course.progressM, course.lengthM, runSec, target.sec) : 0;
+  // 124장: 고스트가 있으면 실제 기록이 같은 지점을 지난 시각과 비교한다
+  const gap = enough ? chaseGapSec(done ? course.lengthM : course.progressM, course.lengthM, runSec, target) : 0;
+  const gapM = enough && !done ? chaseGapM(course.progressM, course.lengthM, runSec, target) : null;
   const rounded = Math.round(gap);
   const direction: GapDirection = !enough ? 'noData' : rounded === 0 ? 'tied' : rounded < 0 ? 'ahead' : 'behind';
   const predicted = enough && !done ? (runSec * course.lengthM) / course.progressM : null;
@@ -111,14 +114,18 @@ function GapStrip({ engine, target }: { engine: RunningEngine; target: RunTarget
   return (
     <View style={[styles.strip, { backgroundColor: colors.bg.surface }]}>
       <View style={styles.row}>
-        <GapIndicator direction={direction} delta={rounded} label="목표" style={styles.gap} />
+        <GapIndicator direction={direction} delta={rounded} label={target.ghost ? '고스트' : '목표'} style={styles.gap} />
         <Stat label={target.label} value={formatDuration(target.sec)} align="end" a11y={`목표 ${target.label} ${formatDuration(target.sec)}`} />
       </View>
       <SignalRail progress={ratio} showHead />
       <View style={styles.row}>
         <RouteState offRouteM={course.offRouteM} done={done} />
         <AppText role="caption" tone="secondary" tabular>
-          {done ? `완주 ${formatDuration(runSec)}` : `예상 완주 ${formatDuration(predicted)}`}
+          {done
+            ? `완주 ${formatDuration(runSec)}`
+            : gapM != null && Math.round(gapM) !== 0
+              ? `고스트보다 ${Math.abs(Math.round(gapM))}m ${gapM > 0 ? '앞' : '뒤'}`
+              : `예상 완주 ${formatDuration(predicted)}`}
         </AppText>
       </View>
     </View>

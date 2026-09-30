@@ -14,7 +14,18 @@ import { MOCK_MAP_BASE } from '@/shared/map/mockMapBase';
 // 지도 SDK 결정 전 placeholder이며 SDK 도입 시 구현만 바꾼다.
 const MIN_SPAN_M = 600;
 
-export function RunPathMap({ path, position, course = null }: { path: GeoPoint[]; position: GeoPoint | null; course?: GeoPoint[] | null }) {
+// ghost: 124장 고스트의 코스 위 자리 (PB 어택 · 도전). 속이 빈 점선 원이라 내 위치(속이 찬 흰 점)와 모양으로 구분한다
+export function RunPathMap({
+  path,
+  position,
+  course = null,
+  ghost = null,
+}: {
+  path: GeoPoint[];
+  position: GeoPoint | null;
+  course?: GeoPoint[] | null;
+  ghost?: GeoPoint | null;
+}) {
   const { colors } = useTheme();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const onLayout = (e: LayoutChangeEvent) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height });
@@ -28,6 +39,7 @@ export function RunPathMap({ path, position, course = null }: { path: GeoPoint[]
   const end = project && course && course.length > 1 ? project(course[course.length - 1]) : null;
   const line = project ? pts.map(project).map((p) => p.join(',')).join(' ') : '';
   const me = project && position ? project(position) : null;
+  const ghostAt = project && ghost ? project(ghost) : null;
   const start = project && path.length ? project(path[0]) : null;
 
   return (
@@ -35,7 +47,7 @@ export function RunPathMap({ path, position, course = null }: { path: GeoPoint[]
       onLayout={onLayout}
       accessible
       accessibilityRole="image"
-      accessibilityLabel={course ? '기준 코스와 지나온 경로, 내 위치 지도' : '지나온 경로와 내 위치 지도'}
+      accessibilityLabel={course ? `기준 코스와 지나온 경로, 내 위치${ghost ? ', 고스트' : ''} 지도` : '지나온 경로와 내 위치 지도'}
       style={[styles.root, { backgroundColor: colors.mapBase.land }]}
     >
       {project ? (
@@ -52,6 +64,9 @@ export function RunPathMap({ path, position, course = null }: { path: GeoPoint[]
             <Polyline points={line} fill="none" stroke={colors.route.actual} strokeWidth={course ? 3 : 5} strokeLinecap="round" strokeLinejoin="round" />
           ) : null}
           {start ? <Circle cx={start[0]} cy={start[1]} r={6} fill={colors.bg.canvas} stroke={colors.route.actual} strokeWidth={3} /> : null}
+          {ghostAt ? (
+            <Circle cx={ghostAt[0]} cy={ghostAt[1]} r={10} fill={colors.bg.canvas} fillOpacity={0.85} stroke={colors.text.primary} strokeWidth={3} strokeDasharray="4 3" />
+          ) : null}
           {/* 코스 러닝에서는 민트 코스 선 위에서도 보이도록 내 위치를 흰 점으로 */}
           {me ? <Circle cx={me[0]} cy={me[1]} r={9} fill={course ? colors.route.actual : colors.action.primary} stroke={colors.bg.canvas} strokeWidth={3} /> : null}
         </Svg>

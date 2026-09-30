@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { targetGapSec } from '@/entities/run/courseProgress';
+import { chaseGapSec, type ChaseTarget } from '@/entities/run/ghost';
 import { getRunPolicySync } from '@/entities/run/policy';
 import { useRunSnapshot } from '@/features/run/engine/activeRunSession';
 import { activeMs, type ActiveRunSnapshot, type RunningEngine } from '@/features/run/engine/runningEngine';
@@ -9,7 +9,7 @@ import { speak } from '@/shared/voice';
 
 import { createGapVoice, gapSentence } from './competitionRules';
 
-export type VoiceTarget = { sec: number; label: string };
+export type VoiceTarget = ChaseTarget;
 
 // PB 어택은 "목표", 도전은 "민수님 기록"처럼 읽는다
 export function targetLabel(mode: ActiveRunSnapshot['mode'], target: VoiceTarget) {
@@ -17,11 +17,11 @@ export function targetLabel(mode: ActiveRunSnapshot['mode'], target: VoiceTarget
 }
 
 /** 지금 목표와의 차이(초, + 뒤처짐). 코스 진행이 짧거나 완주했으면 null (ModeStrip GapStrip과 같은 계산) */
-export function gapNow(s: ActiveRunSnapshot, now: number, targetSec: number): number | null {
+export function gapNow(s: ActiveRunSnapshot, now: number, target: ChaseTarget): number | null {
   const c = s.course;
   if (!c || c.completedActiveMs != null || c.progressM < getRunPolicySync().minPaceSampleM) return null;
   // 화면(useElapsedSec)처럼 초 아래는 버려 읽는 값과 보이는 값을 맞춘다
-  return targetGapSec(c.progressM, c.lengthM, Math.floor(activeMs(s, now) / 1000), targetSec);
+  return chaseGapSec(c.progressM, c.lengthM, Math.floor(activeMs(s, now) / 1000), target);
 }
 
 /**
@@ -32,19 +32,23 @@ export function useGapVoice(engine: RunningEngine, target: VoiceTarget | null) {
   const on = usePreferences().voiceCompetition;
   const mode = useRunSnapshot(engine, (s) => s.mode);
   const active = on && target != null && (mode === 'PB' || mode === 'CHALLENGE');
-  const sec = target?.sec ?? 0;
   const label = target ? targetLabel(mode, target) : '';
+  // 고스트가 늦게 도착해도 규칙을 새로 만들지 않고 지금 목표로 비교한다
+  const latest = useRef(target);
+  useEffect(() => {
+    latest.current = target;
+  });
   useEffect(() => {
     if (!active) return;
     const rule = createGapVoice(label);
     const t = setInterval(() => {
       const s = engine.getSnapshot();
       if (s.status !== 'RUNNING') return;
-      const line = rule(engine.now(), gapNow(s, engine.now(), sec));
+      const line = latest.current ? rule(engine.now(), gapNow(s, engine.now(), latest.current)) : null;
       if (line) speak(line);
     }, 1000);
     return () => clearInterval(t);
-  }, [active, label, sec, engine]);
+  }, [active, label, engine]);
 }
 
 /** 구간 안내 끝에 붙일 목표 차이 한 문장 (PB 어택 · 도전, 경쟁 안내를 켰을 때) */
@@ -53,7 +57,7 @@ export function useGapLine(engine: RunningEngine, target: VoiceTarget | null): (
   const mode = useRunSnapshot(engine, (s) => s.mode);
   if (!on || !target || (mode !== 'PB' && mode !== 'CHALLENGE')) return undefined;
   return () => {
-    const gap = gapNow(engine.getSnapshot(), engine.now(), target.sec);
+    const gap = gapNow(engine.getSnapshot(), engine.now(), target);
     return gap == null ? null : gapSentence(gap, targetLabel(mode, target));
   };
 }

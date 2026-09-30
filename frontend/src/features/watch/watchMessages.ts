@@ -1,4 +1,4 @@
-import { targetGapSec } from '@/entities/run/courseProgress';
+import { chaseGapSec, type ChaseTarget } from '@/entities/run/ghost';
 import { getRunPolicySync } from '@/entities/run/policy';
 import { flatStepTitle } from '@/entities/workout/labels';
 import { intervalNow } from '@/entities/workout/tracker';
@@ -85,7 +85,7 @@ export function runMessage(s: ActiveRunSnapshot, now: number, sentAt: number, ct
 }
 
 export type SoloStripContext = {
-  target: { sec: number; label: string } | null;
+  target: ChaseTarget | null;
   flat: FlatStep[] | null;
 };
 
@@ -103,10 +103,11 @@ export function soloStrip(s: ActiveRunSnapshot, now: number, ctx: SoloStripConte
   if (!c) return { label: '현재 페이스', value: formatPace(s.currentPaceSec), tone: 'neutral' };
   const done = c.completedActiveMs != null;
   if ((s.mode === 'PB' || s.mode === 'CHALLENGE') && ctx.target) {
-    const label = s.mode === 'CHALLENGE' ? `${ctx.target.label}님 기록` : '목표';
+    // 124장: 고스트(실제 기록 흐름)와 비교하면 "고스트"
+    const label = s.mode === 'CHALLENGE' ? `${ctx.target.label}님 ${ctx.target.ghost ? '고스트' : '기록'}` : ctx.target.ghost ? '고스트' : '목표';
     if (c.progressM < getRunPolicySync().minPaceSampleM) return { label, value: '--', tone: 'neutral' };
     const sec = Math.round(done ? c.completedActiveMs! / 1000 : ms / 1000);
-    const gap = Math.round(targetGapSec(done ? c.lengthM : c.progressM, c.lengthM, sec, ctx.target.sec));
+    const gap = Math.round(chaseGapSec(done ? c.lengthM : c.progressM, c.lengthM, sec, ctx.target));
     if (gap === 0) return { label, value: '같아요', tone: 'neutral' };
     return gap < 0 ? { label, value: `${formatDuration(-gap)} 빨라요`, tone: 'accent' } : { label, value: `${formatDuration(gap)} 느려요`, tone: 'warning' };
   }

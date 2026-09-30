@@ -24,7 +24,7 @@ public final class SegmentTimer {
     // 조금 뒤로 붙는 것은 GPS 흔들림으로 본다
     static final double BACKTRACK_M = 30;
     // 마지막 구간은 코스 끝 이 거리 안까지 오면 끝낸 것으로 본다 (검증도 도착점 반경 안 가장 가까운 point에서 끝낸다)
-    static final double END_TOLERANCE_M = 50;
+    public static final double END_TOLERANCE_M = 50;
 
     private SegmentTimer() {
     }
@@ -51,13 +51,13 @@ public final class SegmentTimer {
     }
 
     /** 코스 위 진행 거리와 그때까지 움직인 시간 (진행이 늘어난 point만) */
-    record Track(double[] progress, double[] seconds, double total) {
-        double max() {
+    public record Track(double[] progress, double[] seconds, double total) {
+        public double max() {
             return progress.length == 0 ? -1 : progress[progress.length - 1];
         }
 
         /** 진행 거리 at을 처음 지난 때의 움직인 시간. 거기까지 가지 못했으면 null */
-        Double secondsAt(double at) {
+        public Double secondsAt(double at) {
             for (int k = 0; k < progress.length; k++) {
                 if (progress[k] < at) continue;
                 if (k == 0) return seconds[0];
@@ -69,7 +69,7 @@ public final class SegmentTimer {
         }
     }
 
-    static Track track(List<CourseRoute.Point> route, List<RunPoint> pts) {
+    public static Track track(List<CourseRoute.Point> route, List<RunPoint> pts) {
         double lat0 = route.get(0).latitude();
         double cos = Math.cos(Math.toRadians(lat0));
         int n = route.size();

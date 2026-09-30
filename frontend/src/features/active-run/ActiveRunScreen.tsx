@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
@@ -9,7 +10,10 @@ import { MetricBlock } from '@/components/MetricBlock';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { useTheme } from '@/design/theme';
 import { elevation, fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
+import { getRankingRepository } from '@/entities/ranking/api';
+import type { GhostRun } from '@/entities/ranking/types';
 import { runResultRepository } from '@/entities/run/api';
+import { ghostFractionAt } from '@/entities/run/ghost';
 import { flattenBlocks } from '@/entities/workout/flatten';
 import { stepResults } from '@/entities/workout/tracker';
 import type { WorkoutPlan } from '@/entities/workout/types';
@@ -23,7 +27,7 @@ import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEng
 import { sendWatchEnd, useWatchHeartRate, useWatchLink } from '@/features/watch/useWatchLink';
 import { isManualStep, soloStrip } from '@/features/watch/watchMessages';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
-import type { GeoPoint } from '@/shared/geo';
+import { pointAt, type GeoPoint } from '@/shared/geo';
 import { haptics } from '@/shared/haptics';
 import { speak } from '@/shared/voice';
 
@@ -61,11 +65,13 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
   const intervalDone = useRunSnapshot(engine, (s) => flat != null && s.interval != null && s.interval.boundaries.length >= flat.length);
   const completed = courseDone || intervalDone;
   useCourseAlerts(engine, target);
+  // 124장 Ghost: PB 어택은 내 PB, 도전은 상대 기록의 실제 흐름과 비교한다 (없으면 고르게 나눈 페이스)
+  const chase = useChaseTarget(engine, course?.id ?? null, target);
   useAutoPauseAlerts(engine);
   // AUD-002 경쟁 안내: 목표보다 앞섬 · 뒤처짐, 구간 안내 끝에 목표 차이
-  useGapVoice(engine, target);
+  useGapVoice(engine, chase);
   // 인터벌 달리기는 구간 안내가 1km 안내를 대신한다 (겹쳐 읽지 않게)
-  useSplitAnnouncer(engine, useGapLine(engine, target), flat == null);
+  useSplitAnnouncer(engine, useGapLine(engine, chase), flat == null);
   useIntervalCues(engine, flat);
   const saveLabel = intervalDone ? '인터벌 기록 저장' : '완주 기록 저장';
   // 124장 Segment Attack: 코스 러닝이면 약 1km 구간마다 내 최고 · 1위와 비교 (인터벌 달리기는 구간이 따로 있다)
@@ -75,7 +81,7 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
     context: (s, now) => ({
       title: summary,
       // 그냥 코스 러닝이면 구간 도전이 워치 한 줄이 된다 (PB · 도전은 목표 차이가 먼저)
-      strip: (s.mode === 'COURSE' && attack ? watchSegmentStrip(attack, s, now) : null) ?? soloStrip(s, now, { target, flat }),
+      strip: (s.mode === 'COURSE' && attack ? watchSegmentStrip(attack, s, now) : null) ?? soloStrip(s, now, { target: chase, flat }),
       manualStep: isManualStep(s, flat),
       completed,
       saveLabel,
@@ -119,7 +125,7 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
         splits: result.splits,
         path: result.path,
         course: course ? { id: course.id, name: course.name, timeSec: result.courseTimeSec } : null,
-        target,
+        target: target ? { sec: target.sec, label: target.label } : null,
         // 인터벌 달리기: 구간별 실제 거리 · 시간 (123.2장)
         workout:
           workout && flat && result.intervalBoundaries
@@ -159,12 +165,12 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
             <AvgPaceMetric engine={engine} size="large" />
           </View>
           {attack ? <SegmentAttackBanner engine={engine} attack={attack} /> : null}
-          <ModeStrip engine={engine} target={target} />
+          <ModeStrip engine={engine} target={chase} />
         </View>
       ) : (
         <View style={styles.mapView}>
           <View style={[styles.mapFrame, { borderColor: colors.border.subtle }]}>
-            <MapLayer engine={engine} courseRoute={course?.route ?? null} />
+            <MapLayer engine={engine} courseRoute={course?.route ?? null} ghost={chase?.ghost ?? null} />
           </View>
           <View style={styles.row}>
             <DistanceCompact engine={engine} />
@@ -310,10 +316,30 @@ function ElapsedMetric({ engine, size }: { engine: RunningEngine; size: 'large' 
   return <MetricBlock label="시간" value={formatDuration(sec)} size={size} align="center" style={styles.flex} />;
 }
 
-function MapLayer({ engine, courseRoute }: { engine: RunningEngine; courseRoute: GeoPoint[] | null }) {
+function MapLayer({ engine, courseRoute, ghost }: { engine: RunningEngine; courseRoute: GeoPoint[] | null; ghost: GhostRun | null }) {
   const path = useRunSnapshot(engine, (s) => s.path);
   const position = useRunSnapshot(engine, (s) => s.position);
-  return <RunPathMap path={path} position={position} course={courseRoute} />;
+  const sec = useElapsedSec(engine);
+  // 124장: 고스트는 코스 선 위에만 그린다 (다른 사람의 실제 GPS 좌표가 아니라 기록한 시간으로 계산한 코스 위 자리, 129장)
+  const ghostAt = ghost && courseRoute && courseRoute.length > 1 ? pointAt(courseRoute, ghostFractionAt(ghost, sec)) : null;
+  return <RunPathMap path={path} position={position} course={courseRoute} ghost={ghostAt} />;
+}
+
+/** PB 어택 · 도전이면 고스트를 받아 목표에 붙인다. 받기 전 · 실패하면 고스트 없이 */
+function useChaseTarget(engine: RunningEngine, courseId: string | null, target: RunTarget | null): RunTarget | null {
+  const mode = useRunSnapshot(engine, (s) => s.mode);
+  const wanted = target != null && courseId != null && (mode === 'PB' || mode === 'CHALLENGE');
+  const recordId = mode === 'CHALLENGE' ? (target?.recordId ?? null) : null;
+  const repo = useMemo(() => getRankingRepository('normal'), []);
+  const ghost = useQuery({
+    queryKey: ['ranking', 'ghost', courseId, recordId],
+    queryFn: () => repo.getGhost(courseId!, recordId),
+    enabled: wanted && (mode !== 'CHALLENGE' || recordId != null),
+    retry: false,
+    staleTime: 10 * 60_000,
+  });
+  const g = ghost.data ?? null;
+  return useMemo(() => (target && wanted && g ? { ...target, ghost: g } : target), [target, wanted, g]);
 }
 
 // 69장: 코스 이탈은 경고 햅틱 + 음성, 완주는 완주 햅틱. 화면을 보지 않아도 알 수 있게 한다 (62.2장).

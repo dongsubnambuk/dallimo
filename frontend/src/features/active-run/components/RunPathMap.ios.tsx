@@ -12,7 +12,18 @@ import type { GeoPoint } from '@/shared/geo';
 // 조작을 줄이려고 제스처를 끈다 (CLAUDE.md 6항).
 const FOLLOW_SPAN_M = 600;
 
-export function RunPathMap({ path, position, course = null }: { path: GeoPoint[]; position: GeoPoint | null; course?: GeoPoint[] | null }) {
+// ghost: 124장 고스트의 코스 위 자리 (PB 어택 · 도전). 속이 빈 원이라 내 위치(속이 찬 흰 점)와 모양으로 구분한다
+export function RunPathMap({
+  path,
+  position,
+  course = null,
+  ghost = null,
+}: {
+  path: GeoPoint[];
+  position: GeoPoint | null;
+  course?: GeoPoint[] | null;
+  ghost?: GeoPoint | null;
+}) {
   const { colors } = useTheme();
   const ref = useRef<MapView>(null);
   const pts = position ? [...path, position] : path;
@@ -27,7 +38,7 @@ export function RunPathMap({ path, position, course = null }: { path: GeoPoint[]
         dark
         interactive={false}
         initialRegion={region ?? undefined}
-        accessibilityLabel={hasCourse ? '기준 코스와 지나온 경로, 내 위치 지도' : '지나온 경로와 내 위치 지도'}
+        accessibilityLabel={hasCourse ? `기준 코스와 지나온 경로, 내 위치${ghost ? ', 고스트' : ''} 지도` : '지나온 경로와 내 위치 지도'}
       >
         {hasCourse ? (
           <>
@@ -38,6 +49,7 @@ export function RunPathMap({ path, position, course = null }: { path: GeoPoint[]
         ) : null}
         <PathLine path={pts} overCourse={hasCourse} />
         {path.length ? <Dot at={path[0]} size={12} fill={colors.bg.canvas} ring={colors.route.actual} /> : null}
+        {ghost ? <Dot at={ghost} size={20} fill={colors.bg.canvas} ring={colors.text.primary} /> : null}
         {/* 코스 러닝에서는 민트 코스 선 위에서도 보이도록 내 위치를 흰 점으로 */}
         {position ? <Dot at={position} size={18} fill={hasCourse ? colors.route.actual : colors.action.primary} ring={colors.bg.canvas} /> : null}
       </BrandMap>
