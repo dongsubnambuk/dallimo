@@ -51,7 +51,7 @@ class ExternalCourseParsersTest {
         ExternalCourse river = out.get(0);
         assertThat(river.source()).isEqualTo(CourseSource.OSM);
         assertThat(river.name()).isEqualTo("강변 달리기길");
-        assertThat(river.description()).isEqualTo("강을 따라 달려요");
+        assertThat(river.description()).isEqualTo("강을 따라\n달려요");
         assertThat(river.attribution()).isEqualTo("© OpenStreetMap contributors");
         assertThat(river.sourceUrl()).isEqualTo("https://www.openstreetmap.org/relation/1");
         // 이어 붙인 선: 0m에서 1200m까지 한 방향 (겹친 점은 한 번)
@@ -98,26 +98,63 @@ class ExternalCourseParsersTest {
     }
 
     @Test
-    void durunubiReadsListAndSingleItem() {
+    void durunubiReadsCoursesRoutesAndSingleItem() {
+        // 매뉴얼 v4.1 courseList 응답 항목 (값은 모두 문자열)
         String list = """
                 {"response":{"header":{"resultCode":"0000","resultMsg":"OK"},"body":{"items":{"item":[
-                  {"crsIdx":"T_CRS_MNG0000005100","crsKorNm":"해파랑길 1코스","crsDstnc":"17.8","crsLevel":"2","crsSummary":"<p>오륙도에서</p><br>시작","sigun":"부산 남구","brdDiv":"DNWW","gpxpath":"https://example.test/1.gpx"},
-                  {"crsIdx":"B1","crsKorNm":"자전거길","crsDstnc":"30","crsLevel":"1","brdDiv":"DNBW","gpxpath":"https://example.test/2.gpx"}
+                  {"routeIdx":"T_ROUTE_MNG0000000001","crsIdx":"T_CRS_MNG0000005100","crsKorNm":"해파랑길 1코스","crsDstnc":"17.8","crsTotlRqrmHour":"360","crsLevel":"2","crsCycle":"비순환형","crsContents":"오륙도 해맞이공원에서<br>시작해요","crsSummary":"- 개요","sigun":"부산 남구","brdDiv":"DNWW","gpxpath":"https://www.durunubi.kr/editImgUp.do?filePath=/data/koreamobility/course/summap/T_CRS_MNG0000005100.gpx"},
+                  {"crsIdx":"B1","crsKorNm":"자전거길","crsDstnc":"30","crsLevel":"1","crsCycle":"순환형","crsSummary":"- 개요만 있어요","brdDiv":"DNBW","gpxpath":"https://example.test/2.gpx"}
                 ]},"numOfRows":100,"pageNo":1,"totalCount":2}}}""";
-        DurunubiParser.Page p = DurunubiParser.parse(JSON.readTree(list));
+        DurunubiParser.Page<DurunubiParser.Item> p = DurunubiParser.courses(JSON.readTree(list));
         assertThat(p.ok()).isTrue();
         assertThat(p.totalCount()).isEqualTo(2);
         DurunubiParser.Item first = p.items().get(0);
+        assertThat(first.routeIdx()).isEqualTo("T_ROUTE_MNG0000000001");
         assertThat(first.distanceKm()).isEqualTo(17.8);
         assertThat(first.difficulty()).isEqualTo("MODERATE");
+        assertThat(first.loop()).isFalse();
         assertThat(first.region()).isEqualTo("부산 남구");
+        // 코스 설명이 있으면 설명, 없으면 코스 개요
+        assertThat(first.description()).isEqualTo("오륙도 해맞이공원에서<br>시작해요");
+        assertThat(p.items().get(1).description()).isEqualTo("- 개요만 있어요");
+        assertThat(p.items().get(1).loop()).isTrue();
 
-        String single = """
-                {"response":{"header":{"resultCode":"0000"},"body":{"items":{"item":{"crsIdx":"A","crsKorNm":"하나"}},"totalCount":1}}}""";
-        assertThat(DurunubiParser.parse(JSON.readTree(single)).items()).extracting(DurunubiParser.Item::crsIdx).containsExactly("A");
+        String routes = """
+                {"response":{"header":{"resultCode":"0000","resultMsg":"OK"},"body":{"items":{"item":
+                  {"routeIdx":"T_THEME_MNG0000011175","themeNm":"천지인 둘레길","linemsg":"문화 및 자연경관이 어우러진 둘레길","brdDiv":"DNWW"}
+                },"numOfRows":1,"pageNo":1,"totalCount":1}}}""";
+        assertThat(DurunubiParser.routes(JSON.readTree(routes)).items())
+                .containsExactly(new DurunubiParser.Route("T_THEME_MNG0000011175", "천지인 둘레길", "DNWW"));
         String empty = """
                 {"response":{"header":{"resultCode":"0000"},"body":{"items":"","totalCount":0}}}""";
-        assertThat(DurunubiParser.parse(JSON.readTree(empty)).items()).isEmpty();
+        assertThat(DurunubiParser.courses(JSON.readTree(empty)).items()).isEmpty();
+    }
+
+    @Test
+    void durunubiReadsXmlErrors() {
+        // 공공데이터포털 오류는 _type=json이어도 XML로만 온다 (매뉴얼 v4.1)
+        String portal = """
+                <OpenAPI_ServiceResponse><cmmMsgHeader><errMsg>SERVICE ERROR</errMsg>
+                <returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg><returnReasonCode>30</returnReasonCode>
+                </cmmMsgHeader></OpenAPI_ServiceResponse>""";
+        DurunubiParser.Page<DurunubiParser.Item> p = DurunubiParser.xml(portal);
+        assertThat(p.ok()).isFalse();
+        assertThat(p.resultCode()).isEqualTo("30");
+        assertThat(p.resultMsg()).isEqualTo("SERVICE_KEY_IS_NOT_REGISTERED_ERROR");
+        String provider = """
+                <response><header><resultCode>22</resultCode><resultMsg>LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR</resultMsg></header></response>""";
+        assertThat(DurunubiParser.<DurunubiParser.Item>xml(provider).resultCode()).isEqualTo("22");
+        assertThat(DurunubiParser.<DurunubiParser.Item>xml("<html>oops</html>").resultCode()).isEqualTo("XML");
+    }
+
+    @Test
+    void externalCourseCleansHtmlAndTags() {
+        ExternalCourse c = new ExternalCourse(CourseSource.DURUNUBI, "A", "  이름<br>둘  ", "<p>첫 줄</p><br>둘째&nbsp;줄<br/><br>", "경남 <b>밀양시</b>", null,
+                java.util.Arrays.asList("해파랑길", "해파랑길", null, "아주 긴 길 이름이 스무 자를 넘어가면 잘라요"), toPoints(north(LAT, LNG, 0, 100, 1)), "출처", null, null);
+        assertThat(c.name()).isEqualTo("이름 둘");
+        assertThat(c.description()).isEqualTo("첫 줄\n둘째 줄");
+        assertThat(c.region()).isEqualTo("경남 밀양시");
+        assertThat(c.tags()).containsExactly("해파랑길", "아주 긴 길 이름이 스무 자를 넘어가");
     }
 
     @Test

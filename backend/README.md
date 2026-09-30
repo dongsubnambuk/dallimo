@@ -369,7 +369,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | API | 설명 |
 | --- | --- |
 | `POST /api/v1/admin/external-courses/osm` | `{ south, west, north, east }` 박스 안의 OSM 달리기 · 걷기 경로를 코스로. 박스는 가로 · 세로 0.5도까지 |
-| `POST /api/v1/admin/external-courses/durunubi` | 두루누비 코스 목록을 쪽마다 읽고(최대 10쪽 × 100개), 새 코스만 GPX를 받아 코스로 |
+| `POST /api/v1/admin/external-courses/durunubi` | 두루누비 길 목록 · 코스 목록을 쪽마다 읽고(각각 최대 10쪽 × 100개), 새 코스만 GPX를 받아 코스로 |
 | `POST /api/v1/admin/external-courses/gpx` | multipart `file`(GPX 5MB까지) + `attribution`(출처, 필수) · `name?` · `description?` · `region?` · `difficulty?` · `sourceRef?` · `license?` · `sourceUrl?` |
 
 - **부르는 법**: 앱이 부르지 않는 관리 API다. 사용자 토큰 대신 `X-Admin-Key: {EXTERNAL_COURSE_ADMIN_KEY}` 헤더. 키가 없으면 404(닫힘), 틀리면 403. 응답은 `{ source, fetched, created, skippedExisting, skippedDuplicate, skippedInvalid, courseIds, errors }`.
@@ -379,7 +379,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
   ```
 - **가져오는 곳**
   - OpenStreetMap(Overpass API, 키 없음): 이름 있는 `route=running · foot · hiking · fitness_trail` relation(멤버 way를 순서대로 이어 붙이고 30m 넘게 끊기면 버림, 갈림길 · 접근로 멤버 제외)과 이름 있는 닫힌 보행로 way(호수 · 공원 둘레길). `access=private · no`, `foot=no`는 뺀다. 공용 서버(`overpass-api.de`)는 무거운 요청을 자주 보내지 않는다.
-  - 한국관광공사 두루누비(공공데이터포털 15101974 `courseList`): 걷기길(`DNWW`)만. 난이도 `crsLevel` 1 · 2 · 3 → EASY · MODERATE · HARD, 지역 `sigun`, 설명 `crsSummary`(HTML 제거), 경로는 `gpxpath` GPX.
+  - 한국관광공사 두루누비(공공데이터포털 15101974, 한국관광공사 TourAPI 활용매뉴얼(두루누비) v4.1): `routeList`(길 목록)로 길 고유번호 → 길 이름을 먼저 읽고 `courseList`(코스 목록)를 읽는다. 두 요청 모두 `brdDiv=DNWW`(걷기길) · `MobileOS=ETC` · `MobileApp=DALLIMO` · `_type=json`. 난이도 `crsLevel` 1(하) · 2(중) · 3(상) → EASY · MODERATE · HARD, 지역 `sigun`, 설명은 `crsContents`(코스 설명, 없으면 `crsSummary` 코스 개요, HTML을 걷고 줄바꿈은 남김), 태그는 길 이름(`themeNm`, 예: 해파랑길)과 `crsCycle`이 순환형이면 "순환형", 경로는 `gpxpath` GPX. 데이터는 하루 1번 바뀐다.
+  - 오류: 공공데이터포털 오류(인증키 · 호출 한도 · 기간 만료 · IP)는 `_type=json`이어도 XML(`returnReasonCode` · `returnAuthMsg`)로만 온다. HTTP 상태와 관계없이 본문을 읽어 결과 `errors`에 코드와 할 일을 남긴다(예: `30` 미등록 키, `22` 하루 한도 초과, `31` 기간 만료, `32` 미등록 IP). 길 목록을 못 읽어도 코스는 태그 없이 가져온다.
   - GPX 파일: 한국등산 · 트레킹지원센터 숲길 GPX 등 관리자가 받은 파일. 출처를 꼭 넣는다. `sourceRef`가 없으면 파일 해시.
   - Open-Meteo Elevation API(고도가 없는 경로에만, 50m마다 물어보고 사이는 보간): 무료 API는 비상업 조건이라 기본은 끈다(`EXTERNAL_ELEVATION_ENABLED`). 상업 서비스에서 켜려면 유료 API 주소(`EXTERNAL_ELEVATION_URL`)를 쓴다.
 - **코스로 만드는 기준** (`ExternalCoursePolicy`): 사용자 코스와 같은 10m 간격으로 다시 찍는다. 1km 미만 · 21.1km 넘는 경로는 만들지 않는다(종주길 제외). 같은 원본(`source` + `source_ref`, V15 유일 키)은 한 번만. 출발점이 100m 안이고 길이 차이가 10% 안인 코스가 이미 있으면(다른 곳에서 가져왔거나 사용자가 먼저 등록) 건너뛴다. 경로는 바꾸지 않는다(43.1장) — 원본이 바뀌면 코스를 숨기고 다시 가져온다.
@@ -387,10 +388,11 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **주기 실행**: `EXTERNAL_COURSE_CRON`(예: `0 0 4 * * MON`, 기본 `-` 끔) + `EXTERNAL_COURSE_OSM_BOXES`(`south,west,north,east`를 `;`로 이음). 두루누비 키가 있으면 두루누비도 읽는다.
 - **라이선스 · 운영 전 확인**
   - OSM(ODbL 1.0): 코스 상세에 "© OpenStreetMap contributors"를 보여 준다(앱). OSM에서 온 경로 데이터베이스를 밖으로 내보내면(예: 경로 전체를 대량 제공) 같은 ODbL로 제공해야 한다. 그래서 `source = OSM`으로 따로 표시해 둔다.
-  - 두루누비: 공공데이터포털 이용허락범위를 따른다. 코스 경로를 저장해서 다시 보여 주는 이용이 허락 범위 안인지 운영 전에 한국관광공사에 확인한다.
-  - 인증키: data.go.kr 가입 → "한국관광공사_두루누비 정보 서비스" 활용신청 → 마이페이지의 일반 인증키(Decoding)를 `DATA_GO_KR_SERVICE_KEY`로. 개발 계정은 하루 1,000번.
+  - 두루누비: 공공데이터포털 이용허락범위를 따른다. 활용신청 때 라이선스 표시에 동의해야 하고, 앱은 코스 상세에 "한국관광공사 두루누비"를 보여 준다. 코스 경로를 저장해서 다시 보여 주는 이용은 운영계정 신청 때 활용 목적에 적고 한국관광공사 승인으로 확인한다.
+  - 인증키 (TourAPI 활용신청방법 매뉴얼 v3.3): data.go.kr 가입 → 데이터찾기에서 "한국관광공사_두루누비 정보 서비스" → 활용신청(활용목적 · 상세기능 · 라이선스 표시 동의) → 개발계정은 자동승인, 10~30분 뒤 사용 → 마이페이지 › 데이터활용 › Open API › 인증키 발급현황의 키를 `DATA_GO_KR_SERVICE_KEY`로. Encoding 키 · Decoding 키 어느 쪽을 넣어도 된다(서버가 한 번만 인코딩). 개발계정은 오퍼레이션마다 하루 1,000건(한 번 가져오기에 길 목록 · 코스 목록 몇 쪽씩).
+  - 운영계정: 활용신청 현황 상세보기 › 운영계정신청. 한국관광공사 담당자가 앱 URL과 개발계정 호출 이력을 확인하고 승인한다(1~3일). 활용기간은 승인일부터 24개월, 끝나기 전에 연장신청.
 - **연결하지 않은 곳**: 좌표 경로가 없는 데이터(전국길관광정보표준데이터, 서울둘레길 코스정보, 대구 산책로정보는 출발 · 도착점만)는 코스를 만들 수 없다. 행정안전부 자전거길은 자전거 도로라 달리기 코스로 쓰지 않는다(GPX로 받으면 관리자가 올릴 수는 있다). Strava API는 경쟁 앱 이용을 금지한다.
-- **테스트**: `ExternalCourseParsersTest`(Overpass 이어 붙이기 · 끊긴 relation · 막힌 길, GPX trk · rte · XXE 거부, 두루누비 목록 · 한 개 · 빈 목록, 다시 찍기 · 고도 보간), `ExternalCourseApiContractTest`를 MySQL · MariaDB에서(가짜 Overpass · 두루누비 · 고도 서버: 관리 키 · 박스 검사 · 가져오기 · 다시 가져오기 · 상세 출처 · 두루누비 인증키 인코딩 · 자전거길 · 긴 길 제외 · GPX 중복 · 같은 파일 · 출처 필수).
+- **테스트**: `ExternalCourseParsersTest`(Overpass 이어 붙이기 · 끊긴 relation · 막힌 길, GPX trk · rte · XXE 거부, 두루누비 코스 · 길 목록 · 한 개 · 빈 목록 · XML 오류, HTML 설명 · 태그 정리, 다시 찍기 · 고도 보간), `DurunubiClientTest`(Encoding · Decoding 키), `ExternalCourseApiContractTest`를 MySQL · MariaDB에서(가짜 Overpass · 두루누비 · 고도 서버: 관리 키 · 박스 검사 · 가져오기 · 다시 가져오기 · 상세 출처 · 두루누비 인증키 인코딩 · 필수 요청 값 · 길 이름 태그 · 순환형 · 호출 한도 XML 오류 · 자전거길 · 긴 길 제외 · GPX 중복 · 같은 파일 · 출처 필수).
 
 ## 공통 규칙
 

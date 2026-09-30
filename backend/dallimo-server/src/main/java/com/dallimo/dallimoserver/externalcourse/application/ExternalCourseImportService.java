@@ -23,8 +23,10 @@ import tools.jackson.databind.JsonNode;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 외부 공개 데이터로 달리모 추천 코스를 만든다 (FOUNDATION-DECISION-LOG 52항).
@@ -90,33 +92,67 @@ public class ExternalCourseImportService {
         return t.report();
     }
 
-    /** 두루누비 코스 목록을 쪽마다 읽고, 새 코스만 GPX를 받아 만든다 */
+    /** 두루누비 길 이름을 먼저 읽고, 코스 목록을 쪽마다 읽어 새 코스만 GPX를 받아 만든다 */
     public ImportReport importDurunubi() {
         ExternalCourseProperties.Durunubi cfg = props.durunubi();
         if (!cfg.enabled()) throw new ApiException(ErrorCode.VALIDATION_ERROR, "두루누비 인증키(DATA_GO_KR_SERVICE_KEY)가 설정되지 않았어요.");
         Tally t = new Tally(CourseSource.DURUNUBI);
+        Map<String, String> routeNames = durunubiRouteNames(cfg, t);
         for (int pageNo = 1; pageNo <= cfg.maxPages(); pageNo++) {
-            DurunubiParser.Page page;
+            DurunubiParser.Page<DurunubiParser.Item> page;
             try {
-                page = DurunubiParser.parse(durunubi.courseList(pageNo));
+                page = durunubi.courseList(pageNo);
             } catch (RuntimeException e) {
-                t.error("두루누비 목록 " + pageNo + "쪽 실패: " + e.getMessage());
+                t.error("두루누비 코스 목록 " + pageNo + "쪽 실패: " + e.getMessage());
                 break;
             }
             if (!page.ok()) {
-                t.error("두루누비 응답 " + page.resultCode() + " " + page.resultMsg());
+                t.error("두루누비 코스 목록 " + durunubiError(page));
                 break;
             }
             for (DurunubiParser.Item item : page.items()) {
                 t.fetched++;
-                durunubiItem(item, cfg, t);
+                durunubiItem(item, routeNames.get(item.routeIdx()), cfg, t);
             }
             if (page.items().isEmpty() || (long) pageNo * cfg.pageSize() >= page.totalCount()) break;
         }
         return t.report();
     }
 
-    private void durunubiItem(DurunubiParser.Item item, ExternalCourseProperties.Durunubi cfg, Tally t) {
+    /** 길 고유번호 → 길 이름 (코스 태그로 쓴다). 못 읽어도 코스는 가져온다 */
+    private Map<String, String> durunubiRouteNames(ExternalCourseProperties.Durunubi cfg, Tally t) {
+        Map<String, String> names = new HashMap<>();
+        for (int pageNo = 1; pageNo <= cfg.maxPages(); pageNo++) {
+            DurunubiParser.Page<DurunubiParser.Route> page;
+            try {
+                page = durunubi.routeList(pageNo);
+            } catch (RuntimeException e) {
+                t.error("두루누비 길 목록 " + pageNo + "쪽 실패: " + e.getMessage());
+                break;
+            }
+            if (!page.ok()) {
+                t.error("두루누비 길 목록 " + durunubiError(page));
+                break;
+            }
+            for (DurunubiParser.Route r : page.items()) if (r.routeIdx() != null && r.name() != null) names.put(r.routeIdx(), r.name());
+            if (page.items().isEmpty() || (long) pageNo * cfg.pageSize() >= page.totalCount()) break;
+        }
+        return names;
+    }
+
+    // 매뉴얼 오류 코드 중 운영자가 할 일이 있는 것
+    private static String durunubiError(DurunubiParser.Page<?> page) {
+        String hint = switch (page.resultCode()) {
+            case "30" -> " (인증키가 등록되지 않았어요. 활용신청 뒤 10~30분 기다리거나 키를 확인해 주세요)";
+            case "22" -> " (하루 호출 한도를 넘었어요. 개발계정은 오퍼레이션마다 하루 1,000건)";
+            case "31" -> " (활용기간이 끝났어요. 공공데이터포털에서 연장 신청)";
+            case "32" -> " (등록되지 않은 IP예요)";
+            default -> "";
+        };
+        return "응답 " + page.resultCode() + " " + page.resultMsg() + hint;
+    }
+
+    private void durunubiItem(DurunubiParser.Item item, String routeName, ExternalCourseProperties.Durunubi cfg, Tally t) {
         if (item.crsIdx() == null || item.name() == null || item.gpxUrl() == null) {
             t.skippedInvalid++;
             return;
@@ -141,7 +177,11 @@ public class ExternalCourseImportService {
             t.error("두루누비 " + item.crsIdx() + " GPX 실패: " + e.getMessage());
             return;
         }
-        save(new ExternalCourse(CourseSource.DURUNUBI, item.crsIdx(), item.name(), item.summary(), item.region(), item.difficulty(), List.of(),
+        // 태그: 길 이름(예: 해파랑길) · 순환형
+        List<String> tags = new ArrayList<>();
+        if (routeName != null) tags.add(ExternalCourse.tag(routeName));
+        if (item.loop()) tags.add("순환형");
+        save(new ExternalCourse(CourseSource.DURUNUBI, item.crsIdx(), item.name(), item.description(), item.region(), item.difficulty(), tags,
                 gpx.points(), DurunubiParser.ATTRIBUTION, DurunubiParser.LICENSE, null), t);
     }
 

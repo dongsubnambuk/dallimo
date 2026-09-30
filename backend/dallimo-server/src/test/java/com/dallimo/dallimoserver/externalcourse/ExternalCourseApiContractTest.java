@@ -102,14 +102,17 @@ abstract class ExternalCourseApiContractTest {
         assertThat((Integer) JsonPath.read(d, "$.data.fetched")).isEqualTo(3);
         assertThat((Integer) JsonPath.read(d, "$.data.created")).isEqualTo(1);
         assertThat((Integer) JsonPath.read(d, "$.data.skippedInvalid")).isEqualTo(2);
-        assertThat((List<?>) JsonPath.read(d, "$.data.errors")).isEmpty();
+        // 길 목록 2쪽의 호출 한도 오류(XML)는 코드 · 안내와 함께 남는다
+        List<String> errors = JsonPath.read(d, "$.data.errors");
+        assertThat(errors).singleElement().asString().contains("길 목록 응답 22 LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR").contains("하루 1,000건");
         long olle = ((Number) JsonPath.<List<Number>>read(d, "$.data.courseIds").get(0)).longValue();
         String o = body(mvc.get().uri("/api/v1/courses/" + olle).exchange());
         assertThat((String) JsonPath.read(o, "$.data.source.kind")).isEqualTo("DURUNUBI");
         assertThat((String) JsonPath.read(o, "$.data.source.attribution")).isEqualTo("한국관광공사 두루누비");
         assertThat((String) JsonPath.read(o, "$.data.difficulty")).isEqualTo("MODERATE");
         assertThat((String) JsonPath.read(o, "$.data.region")).isEqualTo("제주 서귀포시");
-        assertThat((String) JsonPath.read(o, "$.data.description")).isEqualTo("바닷가를 따라 걷는 길 쉬운 구간");
+        assertThat((String) JsonPath.read(o, "$.data.description")).isEqualTo("바닷가를 따라 걷는 길\n쉬운 구간");
+        assertThat((List<String>) JsonPath.read(o, "$.data.tags")).containsExactly("제주 올레길", "순환형");
         assertThat((String) JsonPath.read(o, "$.data.status")).isEqualTo("NEW");
         assertThat(body(admin("/api/v1/admin/external-courses/durunubi", KEY))).contains("\"skippedExisting\":1");
 
@@ -148,16 +151,25 @@ abstract class ExternalCourseApiContractTest {
                         way(202, "{\"highway\":\"footway\",\"name\":\"연못 둘레길\"}", circle(LAT + 0.01, LNG, 250, 36)),
                         way(303, "{\"highway\":\"footway\",\"name\":\"작은 연못\"}", circle(LAT + 0.02, LNG, 60, 12))));
             });
-            s.createContext("/durunubi/courseList", ex -> {
-                String query = ex.getRequestURI().getRawQuery();
-                if (query == null || !query.contains("serviceKey=ab%2Bc%2Fd%3D%3D") || !query.contains("_type=json")) {
-                    send(ex, 200, "{\"response\":{\"header\":{\"resultCode\":\"30\",\"resultMsg\":\"SERVICE_KEY_IS_NOT_REGISTERED_ERROR\"}}}");
+            // 인증키 · 걷기길 · JSON 요청이 맞아야 답한다. 공공데이터포털 오류는 XML로만 온다 (매뉴얼 v4.1)
+            s.createContext("/durunubi/routeList", ex -> {
+                if (!durunubiQueryOk(ex)) return;
+                // 길 목록 2쪽은 호출 한도 초과 → 길 이름 일부 없이도 코스는 가져온다
+                if (ex.getRequestURI().getRawQuery().contains("pageNo=2")) {
+                    send(ex, 403, portalError("22", "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR"));
                     return;
                 }
+                send(ex, 200, """
+                        {"response":{"header":{"resultCode":"0000","resultMsg":"OK"},"body":{"items":{"item":[
+                          {"routeIdx":"T_ROUTE_TEST1","themeNm":"제주 올레길","linemsg":"바닷길","brdDiv":"DNWW"}
+                        ]},"numOfRows":100,"pageNo":1,"totalCount":150}}}""");
+            });
+            s.createContext("/durunubi/courseList", ex -> {
+                if (!durunubiQueryOk(ex)) return;
                 String gpx = "http://127.0.0.1:" + ex.getLocalAddress().getPort() + "/gpx/olle.gpx";
                 send(ex, 200, """
                         {"response":{"header":{"resultCode":"0000","resultMsg":"OK"},"body":{"items":{"item":[
-                          {"crsIdx":"T_CRS_TEST1","crsKorNm":"올레 테스트 코스","crsDstnc":"1.5","crsLevel":"2","crsSummary":"<p>바닷가를 따라 걷는 길</p><br>쉬운 구간","sigun":"제주 서귀포시","brdDiv":"DNWW","gpxpath":"%s"},
+                          {"routeIdx":"T_ROUTE_TEST1","crsIdx":"T_CRS_TEST1","crsKorNm":"올레 테스트 코스","crsDstnc":"1.5","crsTotlRqrmHour":"30","crsLevel":"2","crsCycle":"순환형","crsContents":"<p>바닷가를 따라 걷는 길</p><br>쉬운 구간","crsSummary":"- 개요","sigun":"제주 서귀포시","brdDiv":"DNWW","gpxpath":"%s"},
                           {"crsIdx":"T_CRS_BIKE","crsKorNm":"자전거길","crsDstnc":"12","crsLevel":"1","brdDiv":"DNBW","gpxpath":"%s"},
                           {"crsIdx":"T_CRS_LONG","crsKorNm":"긴 종주길","crsDstnc":"45.2","crsLevel":"3","brdDiv":"DNWW","gpxpath":"%s"}
                         ]},"numOfRows":100,"pageNo":1,"totalCount":3}}}""".formatted(gpx, gpx, gpx));
@@ -177,9 +189,25 @@ abstract class ExternalCourseApiContractTest {
         }
     }
 
+    private static boolean durunubiQueryOk(HttpExchange ex) throws IOException {
+        String query = ex.getRequestURI().getRawQuery();
+        if (query == null || !query.contains("serviceKey=ab%2Bc%2Fd%3D%3D") || !query.contains("_type=json") || !query.contains("brdDiv=DNWW")
+                || !query.contains("MobileOS=ETC") || !query.contains("MobileApp=DALLIMO")) {
+            send(ex, 403, portalError("30", "SERVICE_KEY_IS_NOT_REGISTERED_ERROR"));
+            return false;
+        }
+        return true;
+    }
+
+    private static String portalError(String code, String message) {
+        return """
+                <OpenAPI_ServiceResponse><cmmMsgHeader><errMsg>SERVICE ERROR</errMsg><returnAuthMsg>%s</returnAuthMsg>\
+                <returnReasonCode>%s</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>""".formatted(message, code);
+    }
+
     private static void send(HttpExchange ex, int status, String body) throws IOException {
         byte[] b = body.getBytes(StandardCharsets.UTF_8);
-        ex.getResponseHeaders().add("Content-Type", body.startsWith("<") ? "application/gpx+xml" : "application/json");
+        ex.getResponseHeaders().add("Content-Type", body.startsWith("<OpenAPI") ? "text/xml" : body.startsWith("<") ? "application/gpx+xml" : "application/json");
         ex.sendResponseHeaders(status, b.length);
         ex.getResponseBody().write(b);
         ex.close();
