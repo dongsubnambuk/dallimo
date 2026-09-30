@@ -15,6 +15,10 @@ spring:
       hibernate.jdbc.time_zone: UTC
   flyway:
     locations: classpath:db/migration
+  datasource:
+    hikari:
+      # 40.4장: DB 세션 시간대도 UTC (DB 서버 시간대가 달라도 DATETIME을 같은 기준으로)
+      connection-init-sql: SET time_zone = '+00:00'
   jackson:
     time-zone: UTC
   # 프로필 사진 (사진은 서버가 512px로 다시 만든다, ProfileImages)
@@ -38,6 +42,9 @@ springdoc:
 logging:
   pattern:
     correlation: "[req=%X{requestId:-} user=%X{userId:-} run=%X{runId:-}] "
+  level:
+    # 시작할 때 Hibernate가 DB 접속 주소를 그대로 찍는다. MariaDB 드라이버는 주소에 비밀번호를 넣어서 로그에 남는다
+    org.hibernate.orm.connections.pooling: warn
 
 management:
   endpoints:
