@@ -101,8 +101,11 @@ export function MyCoursesScreen({ initialTab, scenario }: { initialTab: MyCourse
   );
 }
 
+// 결정 로그 53항: 신고가 쌓여 숨겨진 코스는 관리자가 검토한다. 만든 사람에게만 보인다
+const STATUS_LABEL: Partial<Record<MyCourse['status'], string>> = { NEW: '새 코스', HIDDEN: '신고로 숨김 · 검토 중', BLOCKED: '공개 중지' };
+
 function contextOf(tab: MyCourseKind, c: MyCourse): string | undefined {
-  if (tab === 'created') return [c.createdAt ? `${dayLabel(new Date(c.createdAt))} 등록` : null, c.status === 'NEW' ? '새 코스' : null].filter(Boolean).join(' · ');
+  if (tab === 'created') return [c.createdAt ? `${dayLabel(new Date(c.createdAt))} 등록` : null, STATUS_LABEL[c.status] ?? null].filter(Boolean).join(' · ');
   if (tab === 'finished') return [c.myBestSec != null ? `내 PB ${formatDuration(c.myBestSec)}` : null, c.finishCount ? `${c.finishCount}회 완주` : null].filter(Boolean).join(' · ');
   return c.myBestSec != null ? `내 PB ${formatDuration(c.myBestSec)}` : undefined;
 }

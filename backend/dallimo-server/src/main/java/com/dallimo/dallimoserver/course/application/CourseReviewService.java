@@ -25,11 +25,13 @@ public class CourseReviewService {
 
     private final CourseService courses;
     private final CourseReviewJdbcRepository store;
+    private final CourseModerationService moderation;
     private final Clock clock;
 
-    public CourseReviewService(CourseService courses, CourseReviewJdbcRepository store, Clock clock) {
+    public CourseReviewService(CourseService courses, CourseReviewJdbcRepository store, CourseModerationService moderation, Clock clock) {
         this.courses = courses;
         this.store = store;
+        this.moderation = moderation;
         this.clock = clock;
     }
 
@@ -68,10 +70,12 @@ public class CourseReviewService {
         return new Mine(store.recordRun(viewerId, courseId, null).isPresent(), review.orElse(null));
     }
 
+    /** 한 사람 한 신고. 서로 다른 사람의 신고가 쌓이면 코스를 자동으로 숨긴다 (CourseModerationService) */
     @Transactional
     public void report(long userId, long courseId, CourseReportReason reason, String content) {
         courses.requireViewable(userId, courseId);
         store.report(courseId, userId, reason, content, clock.instant());
+        moderation.onReported(courseId);
     }
 
     private static String encode(long id) {

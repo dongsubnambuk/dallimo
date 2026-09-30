@@ -72,8 +72,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/.well-known/apple-app-site-association", "/.well-known/assetlinks.json").permitAll()
                         // 8장 WebSocket 연결. 인증은 STOMP CONNECT의 Access Token으로 한다 (StompAuthInterceptor)
                         .requestMatchers("/ws", "/ws/**").permitAll()
-                        // 외부 추천 코스 가져오기 관리 API: 사용자 토큰 대신 X-Admin-Key로 컨트롤러가 확인한다 (ExternalCourseAdminController)
-                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/external-courses/**").permitAll()
+                        // 관리 API(외부 추천 코스 · 코스 신고 검토): 사용자 토큰 대신 X-Admin-Key로 컨트롤러가 확인한다 (AdminKeyGuard)
+                        .requestMatchers("/api/v1/admin/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o

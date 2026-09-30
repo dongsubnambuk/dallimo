@@ -9,14 +9,13 @@ import java.util.List;
 /**
  * 외부 공개 데이터로 추천 코스 만들기 (FOUNDATION-DECISION-LOG 52항). 값은 명세에 없어 정한 시작값 (backend/README 결정 사항).
  *
- * @param adminKey          관리 API(X-Admin-Key) 키. 비어 있으면 관리 API를 닫는다
  * @param minDistanceM      이보다 짧은 경로는 코스로 만들지 않는다
  * @param maxDistanceM      이보다 긴 경로(한 번에 달리기 어려운 종주길)는 코스로 만들지 않는다
  * @param duplicateStartM   출발점이 이 안이고 길이 차이가 duplicateLengthRatio 안인 코스가 이미 있으면 같은 코스로 본다
  * @param userAgent         외부 API에 보내는 User-Agent (Overpass 이용 정책)
  */
 @ConfigurationProperties("dallimo.external-courses")
-public record ExternalCourseProperties(String adminKey, Integer minDistanceM, Integer maxDistanceM, Double duplicateStartM,
+public record ExternalCourseProperties(Integer minDistanceM, Integer maxDistanceM, Double duplicateStartM,
                                        Double duplicateLengthRatio, String userAgent, Osm osm, Durunubi durunubi, Elevation elevation,
                                        Schedule schedule) {
 
@@ -30,10 +29,6 @@ public record ExternalCourseProperties(String adminKey, Integer minDistanceM, In
         durunubi = durunubi == null ? new Durunubi(null, null, null, null, null, null) : durunubi;
         elevation = elevation == null ? new Elevation(null, null, null, null) : elevation;
         schedule = schedule == null ? new Schedule(null, null) : schedule;
-    }
-
-    public boolean adminEnabled() {
-        return adminKey != null && !adminKey.isBlank();
     }
 
     /**
