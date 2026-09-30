@@ -1,5 +1,5 @@
--- 자동 생성 파일. 직접 고치지 않는다 (scripts/gen-local-seed.mts).
--- 로컬 개발용 코스 3개. application-local.yaml에서만 이 위치를 읽는다. 여러 번 적용해도 한 번만 들어간다.
+-- 자동 생성 파일. 직접 고치지 않는다 (scripts/gen-dev-seed.mts).
+-- 개발용 코스 3개. application-dev.yaml에서만 이 위치를 읽는다. 여러 번 적용해도 한 번만 들어간다.
 -- 경로: © OpenStreetMap contributors (ODbL 1.0). 고도: Open-Meteo Elevation API (Copernicus DEM 90m).
 
 INSERT IGNORE INTO tbl_user (provider, provider_user_id, nickname, friend_code, status, created_at, updated_at)

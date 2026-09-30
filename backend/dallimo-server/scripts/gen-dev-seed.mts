@@ -1,14 +1,15 @@
-// 로컬 개발용 코스 seed SQL을 만든다 (local 프로필에서만 적용, 운영 · 테스트 DB에는 들어가지 않음).
+// 개발용 코스 seed SQL을 만든다 (dev 프로필에서만 적용, 운영 · 테스트 DB에는 들어가지 않음).
+// 파일 이름(R__local_seed_courses)은 그대로 둔다. 바꾸면 이미 적용한 개발 DB에서 Flyway 검증이 실패한다
 // 경로는 앱 mock 코스와 같은 OpenStreetMap 경로(frontend/src/entities/course/api/mockCourseRoutes.ts)를
 // 서버 코스 등록과 같은 10m 간격으로 다시 찍고, 고도는 mock 고도 그래프에서 보간한다.
-// 실행: node --experimental-strip-types scripts/gen-local-seed.mts
+// 실행: node --experimental-strip-types scripts/gen-dev-seed.mts
 import { writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const { MOCK_COURSE_ROUTES } = await import(resolve(here, '../../../frontend/src/entities/course/api/mockCourseRoutes.ts'));
-const OUT = resolve(here, '../src/main/resources/db/seed/local/R__local_seed_courses.sql');
+const OUT = resolve(here, '../src/main/resources/db/seed/dev/R__local_seed_courses.sql');
 
 // 앱 mock 코스(mockCourseRepository.ts)와 같은 이름 · 설명 · 태그 · 난이도
 const COURSES = [
@@ -74,8 +75,8 @@ function altitudeAt(profile: [number, number][], d: number) {
 const q = (s: string) => `'${s.replace(/'/g, "''")}'`;
 const f7 = (n: number) => n.toFixed(7);
 const lines: string[] = [
-  '-- 자동 생성 파일. 직접 고치지 않는다 (scripts/gen-local-seed.mts).',
-  '-- 로컬 개발용 코스 3개. application-local.yaml에서만 이 위치를 읽는다. 여러 번 적용해도 한 번만 들어간다.',
+  '-- 자동 생성 파일. 직접 고치지 않는다 (scripts/gen-dev-seed.mts).',
+  '-- 개발용 코스 3개. application-dev.yaml에서만 이 위치를 읽는다. 여러 번 적용해도 한 번만 들어간다.',
   '-- 경로: © OpenStreetMap contributors (ODbL 1.0). 고도: Open-Meteo Elevation API (Copernicus DEM 90m).',
   '',
   "INSERT IGNORE INTO tbl_user (provider, provider_user_id, nickname, friend_code, status, created_at, updated_at)",

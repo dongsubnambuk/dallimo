@@ -15,12 +15,26 @@
 
 ## 로컬 실행
 
+개발 서버는 내 컴퓨터에서 띄운다(기본 프로필 `dev`). MySQL 8.4 · Redis 7.4를 `docker run`으로 한 번 만들어 두고 켜고 끈다.
+
 ```bash
+# 처음 한 번: MySQL 8.4 (utf8mb4) · Redis 7.4
+docker run -d --name dallimo-mysql --restart unless-stopped \
+  -e MYSQL_DATABASE=dallimo -e MYSQL_USER=dallimo -e MYSQL_PASSWORD=dallimo \
+  -e MYSQL_ROOT_PASSWORD=dallimo-root -e TZ=UTC \
+  -v dallimo-mysql:/var/lib/mysql -p 3306:3306 \
+  mysql:8.4 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+docker run -d --name dallimo-redis --restart unless-stopped -p 6379:6379 redis:7.4-alpine
+
+# 서버 (Flyway가 테이블과 개발용 코스 3개를 만든다)
 cd backend/dallimo-server
-docker compose up -d          # MySQL 8.4 (utf8mb4, UTC) + Redis 7.4
-./gradlew bootRun             # 기본 프로필 local → Flyway가 스키마를 만든다
+./gradlew bootRun
 curl localhost:8080/actuator/health
 ```
+
+- 끄기 · 켜기: `docker stop dallimo-mysql dallimo-redis` · `docker start dallimo-mysql dallimo-redis`. DB 데이터는 `dallimo-mysql` 볼륨에 남는다.
+- 처음부터 다시: `docker rm -f dallimo-mysql && docker volume rm dallimo-mysql` 뒤 위 명령.
+- 값을 바꾸려면 환경변수(`DB_HOST` · `DB_PORT` · `DB_NAME` · `DB_USERNAME` · `DB_PASSWORD` · `REDIS_HOST` 등, `application-dev.yaml`). 운영과 같은 MariaDB로 확인하려면 `DB_DRIVER=mariadb`.
 
 Docker만 있으면 DB 없이도 `TestDallimoServerApplication`(테스트 소스)을 실행해 Testcontainers MySQL로 띄울 수 있습니다.
 
@@ -44,14 +58,13 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 
 | 프로필 | DB | 접속 정보 |
 | --- | --- | --- |
-| local (기본) | docker compose MySQL · Redis | `application-local.yaml` (로컬 전용 값, `DB_USERNAME` · `DB_PASSWORD`로 덮어쓰기 가능) |
-| dev | MySQL (`DB_DRIVER=mysql` 기본) | 아래 환경변수 |
+| dev (기본) | 내 컴퓨터의 MySQL 8.4 · Redis 7.4 (`docker run`, 위 "로컬 실행") | `application-dev.yaml`. 기본값이 들어 있고 환경변수로 바꿀 수 있다. Push · 메일은 기본으로 로그만 |
 | test | Testcontainers | 테스트가 넣는다 |
 | prod | MariaDB (`DB_DRIVER=mariadb` 기본) | 아래 환경변수. `/v3/api-docs`는 끈다 |
 
 비밀 값(DB · JWT · Push · 인증키)은 저장소에 넣지 않습니다.
 
-### 배포 환경변수 (dev · prod)
+### 배포 환경변수 (prod)
 
 - 빈 목록: `backend/dallimo-server/.env.example` (복사해서 배포 환경에 넣는다. 비밀 값은 저장소에 넣지 않는다).
 - 서버가 뜰 때 빠진 선택 설정을 `deploy.config missing=` WARN 로그로 알려 준다(`DeployConfigCheck`, prod만). 다 있으면 `deploy.config ok`.
@@ -113,14 +126,14 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 - **비밀번호**: 8~64자, 영문과 숫자 함께, 공백 없음. BCrypt(`{bcrypt}` 접두어)로 저장.
 - **프로필 사진**: JPG · PNG 5MB까지(넘으면 413). 서버가 가운데를 정사각형으로 잘라 512px JPEG로 다시 만든다(`ProfileImages`). EXIF(촬영 위치 등)는 남지 않고 휴대폰 사진 회전 정보는 반영한다. 사진이 틀리면 닉네임도 바꾸지 않는다. 파일은 DB 커밋 뒤 정리(바꾸면 옛 사진, 실패하면 새 사진, 빼기 · 탈퇴면 그 사진을 지운다). 저장은 `ImageStorage` 경계 뒤 서버 디스크(`LocalDiskImageStorage`, `dallimo.storage.local-dir` · `public-base-url`, 운영은 `STORAGE_LOCAL_DIR` · `STORAGE_PUBLIC_BASE_URL`). 사진을 바꾸거나 닉네임을 바꾸는 PATCH는 사람마다 분당 10번.
 - **비밀번호 변경 · 재설정** (결정 로그 58항): 틀린 지금 비밀번호는 400 `PASSWORD_MISMATCH`, 코드가 틀림 · 만료 · 잠김이면 400 `RESET_CODE_INVALID`(앱이 401이면 로그아웃해서 400). 코드는 숫자 6자리 · 10분 · 5번 틀리면 잠김 · 새 코드를 받으면 전 코드는 못 쓴다. DB에는 SHA-256 해시만(`tbl_password_reset`, V17). 같은 계정은 60초에 1번 · 1시간에 5번만 보낸다. 코드 요청 · 재설정은 IP마다 분당 10번(로그인과 같은 규칙), 변경은 사람마다 분당 10번. 바뀌면 알림 메일을 보낸다.
-- **메일**: `MailSender` 경계 뒤 Resend(`ResendMailSender`, `POST https://api.resend.com/emails`). DB 커밋 뒤 비동기(`taskExecutor`)로 보내고 실패하면 `mail.failed` 로그만 남긴다. local · 테스트는 `LogMailSender`(코드를 로그에서 본다). 로그에 코드 · 비밀번호는 남기지 않는다(`password.*` · `mail.sent kind=`).
-- **설정**: `dallimo.auth.*` (application.yaml). 키는 환경변수 `JWT_SECRET`(Base64 32바이트 이상). local 프로필은 개발 전용 키가 들어 있다.
+- **메일**: `MailSender` 경계 뒤 Resend(`ResendMailSender`, `POST https://api.resend.com/emails`). DB 커밋 뒤 비동기(`taskExecutor`)로 보내고 실패하면 `mail.failed` 로그만 남긴다. dev · 테스트는 `LogMailSender`(코드를 로그에서 본다). 로그에 코드 · 비밀번호는 남기지 않는다(`password.*` · `mail.sent kind=`).
+- **설정**: `dallimo.auth.*` (application.yaml). 키는 환경변수 `JWT_SECRET`(Base64 32바이트 이상). dev 프로필은 개발 전용 키가 기본값으로 들어 있다.
 - **스키마**: `V4__email_auth.sql` — 이메일 가입자는 `provider = 'EMAIL'`, `provider_user_id = 소문자 이메일`, `password_hash` 추가, Refresh Token 회전용 `previous_token_hash` · `rotated_at`.
 
 ### 앱과 연결
 
 ```bash
-cd backend/dallimo-server && docker compose up -d && ./gradlew bootRun
+cd backend/dallimo-server && ./gradlew bootRun   # MySQL · Redis는 위 "로컬 실행"의 docker run
 cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아이폰은 노트북 IP
 ```
 
@@ -166,7 +179,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **평가 · 러닝 환경** (REV-001 · CRS-102): ERD `course_review` 그대로 V10 + `has_toilet` · `has_water` · `updated_at`. 상세 `rating { avg, count, canReview, mine }`, `environment { signals · nightLight · crowd: LOW\|MEDIUM\|HIGH, surface: ROUGH\|NORMAL\|SMOOTH, toilet, water }`는 평가 평균(1~3을 1.67 · 2.34로 세 단계, 화장실 · 급수대는 "있다"가 절반 이상). 목록 한 줄에도 `ratingAvg` · `reviewCount` · `region`.
 - **신고** (CREG-005): `tbl_course_report`에 한 사람 한 신고로 쌓는다. 신고가 쌓이면 자동으로 숨기고 관리자가 검토한다(아래 "코스 신고 처리").
 - **지역 · 추천 시간**: 앱이 출발점을 휴대폰 지오코더로 바꾼 지역 이름("대구 수성구")과 추천 시간대를 등록할 때 보낸다(V10 컬럼). 검색이 지역도 찾는다.
-- **로컬 코스 데이터**: local 프로필에서만 `db/seed/local/R__local_seed_courses.sql`(수성못 둘레길 · 신천 강변 왕복 · 들안로 왕복, 만든 사람 "달리모")을 넣는다. 앱 mock 코스와 같은 OpenStreetMap 경로를 10m 간격으로 찍었다. 다시 만들 때: `node --experimental-strip-types scripts/gen-local-seed.mts`.
+- **개발용 코스 데이터**: dev 프로필에서만 `db/seed/dev/R__local_seed_courses.sql`(수성못 둘레길 · 신천 강변 왕복 · 들안로 왕복, 만든 사람 "달리모")을 넣는다. 앱 mock 코스와 같은 OpenStreetMap 경로를 10m 간격으로 찍었다. 다시 만들 때: `node --experimental-strip-types scripts/gen-dev-seed.mts`.
 - **테스트**: `CourseApiContractTest`를 MySQL · MariaDB에서 모두 돌린다(등록 · 거부 · 주변 · 숨김 · 검색 · 지역 · 태그 검색 · 저장 · 내 코스 · 기록 숫자 · 평가 권한 · 다시 쓰기 · 환경 모으기 · 평가 목록 · 신고). `CourseRouteTest`는 경로 정규화.
 
 ## 코스 완주 검증 (명세 26장, WBS 5)
@@ -345,14 +358,14 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **발송**: 알림을 저장한 트랜잭션이 커밋된 뒤 비동기로 보낸다. 요청 응답을 늦추지 않고, 롤백된 알림은 보내지 않는다.
   - Expo Push API(`https://exp.host/--/api/v2/push/send`)로 100개씩 묶어 보낸다(`PushSender` 경계).
   - ticket이 `DeviceNotRegistered`면 토큰을 지운다(886행 invalid token).
-  - 로컬 · 테스트는 `dallimo.push.provider: log`로 보내지 않고 로그만 남긴다.
+  - dev · 테스트는 `dallimo.push.provider: log`로 보내지 않고 로그만 남긴다.
 - **토큰**: 기기마다 하나, 한 토큰은 한 사용자에게만 있다. 같은 휴대폰에서 다른 계정으로 로그인하면 토큰이 옮겨 간다. 로그아웃하면 그 기기 토큰, 탈퇴하면 모든 토큰을 지운다.
 - **실제 Push를 받으려면 (코드로 할 수 없는 준비)**
   1. Expo 계정으로 `cd frontend && npx eas init`을 실행한다. `app.json`에 `extra.eas.projectId`가 생기고, 앱이 이 값으로 Push 토큰을 받는다. 없으면 토큰을 받지 않는다.
   2. Android: Firebase 프로젝트를 만들고 FCM V1 서비스 계정 키를 `npx eas credentials`로 EAS에 올린다.
   3. iOS: Apple Developer 유료 계정이 필요하다. `npx eas build`가 APNs 키를 만들어 준다.
   4. 개발 빌드(`npx eas build --profile development`)로 실기기에 설치한다. Expo Go에서는 원격 Push를 받을 수 없다.
-  5. 서버: 로컬에서 실제로 보내 보려면 `application-local.yaml`의 `dallimo.push.provider`를 `expo`로 바꾼다. Expo "Enhanced push security"를 켰으면 `EXPO_ACCESS_TOKEN` 환경변수를 넣는다.
+  5. 서버: 개발 서버에서 실제로 보내 보려면 `PUSH_PROVIDER=expo`로 띄운다. Expo "Enhanced push security"를 켰으면 `EXPO_ACCESS_TOKEN` 환경변수를 넣는다.
 - **테스트**:
   - `NotificationApiContractTest`를 MySQL · MariaDB에서 돌린다. 가짜 발송기로 누구에게 무엇이 가는지 본다.
     - 친구 요청 · 알림함 · Push · 읽음 권한
@@ -485,7 +498,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | --- | --- | --- |
 | `RESOURCE_NOT_FOUND` (404) | 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드(RUN_NOT_FOUND 등)가 없는 404에 쓴다 | 모든 오류를 같은 모양으로 돌려주기 위해 |
 | Spring MVC 기본 오류 | 원래 HTTP 상태(400 · 405 · 415 …)는 유지하고 코드는 `VALIDATION_ERROR` | 27.1장에 해당 코드가 없음 |
-| 문자셋 | DB 서버 기본값을 utf8mb4로(compose · 테스트). 22.4장 DDL은 그대로 | 한글 · 이모지 닉네임 |
+| 문자셋 | DB 서버 기본값을 utf8mb4로(개발 `docker run` · 테스트). 22.4장 DDL은 그대로 | 한글 · 이모지 닉네임 |
 | MariaDB 테스트 버전 | 11.4(LTS). 운영 버전이 정해지면 `MariaDbTestcontainersConfiguration`을 같은 버전으로 | 13.1장 "운영과 동일 MariaDB 버전" |
 | MySQL 이미지 | `mysql:latest` 대신 `mysql:8.4`로 고정 | 테스트 결과가 이미지 업데이트로 바뀌지 않게 |
 | 토큰 유효 시간 | Access 30분, Refresh 30일(회전할 때마다 연장), 재시도 허용 60초 | 명세에 값 없음 |
@@ -511,6 +524,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 비동기 실행기 | `taskExecutor` 코어 2 · 최대 8 · 대기 500, 끌 때 20초까지 하던 일을 마친다 | 명세에 값 없음. 검증 · Push 보내기용 |
 | 요청 id | `X-Request-Id` 8~64자 `[A-Za-z0-9._-]`, 아니면 서버가 UUID | 로그를 어지럽히지 않게 |
 | 비밀번호 재설정 | 메일로 숫자 6자리 코드(10분 · 5번 틀리면 잠김), 계정마다 60초 1번 · 1시간 5번. 변경은 다른 기기 로그아웃, 재설정은 모든 기기 로그아웃. 오류는 400 | 사용자 요청(Resend). 명세에 이메일 로그인 · 비밀번호 찾기가 없음 |
+| 프로필 | dev(기본, 내 컴퓨터) · test · prod. local은 dev에 합쳤고 docker compose는 쓰지 않는다 | 사용자 결정(명세 15.3장은 local/dev/test/prod) |
 | 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
 | 외부 추천 코스 | V15 `tbl_course.source · source_ref · attribution · license · source_url`, 관리 API `X-Admin-Key`, 1~21.1km, 같은 자리 100m · 길이 10% 안이면 중복 | 사용자 결정(명세 2.1장 MVP 제외 항목을 넣음). 값은 명세에 없어 정한 시작값 |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |

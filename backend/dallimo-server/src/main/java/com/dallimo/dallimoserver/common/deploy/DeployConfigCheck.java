@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * 운영(prod) 서버가 뜰 때 빠진 선택 설정을 로그로 알려 준다. 없어도 서버는 뜨지만 기능 하나가 멈추는 값들이다.
- * 공유 주소 · App Link는 prod 프로필만 환경변수로 받아서 개발 서버(dev)는 보지 않는다.
+ * 개발(dev)은 기본값으로 로그 발송을 쓰고 공유 주소 · App Link를 받지 않아서 보지 않는다.
  * 필수 값(DB · Redis · JWT_SECRET)은 없으면 서버가 시작하지 않으므로 여기서 보지 않는다. 목록은 backend README "배포 환경변수"
  */
 @Component
