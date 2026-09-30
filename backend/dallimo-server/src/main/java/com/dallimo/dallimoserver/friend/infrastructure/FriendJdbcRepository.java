@@ -38,7 +38,7 @@ public class FriendJdbcRepository {
         }
     }
 
-    public record UserRow(long userId, String nickname, String profileImageUrl) {
+    public record UserRow(long userId, String nickname) {
     }
 
     /** 친구 한 명 또는 요청 한 건: 상대와 관계 id · 시각 */
@@ -48,7 +48,7 @@ public class FriendJdbcRepository {
     private static final RowMapper<Pair> PAIR = (rs, i) -> new Pair(rs.getLong("id"), rs.getLong("user_low_id"), rs.getLong("user_high_id"),
             rs.getLong("requester_id"), FriendshipStatus.valueOf(rs.getString("status")), rs.getTimestamp("created_at").toInstant());
 
-    private static final RowMapper<UserRow> USER = (rs, i) -> new UserRow(rs.getLong("uid"), rs.getString("nickname"), rs.getString("profile_image_url"));
+    private static final RowMapper<UserRow> USER = (rs, i) -> new UserRow(rs.getLong("uid"), rs.getString("nickname"));
 
     /** 잠그지 않고 읽는다. 없는 줄을 FOR UPDATE로 읽으면 gap lock이 걸려 동시 요청이 deadlock이 된다 */
     public Optional<Pair> findPair(long a, long b) {
@@ -92,7 +92,7 @@ public class FriendJdbcRepository {
     /** 친구 목록 (닉네임 순). at = 친구가 된 시각 */
     public List<Link> friends(long userId) {
         return jdbc.query("""
-                SELECT f.id, u.id AS uid, u.nickname, u.profile_image_url, COALESCE(f.responded_at, f.created_at) AS at
+                SELECT f.id, u.id AS uid, u.nickname, COALESCE(f.responded_at, f.created_at) AS at
                 FROM tbl_friendship f
                 JOIN tbl_user u ON u.id = CASE WHEN f.user_low_id = ? THEN f.user_high_id ELSE f.user_low_id END
                 WHERE (f.user_low_id = ? OR f.user_high_id = ?) AND f.status = 'ACCEPTED' AND %s
@@ -113,7 +113,7 @@ public class FriendJdbcRepository {
     public List<Link> pending(long userId, boolean received) {
         String who = received ? "f.requester_id <> ?" : "f.requester_id = ?";
         return jdbc.query("""
-                SELECT f.id, u.id AS uid, u.nickname, u.profile_image_url, f.created_at AS at
+                SELECT f.id, u.id AS uid, u.nickname, f.created_at AS at
                 FROM tbl_friendship f
                 JOIN tbl_user u ON u.id = CASE WHEN f.user_low_id = ? THEN f.user_high_id ELSE f.user_low_id END
                 WHERE (f.user_low_id = ? OR f.user_high_id = ?) AND f.status = 'PENDING' AND %s AND %s
@@ -134,7 +134,7 @@ public class FriendJdbcRepository {
     }
 
     public Optional<UserRow> activeUser(long userId) {
-        return jdbc.query("SELECT u.id AS uid, u.nickname, u.profile_image_url FROM tbl_user u WHERE u.id = ? AND " + ACTIVE, USER, userId)
+        return jdbc.query("SELECT u.id AS uid, u.nickname FROM tbl_user u WHERE u.id = ? AND " + ACTIVE, USER, userId)
                 .stream().findFirst();
     }
 
@@ -144,7 +144,7 @@ public class FriendJdbcRepository {
      */
     public List<UserRow> search(long viewerId, String pattern, String friendCode, int offset, int limit) {
         return jdbc.query("""
-                SELECT u.id AS uid, u.nickname, u.profile_image_url FROM tbl_user u
+                SELECT u.id AS uid, u.nickname FROM tbl_user u
                 WHERE u.id <> ? AND %s AND (LOWER(u.nickname) LIKE ? ESCAPE '!' OR u.friend_code = ?)
                 ORDER BY (u.friend_code = ?) DESC, u.nickname, u.id
                 LIMIT ? OFFSET ?""".formatted(ACTIVE),

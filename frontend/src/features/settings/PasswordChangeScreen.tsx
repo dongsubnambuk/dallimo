@@ -13,7 +13,7 @@ import { AuthField, type FieldStatus } from '@/features/auth/components/AuthFiel
 import { changePassword } from '@/features/auth/session';
 
 // 비밀번호 바꾸기 (설정 > 계정, 결정 로그 58항). 지금 비밀번호를 확인하고 바꾼다.
-// 이 기기는 로그인이 이어지고 다른 기기는 로그아웃된다. 바뀌었다는 메일이 간다.
+// 이 기기는 로그인이 이어지고 다른 기기는 로그아웃된다.
 export function PasswordChangeScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -123,7 +123,7 @@ export function PasswordChangeScreen() {
             ) : null}
             <SecondaryButton label={pending ? '바꾸는 중' : '비밀번호 바꾸기'} emphasized disabled={!canSubmit} onPress={submit} style={styles.submit} />
             <AppText role="caption" tone="secondary">
-              바꾸면 다른 기기에서는 로그아웃되고, 가입한 이메일로 알림 메일이 가요.
+              바꾸면 로그인해 둔 다른 기기에서는 로그아웃돼요.
             </AppText>
           </View>
         )}

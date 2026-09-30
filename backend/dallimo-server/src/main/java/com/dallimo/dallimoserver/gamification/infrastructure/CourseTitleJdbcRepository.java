@@ -19,28 +19,28 @@ public class CourseTitleJdbcRepository {
         this.jdbc = jdbc;
     }
 
-    public record CrownRow(long recordId, long userId, String nickname, String profileImageUrl, int seconds, Instant achievedAt) {
+    public record CrownRow(long recordId, long userId, String nickname, int seconds, Instant achievedAt) {
     }
 
-    public record LegendRow(long userId, String nickname, String profileImageUrl, int finishes, Instant lastFinishedAt) {
+    public record LegendRow(long userId, String nickname, int finishes, Instant lastFinishedAt) {
     }
 
     /** 기간 안 가장 빠른 기록. 같으면 먼저 세운 기록 (idx_course_record_period) */
     public Optional<CrownRow> crown(long courseId, Window w, Long excludeRecordId) {
         return jdbc.query("""
-                        SELECT r.id, r.user_id, u.nickname, u.profile_image_url, r.duration_seconds, r.created_at
+                        SELECT r.id, r.user_id, u.nickname, r.duration_seconds, r.created_at
                         FROM tbl_course_record r JOIN tbl_user u ON u.id = r.user_id
                         WHERE r.course_id = ? AND r.created_at >= ? AND r.created_at < ? AND (? IS NULL OR r.id <> ?)
                         ORDER BY r.duration_seconds ASC, r.created_at ASC, r.id ASC
                         LIMIT 1""",
-                (rs, i) -> new CrownRow(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getInt(5), rs.getTimestamp(6).toInstant()),
+                (rs, i) -> new CrownRow(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getInt(4), rs.getTimestamp(5).toInstant()),
                 courseId, ts(w.from()), ts(w.to()), excludeRecordId, excludeRecordId).stream().findFirst();
     }
 
     /** 기간 안 가장 많이 완주한 사람 (LEGEND_MIN_FINISHES번 이상). 같으면 마지막 완주가 이른 사람, 그다음 user_id */
     public Optional<LegendRow> legend(long courseId, Window w, Long excludeRecordId) {
         return jdbc.query("""
-                        SELECT b.user_id, u.nickname, u.profile_image_url, b.finishes, b.last_at
+                        SELECT b.user_id, u.nickname, b.finishes, b.last_at
                         FROM (SELECT user_id, COUNT(*) AS finishes, MAX(created_at) AS last_at FROM tbl_course_record
                               WHERE course_id = ? AND created_at >= ? AND created_at < ? AND (? IS NULL OR id <> ?)
                               GROUP BY user_id
@@ -48,7 +48,7 @@ public class CourseTitleJdbcRepository {
                         JOIN tbl_user u ON u.id = b.user_id
                         ORDER BY b.finishes DESC, b.last_at ASC, b.user_id ASC
                         LIMIT 1""",
-                (rs, i) -> new LegendRow(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getInt(4), rs.getTimestamp(5).toInstant()),
+                (rs, i) -> new LegendRow(rs.getLong(1), rs.getString(2), rs.getInt(3), rs.getTimestamp(4).toInstant()),
                 courseId, ts(w.from()), ts(w.to()), excludeRecordId, excludeRecordId, CourseTitlePolicy.LEGEND_MIN_FINISHES).stream().findFirst();
     }
 

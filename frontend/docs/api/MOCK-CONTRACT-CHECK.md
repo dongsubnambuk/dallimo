@@ -40,7 +40,7 @@
 | 409 `IDEMPOTENCY_CONFLICT` | 같은 멱등 키로 다른 내용을 보냈다. 재시도하지 않고 기록 오류로 남긴다 |
 | 422 `RUN_POINT_INVALID` | Batch를 FAILED로 두고 재시도하지 않는다(50.3장) |
 | 400 `VALIDATION_ERROR` | 코스 등록은 `CourseRepositoryError('invalid')`에 서버 메시지 |
-| 400 `PASSWORD_MISMATCH` · `RESET_CODE_INVALID` | `AuthError('passwordMismatch')` · `AuthError('resetCodeInvalid')`. 비밀번호 화면이 입력 칸 아래에 안내 (결정 로그 58항) |
+| 400 `PASSWORD_MISMATCH` | `AuthError('passwordMismatch')`. 비밀번호 바꾸기 화면이 입력 칸 아래에 안내 (결정 로그 58항) |
 | 429 · 500 · 연결 실패 | `network`. 화면은 "연결을 확인하고 다시 시도" |
 
 ## 2. 인증 · 사용자 (41장 → 이메일 로그인으로 변경)
@@ -55,11 +55,8 @@
 | POST /auth/logout (Bearer) → 204 | `logout()` | 구현 | 요청 본문 없이 Access Token의 세션을 끊는다 |
 | DELETE /users/me (Bearer) → 204 | `withdraw()` | 구현 | 명세 표에 없던 탈퇴 경로 |
 | POST /auth/password/change `currentPassword, newPassword` → 204 | `changePassword` | 명세 없음 · 서버 구현 | 이 기기는 로그인 유지, 다른 기기는 로그아웃. 400 `PASSWORD_MISMATCH` (결정 로그 58항) |
-| POST /auth/password/reset-code `email` → 202 | `requestPasswordReset` | 명세 없음 · 서버 구현 | Resend 메일로 6자리 코드. 가입하지 않은 이메일도 같은 응답. mock은 메일 대신 개발 콘솔에 코드를 찍는다 |
-| POST /auth/password/reset `email, code, newPassword` → 204 | `resetPassword` | 명세 없음 · 서버 구현 | 모든 기기 로그아웃. 앱은 바로 새 비밀번호로 로그인한다. 400 `RESET_CODE_INVALID` |
-| GET /users/me → `userId, email, nickname, profileImageUrl, friendCode` | `UserRepository.getMe()` | 구현 | provider 대신 email. 누적 통계(MY-002)는 아직 서버 집계가 없어 앱이 기기 기록으로 더한다 |
-| PATCH /users/me `nickname` (JSON) · multipart `nickname?, profileImage?` | `updateMe` | 구현 | 새로 고른 사진이면 multipart로 닉네임과 한 번에 올린다(웹은 Blob, 앱은 `{ uri, name, type }`). 서버가 512px JPEG로 다시 만들어 `profileImageUrl`을 준다. JPG · PNG · 5MB가 아니면 400 · 413과 서버 문구를 그대로 보여준다 |
-| DELETE /users/me/profile-image | `updateMe({ profileImageUri: null })` | 명세 없음 · 서버 구현 | 사진 빼기 |
+| GET /users/me → `userId, email, nickname, friendCode` | `UserRepository.getMe()` | 구현 | provider 대신 email. 누적 통계(MY-002)는 아직 서버 집계가 없어 앱이 기기 기록으로 더한다 |
+| PATCH /users/me `nickname` (JSON) | `updateMe` | 구현 · 필드 뺌 | 닉네임만. 명세 41장의 `profileImage`와 응답의 `profileImageUrl`은 사용자 결정으로 뺐다(결정 로그 60항) |
 | GET /users/nickname-availability?nickname= → `{ available }` | `checkNickname` | 구현 | 로그인 없이 부를 수 있다(가입 화면) |
 | GET /users/search `q, cursor, size` | `FriendRepository.search(query, cursor)` → `httpFriendRepository` | 서버 구현 · 필드 추가 | 닉네임 일부 또는 친구 코드. 항목에 나와의 관계(`relation`, 요청 중이면 `requestId`)를 붙였다(UserSummary 필드가 명세에 없다) |
 | GET /users/{userId} | `FriendRepository.profile(userId)` | 명세 없음 · 서버 구현 | 친구 프로필(FND-005). 코스 기록 · 마지막 러닝은 친구에게만 |
@@ -118,7 +115,7 @@
 
 | API | 프론트 | 상태 | 메모 |
 | --- | --- | --- | --- |
-| GET /friends | `FriendRepository.list()`, `LiveRoomRepository.listFriends()` | 서버 구현 · 필드 추가 | `{ userId, nickname, profileImageUrl, since }`. 함께 달리기 친구 고르기도 이 목록 |
+| GET /friends | `FriendRepository.list()`, `LiveRoomRepository.listFriends()` | 서버 구현 · 필드 추가 | `{ userId, nickname, since }`. 함께 달리기 친구 고르기도 이 목록 |
 | POST /friends/requests `userId` | `FriendRepository.request(userId)` | 서버 구현 | 응답은 요청 뒤 관계(명세에 응답 없음). 상대가 먼저 요청했으면 바로 친구 |
 | GET /friends/requests | `FriendRepository.requests()` | 서버 구현 | `{ received[], sent[] }` |
 | POST /friends/requests/{id}/accept · reject | `accept(requestId)`, `reject(requestId)` | 서버 구현 | 받은 사람만. 거절은 보낸 사람에게 알리지 않는다 |
@@ -207,7 +204,7 @@
 2. ~~소셜 로그인 응답의 가입 여부~~ → 이메일 가입으로 바뀌어 필요 없음
 3. ~~누적 통계(MY-002)를 줄 곳~~ → `GET /users/me`의 `stats { runCount, totalDistanceM, totalActiveSec }`. 앱은 여기에 아직 올리지 못한 기기 기록만 더한다
 4. ~~닉네임 중복 확인 API~~ → GET /users/nickname-availability로 구현
-5. ~~프로필 이미지 업로드 방식~~ → PATCH /users/me multipart(`profileImage`), 서버 디스크(`ImageStorage` 경계, S3로 바꿀 수 있게), 빼기는 DELETE /users/me/profile-image. 명세에 요청 형식 · 빼기 경로를 넣어야 한다
+5. ~~프로필 이미지 업로드 방식~~ → 사용자 결정으로 프로필 사진을 뺐다(결정 로그 60항). 명세 41장 `profileImage` · `profileImageUrl`을 빼야 한다
 6. GET /runs/{id} 응답 필드 (PB · 주간 순위 변화 · 친구 최고 기록 포함 여부). 검증 결과 · PB · 주간 순위 · 친구 최고 기록은 `verification`으로 구현
 7. 코스 상세 응답 필드, 경로를 상세에 포함할지 (서버는 상세에 줄인 경로를 넣고 GET /route로 전체를 준다)
 8. ~~코스 등록 요청의 추천 시간~~ → `recommendedTime` · `region`을 받게 했다. 명세 43장 요청 필드에 넣어야 한다
@@ -229,7 +226,7 @@
 24. 코스 신고 테이블 · 사유(`DANGER · PRIVATE_PROPERTY · WRONG_INFO · OTHER`): ERD에 없다. 신고가 쌓였을 때 숨길지는 20.2장 코스 공개 정책과 함께 정한다
 25. Activity 모양: ERD activity에 `value_int`(PB 이전 기록 · 주간 순위)를 더했고, 종류는 PB · COURSE_CREATED · CHALLENGE_WON · WEEKLY_TOP(이번 주 3위 안). 공개 범위(visibility)는 FRIENDS만 쓴다. 명세에 넣어야 한다
 26. 요청 제한 값 · App Link 확인 파일 경로 · 공유 페이지 App Link(`/s/{code}`): 명세에 값이 없다. 도메인 · 앱 id는 배포 단계에서 정한다
-28. **추가 작업 — 이미지 저장소를 Cloudflare R2로** (사용자 결정): 지금은 서버 디스크(`LocalDiskImageStorage`). 이미지 작업은 나중에 따로 한다. 할 일: `ImageStorage`의 R2 구현(S3 호환 API, 버킷 · 키는 환경변수), 공개 주소(R2 공개 버킷 또는 커스텀 도메인)를 `public-base-url`로, 서버 디스크에 있던 사진 옮기기, R2 흉내 저장소로 테스트(MinIO 컨테이너). 서버를 여러 대로 늘리기 전에 끝내야 한다
+28. ~~이미지 저장소를 Cloudflare R2로~~ → 프로필 사진을 빼서 필요 없다(결정 로그 60항). 전 계획: 지금은 서버 디스크(`LocalDiskImageStorage`). 이미지 작업은 나중에 따로 한다. 할 일: `ImageStorage`의 R2 구현(S3 호환 API, 버킷 · 키는 환경변수), 공개 주소(R2 공개 버킷 또는 커스텀 도메인)를 `public-base-url`로, 서버 디스크에 있던 사진 옮기기, R2 흉내 저장소로 테스트(MinIO 컨테이너). 서버를 여러 대로 늘리기 전에 끝내야 한다
 27. 인터벌 API 모양: 126장은 경로만 있다(`GET · POST /workouts`, `GET · PUT /workouts/{id}`, `POST /workouts/{id}/duplicate`). 지우기(`DELETE /workouts/{id}`), 목록 응답의 `lastRunAt · runCount`, 추천 템플릿은 앱에 둔 것, Run의 `workout` · `workoutSteps` · 목록 `mode` 필터, 버전별 구간(`template_version`) · 구간 결과 테이블을 서버 · 앱이 정했다. 명세에 넣어야 한다
 29. 외부 기록 가져오기 API 모양: 126장은 경로만 있다. 후보 확인(`POST /imported-activities/check`), 가져오기 요청 · 응답, 연동 목록 응답, Run의 source 필드 응답, 가져오기 기록부(`tbl_activity_import`) · Run 유일 키에 user_id를 넣은 것, 가져온 기록 검증 정책(`2026-09-imp-v1`)을 서버 · 앱이 정했다. `/integrations/{provider}/sync`는 만들지 않았다. 명세에 넣어야 한다
 30. Apple Watch(WATCH-001~004): 명세에 워치 흐름 · 메시지가 없다(5장 P2). 휴대폰이 기록하고 워치는 보여 주기 · 조작 · 심박만 맡는 것으로 정했다(결정 로그 48항). 심박은 아직 서버에 보내지 않는다. 심박을 기록 · 결과에 남길지 정해야 한다
@@ -238,4 +235,4 @@
 33. Ghost(124장): 126장 표에 경로가 없다. `GET /courses/{id}/ghost?recordId=`와 응답(코스 위 거리 → 걸린 초)을 서버 · 앱이 정했다. 명세에 넣어야 한다
 34. 외부 추천 코스: 명세 2.1장은 "전국 자동 코스 생성"을 MVP에서 뺐다. 사용자 결정으로 OSM · 두루누비 · GPX에서 가져온 추천 코스를 넣었다(결정 로그 52항). 코스 출처 필드(V15), 상세 `source`, 관리 API를 서버 · 앱이 정했다. 명세 2.1장 · 43장에 넣어야 하고, 두루누비 경로를 저장해 보여 주는 것은 운영계정 승인 때 확인한다(TourAPI 활용매뉴얼)
 35. 코스 공개 정책(20.2장 오픈 이슈): 사용자 결정으로 "신고 3건이면 자동 숨김 + 관리자 검토"로 정했다(결정 로그 53항). 기준 수 · 관리 API · 처리 기록(V16)을 서버가 정했다. 등록 즉시 공개는 그대로다. 명세 20.2장에 넣어야 한다
-36. 비밀번호 변경 · 재설정: 명세에 이메일 로그인이 없어 흐름도 없다. 사용자 요청으로 Resend 메일 6자리 코드 방식을 넣었다(결정 로그 58항). 경로 3개 · 오류 코드 2개(`PASSWORD_MISMATCH` · `RESET_CODE_INVALID`) · 코드 규칙 · V17 `tbl_password_reset`을 서버 · 앱이 정했다. 명세 41장에 넣어야 한다
+36. 비밀번호 변경: 명세에 이메일 로그인이 없어 흐름도 없다. `POST /auth/password/change`와 오류 코드 `PASSWORD_MISMATCH`를 서버 · 앱이 정했다(결정 로그 58항). 메일 인증 코드 재설정은 사용자 결정으로 뺐다(결정 로그 60항). 명세 41장에 넣어야 한다

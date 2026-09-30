@@ -3,15 +3,14 @@
 export type MyProfile = {
   userId: string;
   nickname: string;
-  profileImageUrl: string | null;
   // AUTH-002 가입 때 서버가 만든다 (tbl_user.friend_code)
   friendCode: string;
   // 가입한 이메일 (이메일 로그인, 명세 41장 변경)
   email: string;
 };
 
-// PATCH /api/v1/users/me (nickname?, profileImage?). 이미지는 기기에서 고른 파일 주소를 넘긴다(바꿀 때만). null이면 사진 빼기.
-export type ProfileUpdate = { nickname?: string; profileImageUri?: string | null };
+// PATCH /api/v1/users/me (nickname). 프로필 사진은 뺐다 (결정 로그 60항)
+export type ProfileUpdate = { nickname: string };
 
 // 닉네임 확인 결과. 길이 규칙은 명세에 없어 DB 컬럼(nickname VARCHAR(40))만 따른다. 서버와 같은 기준(앞뒤 공백 제외).
 export type NicknameCheck = 'ok' | 'empty' | 'tooLong' | 'taken';

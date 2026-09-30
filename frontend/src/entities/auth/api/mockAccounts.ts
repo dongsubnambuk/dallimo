@@ -7,7 +7,6 @@ export type MockAccount = {
   email: string;
   password: string;
   nickname: string;
-  profileImageUrl: string | null;
   friendCode: string;
   // 지난 러닝 기록(mock 히스토리)을 보여줄지
   hasHistory: boolean;
@@ -24,7 +23,7 @@ const KEY = 'dallimo.mock.emailAccounts';
 function initial(): State {
   return {
     accounts: [
-      { userId: 'me', email: DEMO_EMAIL, password: DEMO_PASSWORD, nickname: '수성러너', profileImageUrl: null, friendCode: 'RUN-7Q2KSU', hasHistory: true },
+      { userId: 'me', email: DEMO_EMAIL, password: DEMO_PASSWORD, nickname: '수성러너', friendCode: 'RUN-7Q2KSU', hasHistory: true },
     ],
     currentUserId: null,
   };
@@ -68,7 +67,6 @@ export async function createMockAccount(email: string, password: string, nicknam
     email: email.trim().toLowerCase(),
     password,
     nickname: nickname.trim(),
-    profileImageUrl: null,
     friendCode: `RUN-${code}`,
     hasHistory: false,
   };
@@ -83,7 +81,7 @@ export async function setCurrentMockAccount(userId: string | null) {
   await save();
 }
 
-export async function updateMockAccount(userId: string, patch: Partial<Pick<MockAccount, 'nickname' | 'profileImageUrl'>>) {
+export async function updateMockAccount(userId: string, patch: Partial<Pick<MockAccount, 'nickname'>>) {
   const a = findAccount(userId);
   if (!a) return null;
   Object.assign(a, patch);

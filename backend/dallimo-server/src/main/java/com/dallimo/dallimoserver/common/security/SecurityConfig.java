@@ -47,8 +47,7 @@ import java.util.List;
 public class SecurityConfig {
 
     // 토큰 없이 부를 수 있는 API. OpenAPI 문서(OpenApiConfig)도 이 목록으로 인증 방식을 적는다
-    public static final String[] PUBLIC_API_POST = {"/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh",
-            "/api/v1/auth/password/reset-code", "/api/v1/auth/password/reset"};
+    public static final String[] PUBLIC_API_POST = {"/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh"};
     // 43장 코스 조회는 로그인 없이도 (User/Optional, 토큰이 있으면 내 기록 · 저장 여부를 함께 준다). SHR-004 공유 링크 해석도 로그인 없이
     public static final String[] PUBLIC_API_GET = {"/api/v1/users/nickname-availability", "/api/v1/courses/**", "/api/v1/shares/*"};
     public static final String ADMIN_API = "/api/v1/admin/**";
@@ -75,8 +74,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, PUBLIC_API_GET).permitAll()
                         // SHR-004 공유 페이지는 로그인 없이
                         .requestMatchers(HttpMethod.GET, "/s/*").permitAll()
-                        // 올린 프로필 사진 (친구 · 랭킹에서 보인다, 주소는 추측할 수 없는 uuid)
-                        .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
                         // App Link · Universal Link 확인 파일
                         .requestMatchers(HttpMethod.GET, "/.well-known/apple-app-site-association", "/.well-known/assetlinks.json").permitAll()
                         // 8장 WebSocket 연결. 인증은 STOMP CONNECT의 Access Token으로 한다 (StompAuthInterceptor)

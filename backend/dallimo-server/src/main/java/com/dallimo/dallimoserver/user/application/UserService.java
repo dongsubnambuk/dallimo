@@ -2,7 +2,6 @@ package com.dallimo.dallimoserver.user.application;
 
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
-import com.dallimo.dallimoserver.common.storage.ImageStorage;
 import com.dallimo.dallimoserver.user.domain.User;
 import com.dallimo.dallimoserver.user.infrastructure.UserJpaRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -18,12 +17,10 @@ public class UserService {
 
     private final UserJpaRepository users;
     private final Clock clock;
-    private final ImageStorage storage;
 
-    public UserService(UserJpaRepository users, Clock clock, ImageStorage storage) {
+    public UserService(UserJpaRepository users, Clock clock) {
         this.users = users;
         this.clock = clock;
-        this.storage = storage;
     }
 
     /** 이메일은 앞뒤 공백을 빼고 소문자로 저장 · 비교한다 */
@@ -79,11 +76,6 @@ public class UserService {
     @Transactional
     public void withdraw(long userId) {
         User user = get(userId);
-        // 탈퇴하면 프로필 사진 파일도 지운다 (커밋 뒤)
-        String image = user.getProfileImageUrl();
-        if (image != null) ProfileService.afterCompletion(committed -> {
-            if (committed) storage.deleteByUrl(image);
-        });
         user.withdraw(clock.instant());
         users.saveAndFlush(user);
     }

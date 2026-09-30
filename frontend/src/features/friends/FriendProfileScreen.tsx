@@ -73,7 +73,7 @@ function Body({ profile, scenario, bottom }: { profile: FriendProfile; scenario:
   return (
     <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: bottom + spacing.xxl }]}>
       <View style={styles.head}>
-        <Avatar nickname={user.nickname} imageUrl={user.profileImageUrl} size={72} />
+        <Avatar nickname={user.nickname} size={72} />
         <View style={styles.flex}>
           <AppText role="screenTitle" accessibilityRole="header" numberOfLines={1}>
             {user.nickname}

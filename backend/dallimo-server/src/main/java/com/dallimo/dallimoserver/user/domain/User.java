@@ -36,9 +36,6 @@ public class User {
     @Column(name = "friend_code", nullable = false, length = 20)
     private String friendCode;
 
-    @Column(name = "profile_image_url", length = 500)
-    private String profileImageUrl;
-
     @Column(nullable = false, length = 20)
     private String status;
 
@@ -69,12 +66,6 @@ public class User {
 
     public static final String STATUS_WITHDRAWN = "WITHDRAWN";
 
-    /** 프로필 사진 주소 (빼면 null) */
-    public void changeProfileImage(String url, Instant now) {
-        this.profileImageUrl = url;
-        this.updatedAt = now;
-    }
-
     public void changeNickname(String nickname, Instant now) {
         this.nickname = nickname;
         this.updatedAt = now;
@@ -96,7 +87,6 @@ public class User {
         this.passwordHash = null;
         this.nickname = "탈퇴한 러너 " + id;
         this.friendCode = "X-" + id;
-        this.profileImageUrl = null;
         this.updatedAt = now;
         this.deletedAt = now;
     }
@@ -124,10 +114,6 @@ public class User {
 
     public String getFriendCode() {
         return friendCode;
-    }
-
-    public String getProfileImageUrl() {
-        return profileImageUrl;
     }
 
     public Instant getCreatedAt() {

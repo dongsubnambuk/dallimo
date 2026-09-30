@@ -21,11 +21,11 @@ export function toRankingEntry(e: RankingEntryDto): RankingEntry {
   return { rank: e.rank, userId: String(e.userId), name: e.name, timeSec: e.timeSec, paceSecPerKm: e.paceSecPerKm, relation: e.relation, isPB: e.isPB };
 }
 
-type HolderDto = { userId: number; name: string; profileImageUrl: string | null; relation: TitleHolder['relation'] };
+type HolderDto = { userId: number; name: string; relation: TitleHolder['relation'] };
 type CrownDto = { periodDays: number; holder: HolderDto | null; timeSec: number | null; paceSecPerKm: number | null; me: { bestSec: number; gapSec: number; holder: boolean } | null };
 type LegendDto = { periodDays: number; minFinishes: number; holder: HolderDto | null; finishCount: number | null; me: { finishCount: number; needed: number; holder: boolean } | null };
 
-const toHolder = (h: HolderDto | null): TitleHolder | null => (h ? { userId: String(h.userId), name: h.name, profileImageUrl: h.profileImageUrl, relation: h.relation } : null);
+const toHolder = (h: HolderDto | null): TitleHolder | null => (h ? { userId: String(h.userId), name: h.name, relation: h.relation } : null);
 
 const PERIOD: Record<RankingPeriod, string> = { all: 'ALL', weekly: 'WEEKLY', monthly: 'MONTHLY' };
 const SCOPE: Record<RankingScope, string> = { all: 'ALL', friends: 'FRIENDS' };
@@ -86,7 +86,7 @@ export function createHttpRankingRepository(): RankingRepository {
     // 124장 GET /courses/{id}/segments
     getSegments: (courseId) =>
       call(async () => {
-        const d = await apiRequest<{ courseLengthM: number; segments: (Omit<CourseSegments['segments'][number], 'leader'> & { leader: (Omit<HolderDto, 'profileImageUrl'> & { timeSec: number }) | null })[] }>(
+        const d = await apiRequest<{ courseLengthM: number; segments: (Omit<CourseSegments['segments'][number], 'leader'> & { leader: (HolderDto & { timeSec: number }) | null })[] }>(
           `/api/v1/courses/${encodeURIComponent(courseId)}/segments`,
         );
         const out: CourseSegments = {

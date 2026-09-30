@@ -15,7 +15,7 @@ public record RateLimitProperties(Boolean enabled, Duration window, Integer logi
     public RateLimitProperties {
         enabled = enabled == null || enabled;
         window = window == null ? Duration.ofMinutes(1) : window;
-        // 로그인 · 가입 · 비밀번호 재설정 코드 요청 · 재설정 (IP마다)
+        // 로그인 · 가입 (IP마다)
         login = login == null ? 10 : login;
         // 사용자 · 코스 검색 (사람마다)
         search = search == null ? 60 : search;
@@ -25,7 +25,7 @@ public record RateLimitProperties(Boolean enabled, Duration window, Integer logi
         shareResolve = shareResolve == null ? 60 : shareResolve;
         // 실시간 연결 (사람마다)
         wsConnect = wsConnect == null ? 20 : wsConnect;
-        // 프로필 바꾸기 · 사진 올리기 · 비밀번호 변경 (사람마다, 사진을 다시 만드는 일이 무거워서)
+        // 닉네임 바꾸기 · 비밀번호 변경 (사람마다)
         profileUpdate = profileUpdate == null ? 10 : profileUpdate;
     }
 }

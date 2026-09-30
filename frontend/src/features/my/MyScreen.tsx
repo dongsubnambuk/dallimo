@@ -226,7 +226,7 @@ function Profile({ me }: { me: Me }) {
   const { colors } = useTheme();
   return (
     <View style={styles.profile}>
-      <Avatar nickname={me.profile.nickname} imageUrl={me.profile.profileImageUrl} />
+      <Avatar nickname={me.profile.nickname} />
       <AppText role="screenTitle" accessibilityRole="header" numberOfLines={1} style={styles.flex}>
         {me.profile.nickname}
       </AppText>

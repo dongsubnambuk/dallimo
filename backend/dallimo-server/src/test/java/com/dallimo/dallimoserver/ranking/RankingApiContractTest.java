@@ -88,7 +88,10 @@ abstract class RankingApiContractTest {
         assertThat(userIds(get(me.token, base + "ALL"))).containsExactly(me.id, last.id, inWeek.id);
         assertThat(userIds(get(me.token, base + "WEEKLY"))).contains(inWeek.id).doesNotContain(last.id);
         List<Long> monthly = userIds(get(me.token, base + "MONTHLY"));
-        assertThat(monthly).contains(me.id, inWeek.id);
+        assertThat(monthly).contains(me.id);
+        // 달이 바뀐 첫 주에는 이번 주 시작(월요일)이 지난달이라 이번 주 기록이 월간에 들지 않는다
+        if (weekStart.isBefore(monthStart)) assertThat(monthly).doesNotContain(inWeek.id);
+        else assertThat(monthly).contains(inWeek.id);
         // 이번 달 내 최고는 310 (250은 지난달)
         List<Map<String, Object>> items = JsonPath.read(body(get(me.token, base + "MONTHLY")), "$.data.items");
         Map<String, Object> mine = items.stream().filter(i -> ((Number) i.get("userId")).longValue() == me.id).findFirst().orElseThrow();

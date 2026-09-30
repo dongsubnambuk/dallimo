@@ -112,13 +112,13 @@ export function SettingsScreen() {
             accessibilityLabel={`${profile.nickname}, 프로필 수정`}
             style={[styles.profile, { backgroundColor: colors.bg.surface }]}
           >
-            <Avatar nickname={profile.nickname} imageUrl={profile.profileImageUrl} />
+            <Avatar nickname={profile.nickname} />
             <View style={styles.flex}>
               <AppText role="sectionTitle" numberOfLines={1}>
                 {profile.nickname}
               </AppText>
               <AppText role="caption" tone="secondary">
-                프로필 사진 · 닉네임 바꾸기
+                닉네임 바꾸기
               </AppText>
             </View>
             <AppIcon name="collapse" size={18} color={colors.text.secondary} />

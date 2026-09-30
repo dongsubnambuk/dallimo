@@ -7,7 +7,6 @@ export type FriendRelation = 'none' | 'friend' | 'sent' | 'received';
 export type UserSummary = {
   userId: string;
   nickname: string;
-  profileImageUrl: string | null;
   relation: FriendRelation;
   requestId: string | null;
 };
@@ -15,7 +14,6 @@ export type UserSummary = {
 export type FriendItem = {
   userId: string;
   nickname: string;
-  profileImageUrl: string | null;
   // 친구가 된 시각 (epoch ms)
   since: number;
 };
@@ -24,7 +22,6 @@ export type FriendRequest = {
   requestId: string;
   userId: string;
   nickname: string;
-  profileImageUrl: string | null;
   requestedAt: number;
 };
 

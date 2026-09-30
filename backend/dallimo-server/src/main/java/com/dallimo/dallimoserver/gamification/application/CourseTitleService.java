@@ -36,7 +36,7 @@ public class CourseTitleService {
     }
 
     /** relation: self · friend · normal (랭킹과 같다) */
-    public record Holder(long userId, String name, String profileImageUrl, String relation) {
+    public record Holder(long userId, String name, String relation) {
     }
 
     /** me: 로그인했고 기간 안 내 기록이 있을 때. gapSec: 크라운까지 남은 초 (내가 크라운이면 0) */
@@ -68,7 +68,7 @@ public class CourseTitleService {
         CrownMe me = myBest == null || top.isEmpty() ? null
                 : new CrownMe(myBest, Math.max(0, myBest - top.get().seconds()), top.get().userId() == viewerId);
         double km = Math.max(1, course.getDistanceM()) / 1000.0;
-        return top.map(c -> new Crown(CourseTitlePolicy.PERIOD_DAYS, w.from(), holder(c.userId(), c.nickname(), c.profileImageUrl(), viewerId, mine),
+        return top.map(c -> new Crown(CourseTitlePolicy.PERIOD_DAYS, w.from(), holder(c.userId(), c.nickname(), viewerId, mine),
                         c.seconds(), (int) Math.round(c.seconds() / km), c.achievedAt(), c.recordId(), me))
                 .orElse(new Crown(CourseTitlePolicy.PERIOD_DAYS, w.from(), null, null, null, null, null, null));
     }
@@ -89,7 +89,7 @@ public class CourseTitleService {
         }
         LegendMe m = me;
         return top.map(l -> new Legend(CourseTitlePolicy.PERIOD_DAYS, w.from(), CourseTitlePolicy.LEGEND_MIN_FINISHES,
-                        holder(l.userId(), l.nickname(), l.profileImageUrl(), viewerId, mine), l.finishes(), l.lastFinishedAt(), m))
+                        holder(l.userId(), l.nickname(), viewerId, mine), l.finishes(), l.lastFinishedAt(), m))
                 .orElse(new Legend(CourseTitlePolicy.PERIOD_DAYS, w.from(), CourseTitlePolicy.LEGEND_MIN_FINISHES, null, null, null, m));
     }
 
@@ -104,8 +104,8 @@ public class CourseTitleService {
         return new TitleChange(crownAfter && !crownBefore, legendAfter.isPresent() && !legendBefore, legendAfter.map(LegendRow::finishes).orElse(null));
     }
 
-    private static Holder holder(long userId, String name, String image, Long viewerId, Set<Long> friendIds) {
+    private static Holder holder(long userId, String name, Long viewerId, Set<Long> friendIds) {
         String relation = viewerId != null && userId == viewerId ? "self" : friendIds.contains(userId) ? "friend" : "normal";
-        return new Holder(userId, name, image, relation);
+        return new Holder(userId, name, relation);
     }
 }
