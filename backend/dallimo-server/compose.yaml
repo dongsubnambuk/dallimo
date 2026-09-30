@@ -1,0 +1,75 @@
+# 운영 배포용 (gamjabox). 로컬 개발에는 쓰지 않는다 (결정 로그 59항)
+# 비밀 값은 여기 적지 않는다. 같은 폴더의 .env(저장소에 올리지 않는다)나 배포 환경변수로 넣는다. 키 설명은 .env.example
+services:
+  dallimo-server:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+      # ── DB · Redis: 아래 mysql · redis 서비스 ──────────────────────
+      DB_DRIVER: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: dallimo
+      DB_USERNAME: dallimo
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 필요}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      # ── 인증 ──────────────────────────────────────────────────
+      # openssl rand -base64 32
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 필요}
+
+      # ── 공개 주소 · App Link ────────────────────────────────────
+      SHARE_PUBLIC_BASE_URL: ${SHARE_PUBLIC_BASE_URL:-}
+      APP_LINK_IOS_APP_IDS: ${APP_LINK_IOS_APP_IDS:-}
+      APP_LINK_ANDROID_PACKAGE: ${APP_LINK_ANDROID_PACKAGE:-}
+      APP_LINK_ANDROID_SHA256: ${APP_LINK_ANDROID_SHA256:-}
+
+      # ── 관리 API (X-Admin-Key). 비어 있으면 관리 API를 모두 닫는다 ──────
+      # openssl rand -hex 24. application-dev.yaml의 개발 키는 공개돼 있어서 쓰지 않는다
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      COURSE_AUTO_HIDE_REPORTS: ${COURSE_AUTO_HIDE_REPORTS:-3}
+
+      # ── 외부 추천 코스 ──────────────────────────────────────────
+      DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:-e1b62338c3bf254ea990f9b43b06d8bd1baeb10fd90232e55143e49e821aeaca}
+      EXTERNAL_COURSE_CRON: ${EXTERNAL_COURSE_CRON:--}
+      EXTERNAL_COURSE_OSM_BOXES: ${EXTERNAL_COURSE_OSM_BOXES:-}
+      EXTERNAL_ELEVATION_ENABLED: ${EXTERNAL_ELEVATION_ENABLED:-false}
+
+      # ── Push ─────────────────────────────────────────────────
+      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: dallimo
+      MYSQL_USER: dallimo
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 필요}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD 필요}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      retries: 30
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mysql-data:
+  redis-data:
