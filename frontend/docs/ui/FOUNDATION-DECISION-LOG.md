@@ -1245,7 +1245,7 @@ SCR-E02 지역 검색의 주요 요소 "최근 검색"을 넣는다. 탐색 화�
 | --- | --- | --- |
 | 프로필 | dev(기본) · test · prod. `application-local.yaml`을 `application-dev.yaml`에 합쳤다 | 사용자 결정 |
 | dev 값 | DB · Redis는 localhost 기본값, 환경변수로 바꿀 수 있다. 개발용 JWT 키 · 웹 CORS · 개발용 코스 3개 그대로. Push · 메일은 기본 로그(`PUSH_PROVIDER` · `MAIL_PROVIDER`로 바꾼다) | 전 local 동작 유지 |
-| DB · Redis 띄우기 | 컴퓨터에 직접 설치(Mac은 Homebrew `mysql@8.4` · `redis`, backend README "로컬 실행"). `docker-compose.yml`은 지웠다 | 사용자 결정 |
+| DB · Redis | 개발자가 직접 준비하고 계정도 직접 만든다(IntelliJ 등). 서버는 접속 기본값만 둔다(backend README "로컬 실행"). `docker-compose.yml`은 지웠다 | 사용자 결정 |
 | 테스트 | `./gradlew test`는 그대로 Testcontainers(Docker)로 MySQL · MariaDB · Redis를 띄운다. CI도 같다 | 명세 15.4장 MySQL · MariaDB 호환 테스트. 개발 서버 실행과는 따로다 |
 | 개발용 코스 | `db/seed/dev`로 옮겼다. 파일 이름 `R__local_seed_courses.sql`은 그대로 둔다 | 이름을 바꾸면 이미 적용한 개발 DB에서 Flyway 검증이 실패한다 |
 

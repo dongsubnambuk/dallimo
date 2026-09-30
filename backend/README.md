@@ -15,35 +15,12 @@
 
 ## 로컬 실행
 
-개발 서버는 내 컴퓨터에서 띄운다(기본 프로필 `dev`). MySQL · Redis는 Docker 없이 컴퓨터에 직접 설치한다(사용자 결정).
+개발 서버는 내 컴퓨터에서 띄운다(기본 프로필 `dev`). 개발용 MySQL · Redis는 각자 준비하고 계정도 직접 만든다. 로컬에서는 Docker를 쓰지 않는다(사용자 결정).
 
-처음 한 번 (Mac, Homebrew):
-
-```bash
-brew install mysql@8.4 redis
-brew link mysql@8.4 --force          # mysql 명령을 PATH에
-brew services start mysql@8.4        # 로그인할 때 자동으로 켜진다
-brew services start redis
-
-mysql -uroot <<'SQL'
-CREATE DATABASE dallimo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'dallimo'@'%' IDENTIFIED BY 'dallimo';
-GRANT ALL PRIVILEGES ON dallimo.* TO 'dallimo'@'%';
-SQL
-```
-
-서버 (Flyway가 테이블과 개발용 코스 3개를 만든다):
-
-```bash
-cd backend/dallimo-server
-./gradlew bootRun
-curl localhost:8080/actuator/health
-```
-
-- `application-dev.yaml` 기본값이 위 계정(`dallimo` / `dallimo`, localhost:3306)과 Redis(localhost:6379)다. 다르면 환경변수로 바꾼다(`DB_HOST` · `DB_PORT` · `DB_NAME` · `DB_USERNAME` · `DB_PASSWORD` · `REDIS_HOST` 등).
-- 끄기 · 켜기: `brew services stop mysql@8.4 redis` · `brew services start mysql@8.4 redis`.
-- 개발 DB 처음부터 다시: `mysql -uroot -e "DROP DATABASE dallimo; CREATE DATABASE dallimo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"` 뒤 서버를 다시 띄운다.
-- 운영과 같은 MariaDB로 확인하려면 MariaDB를 설치하고 `DB_DRIVER=mariadb`.
+- 서버가 기대하는 것: 빈 `dallimo` 데이터베이스(utf8mb4), 그 DB에 테이블을 만들 수 있는 계정. 테이블 · 개발용 코스 3개는 서버가 시작할 때 Flyway가 만든다.
+- 접속 기본값(`application-dev.yaml`): MySQL `localhost:3306/dallimo`, 계정 `dallimo` / `dallimo`, Redis `localhost:6379`.
+- 다르면 IntelliJ 실행 설정의 환경변수로 바꾼다: `DB_HOST` · `DB_PORT` · `DB_NAME` · `DB_USERNAME` · `DB_PASSWORD` · `REDIS_HOST` · `REDIS_PORT` · `REDIS_PASSWORD`. MariaDB면 `DB_DRIVER=mariadb`.
+- 실행: IntelliJ에서 `DallimoServerApplication` 또는 `./gradlew bootRun`. 확인: `curl localhost:8080/actuator/health`.
 
 ## 테스트
 
@@ -65,7 +42,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 
 | 프로필 | DB | 접속 정보 |
 | --- | --- | --- |
-| dev (기본) | 내 컴퓨터에 설치한 MySQL 8.4 · Redis (위 "로컬 실행") | `application-dev.yaml`. 기본값이 들어 있고 환경변수로 바꿀 수 있다. Push · 메일은 기본으로 로그만 |
+| dev (기본) | 각자 준비한 MySQL · Redis (위 "로컬 실행") | `application-dev.yaml`. 기본값이 들어 있고 환경변수로 바꿀 수 있다. Push · 메일은 기본으로 로그만 |
 | test | Testcontainers | 테스트가 넣는다 |
 | prod | MariaDB (`DB_DRIVER=mariadb` 기본) | 아래 환경변수. `/v3/api-docs`는 끈다 |
 
@@ -505,7 +482,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | --- | --- | --- |
 | `RESOURCE_NOT_FOUND` (404) | 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드(RUN_NOT_FOUND 등)가 없는 404에 쓴다 | 모든 오류를 같은 모양으로 돌려주기 위해 |
 | Spring MVC 기본 오류 | 원래 HTTP 상태(400 · 405 · 415 …)는 유지하고 코드는 `VALIDATION_ERROR` | 27.1장에 해당 코드가 없음 |
-| 문자셋 | 개발 DB를 utf8mb4로 만든다("로컬 실행"). 테스트 DB도 utf8mb4. 22.4장 DDL은 그대로 | 한글 · 이모지 닉네임 |
+| 문자셋 | 개발 · 테스트 DB는 utf8mb4. 아니면 서버가 시작할 때 바꾼다(`Utf8mb4MigrationStrategy`). 22.4장 DDL은 그대로 | 한글 · 이모지 닉네임 |
 | MariaDB 테스트 버전 | 11.4(LTS). 운영 버전이 정해지면 `MariaDbTestcontainersConfiguration`을 같은 버전으로 | 13.1장 "운영과 동일 MariaDB 버전" |
 | MySQL 이미지 | `mysql:latest` 대신 `mysql:8.4`로 고정 | 테스트 결과가 이미지 업데이트로 바뀌지 않게 |
 | 토큰 유효 시간 | Access 30분, Refresh 30일(회전할 때마다 연장), 재시도 허용 60초 | 명세에 값 없음 |
@@ -531,7 +508,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 비동기 실행기 | `taskExecutor` 코어 2 · 최대 8 · 대기 500, 끌 때 20초까지 하던 일을 마친다 | 명세에 값 없음. 검증 · Push 보내기용 |
 | 요청 id | `X-Request-Id` 8~64자 `[A-Za-z0-9._-]`, 아니면 서버가 UUID | 로그를 어지럽히지 않게 |
 | 비밀번호 재설정 | 메일로 숫자 6자리 코드(10분 · 5번 틀리면 잠김), 계정마다 60초 1번 · 1시간 5번. 변경은 다른 기기 로그아웃, 재설정은 모든 기기 로그아웃. 오류는 400 | 사용자 요청(Resend). 명세에 이메일 로그인 · 비밀번호 찾기가 없음 |
-| 프로필 | dev(기본, 내 컴퓨터) · test · prod. local은 dev에 합쳤다. 개발 MySQL · Redis는 Docker 없이 직접 설치 | 사용자 결정(명세 15.3장은 local/dev/test/prod) |
+| 프로필 | dev(기본, 내 컴퓨터) · test · prod. local은 dev에 합쳤다. 개발 MySQL · Redis는 각자 준비, 로컬에서 Docker를 쓰지 않는다 | 사용자 결정(명세 15.3장은 local/dev/test/prod) |
 | 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
 | 외부 추천 코스 | V15 `tbl_course.source · source_ref · attribution · license · source_url`, 관리 API `X-Admin-Key`, 1~21.1km, 같은 자리 100m · 길이 10% 안이면 중복 | 사용자 결정(명세 2.1장 MVP 제외 항목을 넣음). 값은 명세에 없어 정한 시작값 |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |
