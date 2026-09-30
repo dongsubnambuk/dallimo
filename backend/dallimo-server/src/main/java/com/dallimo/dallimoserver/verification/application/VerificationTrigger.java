@@ -1,8 +1,10 @@
 package com.dallimo.dallimoserver.verification.application;
 
+import com.dallimo.dallimoserver.common.observability.Correlation;
 import com.dallimo.dallimoserver.running.domain.RunFinishedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -44,11 +46,18 @@ public class VerificationTrigger {
     }
 
     private void run(long runId) {
+        // 커밋 뒤 검증은 finish 요청의 요청 id를 이어받는다 (ObservabilityConfig). 주기 재검사는 요청 id가 없다
+        String previous = MDC.get(Correlation.RUN_ID);
+        Correlation.run(runId);
         try {
-            verification.verify(runId).ifPresent(r -> log.info("run {} verification {} {}", runId, r.outcome(), r.failureReason() == null ? "" : r.failureReason()));
+            // 결과는 CourseVerificationService가 남긴다 (run.verification)
+            verification.verify(runId);
         } catch (RuntimeException ex) {
             // 다음 주기에 다시 시도한다
-            log.error("run {} verification failed", runId, ex);
+            log.error("run.verification runId={} failed", runId, ex);
+        } finally {
+            if (previous == null) MDC.remove(Correlation.RUN_ID);
+            else MDC.put(Correlation.RUN_ID, previous);
         }
     }
 }

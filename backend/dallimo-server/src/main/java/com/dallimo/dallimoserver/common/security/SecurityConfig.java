@@ -7,6 +7,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.dallimo.dallimoserver.common.observability.Correlation;
+import com.dallimo.dallimoserver.common.observability.UserMdcFilter;
 import com.dallimo.dallimoserver.common.ratelimit.RateLimitFilter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.http.HttpMethod;
@@ -53,6 +55,8 @@ public class SecurityConfig {
         http
                 // 요청 제한은 토큰을 읽은 뒤 (로그인한 사람은 사람마다 센다)
                 .addFilterAfter(rateLimit, BearerTokenAuthenticationFilter.class)
+                // 21.1장 관측성: 로그에 내부 사용자 id (요청 id는 RequestCorrelationFilter가 먼저 붙인다)
+                .addFilterAfter(new UserMdcFilter(), BearerTokenAuthenticationFilter.class)
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -132,7 +136,8 @@ public class SecurityConfig {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(props.corsAllowedOrigins());
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key"));
+        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", Correlation.HEADER));
+        cors.setExposedHeaders(List.of(Correlation.HEADER));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", cors);
         return source;

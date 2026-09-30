@@ -26,6 +26,11 @@ spring:
 server:
   shutdown: graceful
 
+# 21.1장 관측성: 로그 줄마다 요청 · 사용자(내부 id) · Run id (common/observability/Correlation). 위치 · 개인정보는 남기지 않는다
+logging:
+  pattern:
+    correlation: "[req=%X{requestId:-} user=%X{userId:-} run=%X{runId:-}] "
+
 management:
   endpoints:
     web:
