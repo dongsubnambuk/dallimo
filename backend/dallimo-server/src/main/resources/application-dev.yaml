@@ -41,3 +41,12 @@ dallimo:
     # 개발 환경에서는 실제 Push 전송 없이 로그만 출력
     provider: log
     expo-access-token: ""
+
+  admin:
+    # 개발용 관리 API 키 (X-Admin-Key). 운영은 환경변수 ADMIN_API_KEY
+    api-key: e1b88a9ff2ee6a7784ae2236c1b961a8314a8601b50768c3
+
+  external-courses:
+    durunubi:
+      # 공공데이터포털 두루누비 개발계정 인증키. 운영은 환경변수 DATA_GO_KR_SERVICE_KEY
+      service-key: e1b62338c3bf254ea990f9b43b06d8bd1baeb10fd90232e55143e49e821aeaca
