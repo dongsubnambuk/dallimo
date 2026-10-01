@@ -1,4 +1,4 @@
-import { EFFECTIVE_DATE, LEGAL_CONTACT, type LegalDocument } from './types';
+import { EFFECTIVE_DATE, LEGAL_CONTACT, OPERATOR, type LegalDocument } from './types';
 
 // 위치기반서비스 이용약관 (「위치정보의 보호 및 이용 등에 관한 법률」 제18조 · 제19조, 결정 로그 66항).
 // 실제 위치 사용과 같아야 한다: 러닝 기록(42장), 완주 검증(26장), 주변 코스(43장), 코스 등록(43장),
@@ -6,11 +6,11 @@ import { EFFECTIVE_DATE, LEGAL_CONTACT, type LegalDocument } from './types';
 export const LOCATION_TERMS: LegalDocument = {
   title: '위치기반서비스 이용약관',
   effectiveDate: EFFECTIVE_DATE,
-  intro: `이 약관은 ${LEGAL_CONTACT.operator}가 달리모에서 제공하는 위치기반서비스의 이용 조건을 정합니다.`,
+  intro: '이 약관은 달리모에서 제공하는 위치기반서비스의 이용 조건을 정합니다. 달리모는 사업자가 아닌 개인 개발자가 운영합니다.',
   sections: [
     {
       heading: '제1조 (목적)',
-      blocks: [`이 약관은 ${LEGAL_CONTACT.operator}(이하 "운영자")가 달리모 서비스에서 제공하는 위치기반서비스와 관련해 운영자와 개인위치정보주체(이하 "회원")의 권리, 의무, 책임 사항과 그 밖에 필요한 사항을 정하는 것을 목적으로 합니다.`],
+      blocks: [`이 약관은 ${OPERATOR}(이하 "운영자")가 달리모 서비스에서 제공하는 위치기반서비스와 관련해 운영자와 개인위치정보주체(이하 "회원")의 권리, 의무, 책임 사항과 그 밖에 필요한 사항을 정하는 것을 목적으로 합니다.`],
     },
     {
       heading: '제2조 (약관 외 준칙)',
@@ -96,11 +96,11 @@ export const LOCATION_TERMS: LegalDocument = {
     {
       heading: '제9조 (위치정보관리책임자)',
       blocks: [
-        '① 운영자는 위치정보를 보호하고 관련 불만을 처리하기 위해 위치정보관리책임자를 다음과 같이 지정합니다.',
+        '① 운영자는 개인이 운영하는 서비스라 운영자 본인이 위치정보관리책임자를 맡습니다.',
         {
           head: ['구분', '내용'],
           rows: [
-            ['위치정보관리책임자', LEGAL_CONTACT.officer],
+            ['위치정보관리책임자', `${LEGAL_CONTACT.name} (운영자)`],
             ['연락처', LEGAL_CONTACT.email],
           ],
         },
@@ -132,13 +132,13 @@ export const LOCATION_TERMS: LegalDocument = {
       ],
     },
     {
-      heading: '제13조 (사업자 정보)',
+      heading: '제13조 (운영자 정보)',
       blocks: [
         {
           head: ['구분', '내용'],
           rows: [
-            ['상호', LEGAL_CONTACT.operator],
-            ['주소', LEGAL_CONTACT.address],
+            ['운영자', OPERATOR],
+            ['사업자 등록', '없음 (개인 운영)'],
             ['연락처', LEGAL_CONTACT.email],
           ],
         },

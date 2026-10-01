@@ -10,13 +10,15 @@ export type LegalBlock = string | LegalTable;
 export type LegalSection = { heading: string; blocks: LegalBlock[] };
 export type LegalDocument = { title: string; effectiveDate: string; intro: string; sections: LegalSection[] };
 
-// 운영자 · 개인정보 보호책임자. 출시 전에 실제 값으로 바꾼다 (법정 기재 사항)
+// 달리모는 사업자 등록 없이 개인 개발자가 운영한다 (사용자 결정, 결정 로그 67항).
+// 운영자 본인이 개인정보 보호책임자 · 위치정보관리책임자를 맡는다. 출시 전에 실제 값으로 바꾼다 (법정 기재 사항)
+// 개인 운영자라 집 주소는 문서에 싣지 않는다
 export const LEGAL_CONTACT = {
-  operator: '달리모 운영자',
-  officer: '[개인정보 보호책임자 이름]',
+  name: '[운영자 이름]',
   email: '[문의 이메일]',
-  // 위치기반서비스사업자 신고에 쓴 주소와 같게
-  address: '[사업장 주소]',
 };
+
+// 문서 첫머리에 쓰는 운영자 이름. 뒤에는 늘 (이하 "운영자")를 붙여 조사가 이름 받침에 흔들리지 않게 한다
+export const OPERATOR = `개인 개발자 ${LEGAL_CONTACT.name}`;
 
 export const EFFECTIVE_DATE = '2026년 10월 1일';

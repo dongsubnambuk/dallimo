@@ -1,4 +1,4 @@
-import { EFFECTIVE_DATE, LEGAL_CONTACT, type LegalDocument } from './types';
+import { EFFECTIVE_DATE, LEGAL_CONTACT, OPERATOR, type LegalDocument } from './types';
 
 // 개인정보 처리방침 (「개인정보 보호법」 제30조, 개인정보보호위원회 「개인정보 처리방침 작성지침」 항목 순서, 결정 로그 66항).
 // 실제로 모으고 지우는 것과 같아야 한다. 바뀌는 곳: 가입(41장) · 러닝 기록(42장) · 러너 정보(64항) · 심박(65항) · Push 토큰(14.2장)
@@ -6,7 +6,7 @@ import { EFFECTIVE_DATE, LEGAL_CONTACT, type LegalDocument } from './types';
 export const PRIVACY_POLICY: LegalDocument = {
   title: '개인정보 처리방침',
   effectiveDate: EFFECTIVE_DATE,
-  intro: `${LEGAL_CONTACT.operator}(이하 "운영자")는 「개인정보 보호법」 제30조에 따라 정보주체의 개인정보를 보호하고 관련 고충을 빠르게 처리하기 위해 다음과 같이 개인정보 처리방침을 정해 공개합니다.`,
+  intro: `달리모는 사업자가 아닌 ${OPERATOR}(이하 "운영자")가 운영합니다. 운영자는 「개인정보 보호법」 제30조에 따라 정보주체의 개인정보를 보호하고 관련 고충을 빠르게 처리하기 위해 다음과 같이 개인정보 처리방침을 정해 공개합니다.`,
   sections: [
     {
       heading: '제1조 (개인정보의 처리 목적)',
@@ -125,7 +125,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       heading: '제8조 (개인정보의 안전성 확보 조치)',
       blocks: [
         '① 운영자는 「개인정보 보호법」 제29조에 따라 다음 조치를 합니다.',
-        '1. 관리적 조치: 개인정보를 다루는 사람을 운영에 필요한 최소 인원으로 제한',
+        '1. 관리적 조치: 운영자 혼자 개인정보를 다루며, 다른 사람에게 서버와 데이터베이스 접근 권한을 주지 않음',
         '2. 기술적 조치: 비밀번호와 로그인 토큰을 복원할 수 없게 암호화해 저장, 모든 통신을 HTTPS로 암호화, 반복 로그인 시도 등 비정상 요청 차단',
       ],
     },
@@ -189,15 +189,15 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       heading: '제15조 (개인정보 보호책임자)',
       blocks: [
-        '① 운영자는 개인정보 처리 업무를 총괄하고 관련 불만 처리와 피해 구제를 위해 다음과 같이 개인정보 보호책임자를 지정합니다.',
+        '① 달리모는 개인이 운영하는 서비스라 운영자 본인이 개인정보 보호책임자를 맡습니다.',
         {
           head: ['구분', '내용'],
           rows: [
-            ['개인정보 보호책임자', LEGAL_CONTACT.officer],
+            ['개인정보 보호책임자', `${LEGAL_CONTACT.name} (운영자)`],
             ['연락처', LEGAL_CONTACT.email],
           ],
         },
-        '② 개인정보 보호책임자가 개인정보 열람 청구 접수 · 처리, 위치정보관리책임자 업무를 함께 맡습니다.',
+        '② 운영자가 개인정보 열람 청구 접수 · 처리와 위치정보관리책임자 업무도 함께 맡습니다. 따로 고충 처리 부서는 두지 않습니다.',
       ],
     },
     {
