@@ -5,7 +5,7 @@ module.exports = {
   type: 'watch',
   name: 'DallimoWatch',
   displayName: '달리모',
-  // 휴대폰 앱 번들 id 뒤에 붙는다 (예: com.dallimo.dev.watchkitapp)
+  // 휴대폰 앱 번들 id 뒤에 붙는다 (com.dongseopseo.dallimo.watchkitapp, app.json appExtensions와 같게)
   bundleIdentifier: '.watchkitapp',
   deploymentTarget: '10.0',
   icon: '../../assets/images/icon.png',

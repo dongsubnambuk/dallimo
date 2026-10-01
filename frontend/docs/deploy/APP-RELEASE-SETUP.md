@@ -20,9 +20,9 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 | 할 일 | 어디서 | 결과로 받는 값 |
 | --- | --- | --- |
 | Apple Developer Program 가입 (유료) | developer.apple.com | Apple 팀 ID (10자리) |
-| App Store Connect에 앱 등록 | appstoreconnect.apple.com | iOS 번들 ID (예: `com.dallimo.app`) |
+| App Store Connect에 앱 등록 | appstoreconnect.apple.com | iOS 번들 ID `com.dongseopseo.dallimo` (팀 `Q336TS439T`) |
 | Expo 계정 로그인 | `npx eas-cli@latest login` | Expo 계정 이름 |
-| Google Play Console 가입 · 앱 등록 | play.google.com/console | Android 패키지 이름 (예: `com.dallimo.app`) |
+| Google Play Console 가입 · 앱 등록 | play.google.com/console | Android 패키지 이름 `com.dongseopseo.dallimo` |
 | Firebase 프로젝트 · Android 앱 등록 | console.firebase.google.com | `google-services.json`, FCM V1 서비스 계정 키(JSON) |
 | 서버 공개 도메인 | 사용자 인프라 | 예: `dallimo.app` (서버 `https://dallimo.app`) |
 
@@ -42,9 +42,9 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 | 이름 | 값 | 읽는 곳 | 없으면 |
 | --- | --- | --- | --- |
 | `EXPO_PUBLIC_API_URL` | 서버 주소. 반드시 `https://`. **`eas.json` production에 `https://dallimo.gamjabox.cloud`로 넣었다** | `src/shared/api/config.ts` | 앱이 서버 없이 mock 데이터로만 돈다 |
-| `IOS_BUNDLE_ID` | App Store Connect의 번들 ID | `app.config.ts` | 개발용 `com.dallimo.dev`로 빌드된다 |
-| `APPLE_TEAM_ID` | Apple 팀 ID | `app.config.ts` (휴대폰 · 워치 서명) | Xcode에서 팀을 골라야 한다 |
-| `ANDROID_PACKAGE` | Play Console 패키지 이름 | `app.config.ts` | App Link를 쓸 때 패키지가 빠진다 |
+| `IOS_BUNDLE_ID` | App Store Connect의 번들 ID. **기본값 `com.dongseopseo.dallimo`(`app.config.ts`)** | `app.config.ts` | 기본값으로 빌드된다 |
+| `APPLE_TEAM_ID` | Apple 팀 ID. **기본값 `Q336TS439T`(`app.config.ts`)** | `app.config.ts` (휴대폰 · 워치 서명) | 기본값으로 빌드된다 |
+| `ANDROID_PACKAGE` | Play Console 패키지 이름. **기본값 `com.dongseopseo.dallimo`(`app.config.ts`)** | `app.config.ts` | 기본값으로 빌드된다 |
 | `APP_LINK_DOMAIN` | 서버 도메인만(`https://` 없이). **`eas.json` production에 `dallimo.gamjabox.cloud`로 넣었다** | `app.config.ts` | 공유 링크 `https://{도메인}/s/{code}`를 눌러도 앱이 바로 열리지 않는다 |
 
 - 실시간 연결 주소는 `EXPO_PUBLIC_API_URL`에서 만든다(`https` → `wss`, `/ws`). 따로 넣을 값은 없다.
@@ -77,8 +77,8 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 | 앱 (빌드) | 서버 (환경변수) | 예 |
 | --- | --- | --- |
 | `APP_LINK_DOMAIN` | `SHARE_PUBLIC_BASE_URL` | `dallimo.gamjabox.cloud` ↔ `https://dallimo.gamjabox.cloud` (둘 다 넣었다) |
-| `APPLE_TEAM_ID` + `IOS_BUNDLE_ID` | `APP_LINK_IOS_APP_IDS` | `ABCDE12345` + `com.dallimo.app` ↔ `ABCDE12345.com.dallimo.app` |
-| `ANDROID_PACKAGE` | `APP_LINK_ANDROID_PACKAGE` | `com.dallimo.app` |
+| `APPLE_TEAM_ID` + `IOS_BUNDLE_ID` | `APP_LINK_IOS_APP_IDS` | `Q336TS439T` + `com.dongseopseo.dallimo` ↔ `Q336TS439T.com.dongseopseo.dallimo` (둘 다 넣었다) |
+| `ANDROID_PACKAGE` | `APP_LINK_ANDROID_PACKAGE` | `com.dongseopseo.dallimo` (둘 다 넣었다) |
 | Play Console 앱 서명 키 SHA-256 | `APP_LINK_ANDROID_SHA256` | `AA:BB:…` |
 | `EXPO_PUBLIC_API_URL` | 서버 공개 주소 | `https://dallimo.gamjabox.cloud` |
 

@@ -90,7 +90,7 @@
             "ios": {
               "appExtensions": [
                 {
-                  "bundleIdentifier": "com.dallimo.dev.watchkitapp",
+                  "bundleIdentifier": "com.dongseopseo.dallimo.watchkitapp",
                   "targetName": "DallimoWatch",
                   "entitlements": {
                     "com.apple.developer.healthkit": true
