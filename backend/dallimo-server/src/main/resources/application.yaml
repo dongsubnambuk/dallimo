@@ -21,6 +21,12 @@ spring:
       connection-init-sql: SET time_zone = '+00:00'
   jackson:
     time-zone: UTC
+  # Redis에 닿지 못할 때 오래 기다리지 않는다 (기본은 연결 10초 · 명령 60초).
+  # 헬스체크가 바로 DOWN을 알리고, 요청 제한은 RateLimiter가 잠시 Redis를 건너뛴다
+  data:
+    redis:
+      connect-timeout: 1s
+      timeout: 1s
   # 관리자가 올리는 GPX 파일 (외부 추천 코스, 5MB까지)
   servlet:
     multipart:
