@@ -220,6 +220,7 @@ export function SettingsScreen() {
           <SettingRow kind="link" label="위치 권한" caption="러닝 기록과 주변 코스 찾기에 써요" value="휴대폰 설정" external onPress={() => Linking.openSettings().catch(() => undefined)} />
           <SettingRow kind="link" label="개인정보 처리방침" onPress={() => router.push({ pathname: '/legal/[kind]', params: { kind: 'privacy' } })} />
           <SettingRow kind="link" label="서비스 이용약관" onPress={() => router.push({ pathname: '/legal/[kind]', params: { kind: 'terms' } })} />
+          <SettingRow kind="link" label="위치기반서비스 이용약관" onPress={() => router.push({ pathname: '/legal/[kind]', params: { kind: 'location' } })} />
         </SettingSection>
 
         <SettingSection title="계정">
