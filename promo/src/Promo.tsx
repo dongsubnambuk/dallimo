@@ -1,26 +1,28 @@
 import { linearTiming, TransitionSeries } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
 import { slide } from '@remotion/transitions/slide';
-import { AbsoluteFill, Audio, staticFile } from 'remotion';
+import { AbsoluteFill, Audio, interpolate, staticFile } from 'remotion';
 
 import { loadFonts } from './fonts';
 import { Course, End, Explore, Hook, Ranking, Result, Run, Together } from './Scenes';
 import { C } from './theme';
-import timeline from './timeline.json';
+import { CUT_FRAMES, DURATION, FPS, MUSIC, MUSIC_TRIM, SCENE_FRAMES, TRANSITION } from './timeline';
 
 loadFonts();
 
-// 장면 길이 · 전환은 timeline.json 한 곳에서 정한다 (배경 음악 scripts/make-music.mjs도 같은 값으로 비트를 맞춘다)
-// 120BPM에서 한 박 = 15프레임. 장면 길이와 전환을 박 단위로 맞춰 장면이 바뀌는 순간 킥이 들어간다
+// 장면 길이 · 전환은 timeline.ts에서 배경 음악의 마디에 맞춰 계산한다
 const COMPONENTS = [Hook, Explore, Course, Run, Result, Ranking, Together, End];
-export const SCENES = COMPONENTS.map((Scene, i) => ({ C: Scene, d: timeline.scenes[i] }));
-export const TRANSITION = timeline.transition;
-export const DURATION = SCENES.reduce((a, s) => a + s.d, 0) - TRANSITION * (SCENES.length - 1);
+export const SCENES = COMPONENTS.map((Scene, i) => ({ C: Scene, d: SCENE_FRAMES[i] }));
+export { CUT_FRAMES, DURATION, TRANSITION };
 
 export function Promo() {
   return (
     <AbsoluteFill style={{ background: C.ink }}>
-      <Audio src={staticFile('music.wav')} />
+      <Audio
+        src={staticFile(MUSIC.file)}
+        trimBefore={MUSIC_TRIM}
+        volume={(f) => interpolate(f, [DURATION - MUSIC.fadeOut * FPS, DURATION], [0.9, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })}
+      />
       <TransitionSeries>
         {SCENES.flatMap(({ C: Scene, d }, i) => [
           <TransitionSeries.Sequence key={`s${i}`} durationInFrames={d}>

@@ -6,6 +6,7 @@ import { Chip, Line, Metric } from './Kinetic';
 import { Phone } from './Phone';
 import { Route } from './Route';
 import { C, FONT } from './theme';
+import { END_ACCENT, MUSIC } from './timeline';
 
 // 릴스 안전 영역: 위 220px · 아래 420px에는 중요한 글을 두지 않는다
 const LEFT = 90;
@@ -206,7 +207,9 @@ export function End() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const icon = spring({ frame: frame - 6, fps, config: { damping: 12, stiffness: 140 } });
-  const pill = interpolate(frame, [48, 60], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  // 출시 안내는 음악의 14번째 마디 첫 박에 튀어나온다
+  const pill = spring({ frame: frame - END_ACCENT, fps, config: { damping: 11, stiffness: 170 } });
+  const credit = interpolate(frame, [END_ACCENT + 6, END_ACCENT + 18], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (
     <AbsoluteFill>
       <Backdrop />
@@ -234,12 +237,13 @@ export function End() {
             fontFamily: FONT,
             fontWeight: 800,
             fontSize: 44,
-            opacity: pill,
-            transform: `translateY(${(1 - pill) * 30}px)`,
+            opacity: Math.min(1, pill * 1.5),
+            transform: `scale(${pill})`,
           }}
         >
           곧 App Store · Google Play 출시
         </div>
+        <div style={{ marginTop: 40, fontFamily: FONT, fontWeight: 500, fontSize: 26, color: C.muted, opacity: credit * 0.8 }}>{MUSIC.credit}</div>
       </AbsoluteFill>
     </AbsoluteFill>
   );
