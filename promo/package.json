@@ -1,0 +1,26 @@
+{
+  "name": "dallimo-promo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "assets": "node scripts/sync-assets.mjs",
+    "studio": "npm run assets && remotion studio",
+    "render": "npm run assets && remotion render Promo out/dallimo-promo.mp4",
+    "cover": "npm run assets && remotion still Cover out/dallimo-promo-cover.png --frame=50",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.532",
+    "@remotion/paths": "^4.0.532",
+    "@remotion/transitions": "^4.0.532",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "remotion": "^4.0.532"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.0",
+    "@types/react-dom": "~19.2.0",
+    "typescript": "~6.0.3"
+  }
+}
