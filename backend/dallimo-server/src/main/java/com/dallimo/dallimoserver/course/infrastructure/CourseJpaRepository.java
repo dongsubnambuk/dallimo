@@ -24,6 +24,17 @@ public interface CourseJpaRepository extends JpaRepository<Course, Long> {
                            @Param("minLat") java.math.BigDecimal minLat, @Param("maxLat") java.math.BigDecimal maxLat,
                            @Param("minLng") java.math.BigDecimal minLng, @Param("maxLng") java.math.BigDecimal maxLng);
 
+    /**
+     * 주변 코스 후보의 id · 출발점만 (엔티티를 만들지 않는다). 거리순으로 자른 한 페이지만 findVisible로 불러온다 (결정 로그 70항).
+     * idx_course_start_box가 조건 열을 모두 담아 표를 읽지 않는다
+     */
+    @Query("SELECT c.id, c.startLat, c.startLng FROM Course c WHERE " + VISIBLE + """
+             AND c.startLat BETWEEN :minLat AND :maxLat
+             AND c.startLng BETWEEN :minLng AND :maxLng""")
+    List<Object[]> findStartsInBox(@Param("viewerId") Long viewerId,
+                                   @Param("minLat") java.math.BigDecimal minLat, @Param("maxLat") java.math.BigDecimal maxLat,
+                                   @Param("minLng") java.math.BigDecimal minLng, @Param("maxLng") java.math.BigDecimal maxLng);
+
     /** 이름 · 지역 · 태그 검색 (CRS-003). tagIds: 태그가 맞는 코스 (없으면 [-1]). 최근 등록순, id cursor */
     @Query("SELECT c FROM Course c WHERE " + VISIBLE + """
              AND (LOWER(c.name) LIKE :pattern ESCAPE '!' OR LOWER(c.region) LIKE :pattern ESCAPE '!' OR c.id IN :tagIds)
