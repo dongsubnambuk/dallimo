@@ -5,26 +5,27 @@ export const TRANSITION = 10; // 전환 10프레임이 끝나는 순간 박이 �
 
 type Track = {
   file: string;
-  credit: string;
+  credit: string; // 끝 장면 아래 저작권 표시. 필요 없는 곡은 ''
   bpm: number; // 킥을 재서 맞춘 실제 빠르기
   trackDrop: number; // 곡 안에서 드롭(크게 터지는 첫 박) 시각
   videoDrop: number; // 영상 안에서 드롭이 올 시각
   cutBars: number[]; // 드롭부터 센 마디. 이 마디 첫 박에 장면이 완전히 바뀐다 (7번)
-  accentBar: number; // 끝 장면 출시 안내가 튀어나오는 마디
+  accentBar: number; // 끝 장면 출시 안내가 튀어나오는 마디 (0.5는 마디 셋째 박)
   fadeOut: number; // 마지막 몇 초 동안 줄인다
 };
 
 export const TRACKS = {
-  // "Laserpack"(실측 128.02BPM, 한 마디 1.875초): 저음이 빠지는 브레이크다운 · 상승음 뒤 90.03초에 베이스가 다시 들어온다.
-  // 드롭 뒤 8마디(105초)에서 펌핑 구간으로 넘어가 두 마디마다 장면을 바꾸면 8번째 마디에서 새 흐름과 장면이 같이 시작된다
-  laserpack: {
-    file: 'music/laserpack.mp3',
-    credit: 'Music: "Laserpack" Kevin MacLeod (incompetech.com) · CC BY 4.0',
-    bpm: 128.02,
-    trackDrop: 90.03,
+  // "Rising Forest" Diego Nava (Mixkit, 실측 123.99BPM, 한 마디 1.936초): 저음이 빠진 브레이크다운 뒤 46.447초에 킥 · 베이스가 들어와
+  // 16마디(31초) 동안 이어진다. 두 마디마다 장면을 바꾸면 8번째 마디(곡의 다음 프레이즈)에 결과 → 랭킹 전환이 온다.
+  // 끝 장면이 짧아(4.3초) 출시 안내는 12번째 마디 셋째 박(킥)에 나온다
+  risingForest: {
+    file: 'music/rising-forest.mp3',
+    credit: '', // Mixkit Stock Music Free License는 저작권 표시가 필요 없다
+    bpm: 123.99,
+    trackDrop: 46.447,
     videoDrop: 2.5,
     cutBars: [0, 2, 4, 6, 8, 10, 12],
-    accentBar: 13,
+    accentBar: 12.5,
     fadeOut: 2,
   },
   // "Shiny Tech"(실측 137.69BPM, 표기 138): 6.957초에 킥이 들어온다. 드롭 뒤 7 · 11번째 마디가 비는 마디(fill)라

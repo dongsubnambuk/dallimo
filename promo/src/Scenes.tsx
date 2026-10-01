@@ -86,13 +86,13 @@ export function Course() {
       <Backdrop />
       <Headline a="달리기 전에" b="알아야 할 것만" />
       <RisingPhone screen="course" delay={4} />
-      <Chip delay={30} style={{ top: 1060, left: 40 }}>
+      <Chip delay={26} style={{ top: 1060, left: 40 }}>
         거리 <Metric size={48}>1.9km</Metric>
       </Chip>
       <Chip delay={40} style={{ top: 1270, right: 40 }}>
         오르막 <Metric size={48}>+9m</Metric>
       </Chip>
-      <Chip delay={50} style={{ top: 1480, left: 40 }}>
+      <Chip delay={54} style={{ top: 1480, left: 40 }}>
         내 PB <Metric size={48} color={C.signal}>10:12</Metric>
       </Chip>
     </AbsoluteFill>
@@ -111,10 +111,10 @@ export function Run() {
         <Metric size={76}>{km.toFixed(2)}</Metric>
         <span style={{ fontSize: 34, color: C.muted }}>km</span>
       </Chip>
-      <Chip delay={48} style={{ top: 1260, left: 40 }}>
+      <Chip delay={46} style={{ top: 1260, left: 40 }}>
         음성으로 페이스 안내
       </Chip>
-      <Chip delay={60} style={{ top: 1460, right: 40 }}>
+      <Chip delay={66} style={{ top: 1460, right: 40 }}>
         화면을 꺼도 계속 기록
       </Chip>
     </AbsoluteFill>
@@ -244,7 +244,7 @@ export function End({ accent, credit: creditText }: { accent: number; credit: st
         >
           곧 App Store · Google Play 출시
         </div>
-        <div style={{ marginTop: 40, fontFamily: FONT, fontWeight: 500, fontSize: 26, color: C.muted, opacity: credit * 0.8 }}>{creditText}</div>
+        {creditText ? <div style={{ marginTop: 40, fontFamily: FONT, fontWeight: 500, fontSize: 26, color: C.muted, opacity: credit * 0.8 }}>{creditText}</div> : null}
       </AbsoluteFill>
     </AbsoluteFill>
   );
