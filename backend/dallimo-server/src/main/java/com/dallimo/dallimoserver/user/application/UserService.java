@@ -2,6 +2,7 @@ package com.dallimo.dallimoserver.user.application;
 
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
+import com.dallimo.dallimoserver.user.domain.RunnerProfile;
 import com.dallimo.dallimoserver.user.domain.User;
 import com.dallimo.dallimoserver.user.infrastructure.UserJpaRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -71,6 +72,14 @@ public class UserService {
         } catch (DataIntegrityViolationException race) {
             throw new ApiException(ErrorCode.NICKNAME_ALREADY_EXISTS);
         }
+    }
+
+    /** 온보딩 · 설정의 러너 정보 (FOUNDATION-DECISION-LOG 64항) */
+    @Transactional
+    public RunnerProfile changeRunnerProfile(long userId, RunnerProfile profile) {
+        User user = get(userId);
+        user.changeRunnerProfile(profile, clock.instant());
+        return users.saveAndFlush(user).getRunnerProfile();
     }
 
     @Transactional

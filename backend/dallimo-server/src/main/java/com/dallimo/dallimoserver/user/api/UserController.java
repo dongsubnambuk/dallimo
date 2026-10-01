@@ -4,6 +4,8 @@ import com.dallimo.dallimoserver.auth.application.AuthService;
 import com.dallimo.dallimoserver.common.web.ApiResponse;
 import com.dallimo.dallimoserver.running.infrastructure.RunStatsJdbcRepository;
 import com.dallimo.dallimoserver.user.application.UserService;
+import com.dallimo.dallimoserver.user.domain.RunnerProfile;
+import com.dallimo.dallimoserver.user.domain.User;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,6 +15,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -42,14 +45,26 @@ public class UserController {
     public record NicknameAvailability(boolean available) {
     }
 
-    /** MY-001~002 내 프로필 + 누적 통계 (끝난 러닝의 수 · 거리 · 달린 시간) */
-    public record MeResponse(long userId, String email, String nickname, String friendCode, RunStatsJdbcRepository.Totals stats) {
+    /** MY-001~002 내 프로필 + 누적 통계 (끝난 러닝의 수 · 거리 · 달린 시간) + 온보딩 러너 정보 */
+    public record MeResponse(long userId, String email, String nickname, String friendCode, RunStatsJdbcRepository.Totals stats,
+                             RunnerProfile runnerProfile) {
     }
 
     @GetMapping("/me")
     public ApiResponse<MeResponse> me(@AuthenticationPrincipal Jwt jwt) {
-        UserResponse u = UserResponse.from(users.get(userId(jwt)));
-        return ApiResponse.ok(new MeResponse(u.userId(), u.email(), u.nickname(), u.friendCode(), runStats.totals(userId(jwt))));
+        User user = users.get(userId(jwt));
+        UserResponse u = UserResponse.from(user);
+        return ApiResponse.ok(new MeResponse(u.userId(), u.email(), u.nickname(), u.friendCode(), runStats.totals(userId(jwt)),
+                user.getRunnerProfile()));
+    }
+
+    /**
+     * 온보딩 · 설정의 러너 정보 (FOUNDATION-DECISION-LOG 64항). 명세에 없는 API다.
+     * 세 값을 통째로 바꾼다. 고르지 않은 값은 null로 보낸다
+     */
+    @PutMapping("/me/runner-profile")
+    public ApiResponse<RunnerProfile> updateRunnerProfile(@AuthenticationPrincipal Jwt jwt, @RequestBody RunnerProfile req) {
+        return ApiResponse.ok(users.changeRunnerProfile(userId(jwt), req == null ? RunnerProfile.EMPTY : req));
     }
 
     /** 명세 41장 PATCH /users/me. 닉네임만 바꾼다 (프로필 사진은 뺐다, 결정 로그 60항) */

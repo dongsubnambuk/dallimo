@@ -2,7 +2,7 @@ import { toProfile, type UserDto } from '@/entities/auth/api/httpAuthRepository'
 import { runResultRepository } from '@/entities/run/api';
 import { ApiRequestError, apiRequest } from '@/shared/api/http';
 
-import type { Me } from '../types';
+import { EMPTY_RUNNER, type Me, type RunnerProfile } from '../types';
 import { checkNicknameLocal } from './mockUserRepository';
 import type { UserRepository } from './userRepository';
 
@@ -12,7 +12,7 @@ import type { UserRepository } from './userRepository';
 export function createHttpUserRepository(): UserRepository {
   return {
     async getMe(): Promise<Me> {
-      const dto = await apiRequest<UserDto & { stats: { runCount: number; totalDistanceM: number; totalActiveSec: number } }>('/api/v1/users/me');
+      const dto = await apiRequest<UserDto & { stats: { runCount: number; totalDistanceM: number; totalActiveSec: number }; runnerProfile?: RunnerProfile | null }>('/api/v1/users/me');
       // 첫 페이지에 이 기기에만 있는(올리는 중 · 오프라인) 기록이 모두 들어 있다
       const pending = (await runResultRepository.list(null, 20).catch(() => ({ items: [] }))).items.filter((r) => r.sync !== 'synced');
       return {
@@ -22,6 +22,7 @@ export function createHttpUserRepository(): UserRepository {
           totalActiveSec: dto.stats.totalActiveSec + pending.reduce((s, r) => s + r.activeSec, 0),
           runCount: dto.stats.runCount + pending.length,
         },
+        runner: { ...EMPTY_RUNNER, ...(dto.runnerProfile ?? {}) },
       };
     },
     async updateMe(update) {
@@ -31,6 +32,9 @@ export function createHttpUserRepository(): UserRepository {
         if (e instanceof ApiRequestError && e.code === 'NICKNAME_ALREADY_EXISTS') throw new Error('taken');
         throw e;
       }
+    },
+    async updateRunnerProfile(profile) {
+      return { ...EMPTY_RUNNER, ...(await apiRequest<RunnerProfile>('/api/v1/users/me/runner-profile', { method: 'PUT', body: profile })) };
     },
     async checkNickname(nickname) {
       const local = checkNicknameLocal(nickname);

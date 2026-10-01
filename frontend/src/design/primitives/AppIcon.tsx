@@ -83,6 +83,8 @@ const icons = {
   imported: { ios: 'square.and.arrow.down', android: 'download' },
   watch: { ios: 'applewatch', android: 'watch' },
   health: { ios: 'heart.fill', android: 'favorite' },
+  // 온보딩 권한 안내: 알림 (결정 로그 64항)
+  notification: { ios: 'bell.fill', android: 'notifications' },
   // 124장 코스 타이틀: 크라운(최근 최고 기록) · 로컬 레전드(최근 최다 완주)
   crown: { ios: 'crown.fill', android: 'crown' },
   legend: { ios: 'flame.fill', android: 'local_fire_department' },

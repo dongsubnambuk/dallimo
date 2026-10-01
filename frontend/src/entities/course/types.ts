@@ -27,6 +27,9 @@ export type CourseSummary = {
   // REV-001 완주자 평가 평균(1~5, 소수 한 자리)과 수. 평가가 없으면 null · 0 (CRS-004 평점 필터 · 정렬)
   ratingAvg: number | null;
   reviewCount: number;
+  // 난이도 · 추천 시간대 (예: "새벽 · 저녁"). 모르면 null. 추천 코스가 러너 정보에 맞출 때 쓴다 (결정 로그 64항)
+  difficulty?: CourseDifficulty | null;
+  recommendedTime?: string | null;
 };
 
 export type NearbyCourseQuery = {

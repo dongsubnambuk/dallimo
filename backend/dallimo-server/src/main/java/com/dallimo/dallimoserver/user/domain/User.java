@@ -2,6 +2,8 @@ package com.dallimo.dallimoserver.user.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -9,7 +11,7 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
-/** tbl_user (22.4장 V1 + V4 password_hash) */
+/** tbl_user (22.4장 V1 + V4 password_hash + V19 러너 정보) */
 @Entity
 @Table(name = "tbl_user")
 public class User {
@@ -48,6 +50,19 @@ public class User {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    // 온보딩 러너 정보 (V19, FOUNDATION-DECISION-LOG 64항)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "runner_distance", length = 20)
+    private RunnerProfile.Distance runnerDistance;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "runner_experience", length = 20)
+    private RunnerProfile.Experience runnerExperience;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "runner_time", length = 20)
+    private RunnerProfile.PreferredTime runnerTime;
+
     protected User() {
     }
 
@@ -71,6 +86,18 @@ public class User {
         this.updatedAt = now;
     }
 
+    /** 온보딩 · 설정에서 고른 러너 정보. 통째로 바꾼다(고르지 않은 값은 null) */
+    public void changeRunnerProfile(RunnerProfile p, Instant now) {
+        this.runnerDistance = p.distance();
+        this.runnerExperience = p.experience();
+        this.runnerTime = p.preferredTime();
+        this.updatedAt = now;
+    }
+
+    public RunnerProfile getRunnerProfile() {
+        return new RunnerProfile(runnerDistance, runnerExperience, runnerTime);
+    }
+
     /** 비밀번호 변경 · 재설정 (FOUNDATION-DECISION-LOG 58항) */
     public void changePassword(String passwordHash, Instant now) {
         this.passwordHash = passwordHash;
@@ -87,6 +114,9 @@ public class User {
         this.passwordHash = null;
         this.nickname = "탈퇴한 러너 " + id;
         this.friendCode = "X-" + id;
+        this.runnerDistance = null;
+        this.runnerExperience = null;
+        this.runnerTime = null;
         this.updatedAt = now;
         this.deletedAt = now;
     }

@@ -22,4 +22,15 @@ export type MyStats = {
   runCount: number;
 };
 
-export type Me = { profile: MyProfile; stats: MyStats };
+// 온보딩 러너 정보 (사용자 결정, 결정 로그 64항). 고르지 않은 값은 null. 탐색 추천 코스에 쓴다
+export type RunnerDistance = 'UNDER_3K' | 'K3_TO_5' | 'K5_TO_10' | 'OVER_10K';
+export type RunnerExperience = 'BEGINNER' | 'OCCASIONAL' | 'REGULAR';
+export type RunnerTime = 'MORNING' | 'DAYTIME' | 'EVENING' | 'NIGHT';
+export type RunnerProfile = {
+  distance: RunnerDistance | null;
+  experience: RunnerExperience | null;
+  preferredTime: RunnerTime | null;
+};
+export const EMPTY_RUNNER: RunnerProfile = { distance: null, experience: null, preferredTime: null };
+
+export type Me = { profile: MyProfile; stats: MyStats; runner: RunnerProfile };

@@ -64,6 +64,36 @@ abstract class ProfileApiContractTest {
         assertThat(mvc.get().uri("/files/profile/1/x.jpg").exchange().getResponse().getStatus()).isIn(401, 404);
     }
 
+    /** 온보딩 러너 정보 (FOUNDATION-DECISION-LOG 64항): 처음엔 모두 null, 통째로 바꾸고, 모르는 값은 400 */
+    @Test
+    void runnerProfile() {
+        User me = signup();
+        String fresh = body(get(me, "/api/v1/users/me"));
+        assertThat((Map<String, Object>) JsonPath.read(fresh, "$.data.runnerProfile"))
+                .containsEntry("distance", null).containsEntry("experience", null).containsEntry("preferredTime", null);
+
+        MvcTestResult put = mvc.put().uri("/api/v1/users/me/runner-profile").header("Authorization", "Bearer " + me.token)
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"distance":"K3_TO_5","experience":"BEGINNER","preferredTime":"EVENING"}""").exchange();
+        assertThat(put).hasStatusOk();
+        assertThat((String) JsonPath.read(body(put), "$.data.distance")).isEqualTo("K3_TO_5");
+        String after = body(get(me, "/api/v1/users/me"));
+        assertThat((String) JsonPath.read(after, "$.data.runnerProfile.experience")).isEqualTo("BEGINNER");
+        assertThat((String) JsonPath.read(after, "$.data.runnerProfile.preferredTime")).isEqualTo("EVENING");
+
+        // 하나만 고르면 나머지는 지워진다 (통째로 바꾼다)
+        assertThat(mvc.put().uri("/api/v1/users/me/runner-profile").header("Authorization", "Bearer " + me.token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"distance\":\"OVER_10K\"}").exchange()).hasStatusOk();
+        assertThat((Map<String, Object>) JsonPath.read(body(get(me, "/api/v1/users/me")), "$.data.runnerProfile"))
+                .containsEntry("distance", "OVER_10K").containsEntry("experience", null);
+
+        // 모르는 값 · 로그인 없이
+        assertThat(mvc.put().uri("/api/v1/users/me/runner-profile").header("Authorization", "Bearer " + me.token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"distance\":\"MARATHON\"}").exchange()).hasStatus(400);
+        assertThat(mvc.put().uri("/api/v1/users/me/runner-profile")
+                .contentType(MediaType.APPLICATION_JSON).content("{}").exchange()).hasStatus(401);
+    }
+
     private User signup() {
         String id = UUID.randomUUID().toString().substring(0, 8);
         String nick = "프로필" + id;
