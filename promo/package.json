@@ -7,6 +7,7 @@
     "assets": "node scripts/sync-assets.mjs && node scripts/fetch-music.mjs",
     "studio": "npm run assets && remotion studio",
     "render": "npm run assets && remotion render Promo out/dallimo-promo.mp4",
+    "render:shiny-tech": "npm run assets && remotion render PromoShinyTech out/dallimo-promo-shiny-tech.mp4",
     "cover": "npm run assets && remotion still Cover out/dallimo-promo-cover.png --frame=50",
     "typecheck": "tsc --noEmit"
   },
