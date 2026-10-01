@@ -1,41 +1,39 @@
 import { linearTiming, TransitionSeries } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
 import { slide } from '@remotion/transitions/slide';
-import { AbsoluteFill } from 'remotion';
+import { AbsoluteFill, Audio, interpolate, staticFile } from 'remotion';
 
+import { BeatContext } from './beat';
 import { loadFonts } from './fonts';
 import { Course, End, Explore, Hook, Ranking, Result, Run, Together } from './Scenes';
 import { C } from './theme';
+import { DURATION, FPS, timeline, TRANSITION, type TrackId } from './timeline';
 
 loadFonts();
 
-// 장면 길이(프레임, 30fps). 전환 7번 × 10프레임이 겹쳐 합계 900프레임 = 30초
-export const SCENES = [
-  { C: Hook, d: 80 },
-  { C: Explore, d: 125 },
-  { C: Course, d: 125 },
-  { C: Run, d: 140 },
-  { C: Result, d: 125 },
-  { C: Ranking, d: 110 },
-  { C: Together, d: 130 },
-  { C: End, d: 135 },
-];
-export const TRANSITION = 10;
-export const DURATION = SCENES.reduce((a, s) => a + s.d, 0) - TRANSITION * (SCENES.length - 1);
+// 장면 길이 · 전환은 timeline.ts에서 배경 음악의 마디에 맞춰 계산한다
+const SCENES = [Hook, Explore, Course, Run, Result, Ranking, Together];
 
-export function Promo() {
+export function Promo({ track: id }: { track: TrackId }) {
+  const { track, trim, starts, sceneFrames, beats, endAccent } = timeline(id);
+  const scenes = [...SCENES.map((Scene) => <Scene />), <End accent={endAccent} credit={track.credit} />];
   return (
     <AbsoluteFill style={{ background: C.ink }}>
+      <Audio
+        src={staticFile(track.file)}
+        trimBefore={trim}
+        volume={(f) => interpolate(f, [DURATION - track.fadeOut * FPS, DURATION], [0.9, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })}
+      />
       <TransitionSeries>
-        {SCENES.flatMap(({ C: Scene, d }, i) => [
-          <TransitionSeries.Sequence key={`s${i}`} durationInFrames={d}>
-            <Scene />
+        {scenes.flatMap((scene, i) => [
+          <TransitionSeries.Sequence key={`s${i}`} durationInFrames={sceneFrames[i]}>
+            <BeatContext.Provider value={{ start: starts[i], ...beats }}>{scene}</BeatContext.Provider>
           </TransitionSeries.Sequence>,
-          ...(i < SCENES.length - 1
+          ...(i < scenes.length - 1
             ? [
                 <TransitionSeries.Transition
                   key={`t${i}`}
-                  presentation={i === SCENES.length - 2 ? fade() : slide({ direction: 'from-right' })}
+                  presentation={i === scenes.length - 2 ? fade() : slide({ direction: 'from-right' })}
                   timing={linearTiming({ durationInFrames: TRANSITION })}
                 />,
               ]

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 
 import { Backdrop } from './Backdrop';
+import { useOnBeat } from './beat';
 import { Chip, Line, Metric } from './Kinetic';
 import { Phone } from './Phone';
 import { Route } from './Route';
@@ -85,13 +86,13 @@ export function Course() {
       <Backdrop />
       <Headline a="달리기 전에" b="알아야 할 것만" />
       <RisingPhone screen="course" delay={4} />
-      <Chip delay={30} style={{ top: 1060, left: 40 }}>
+      <Chip delay={26} style={{ top: 1060, left: 40 }}>
         거리 <Metric size={48}>1.9km</Metric>
       </Chip>
       <Chip delay={40} style={{ top: 1270, right: 40 }}>
         오르막 <Metric size={48}>+9m</Metric>
       </Chip>
-      <Chip delay={50} style={{ top: 1480, left: 40 }}>
+      <Chip delay={54} style={{ top: 1480, left: 40 }}>
         내 PB <Metric size={48} color={C.signal}>10:12</Metric>
       </Chip>
     </AbsoluteFill>
@@ -110,10 +111,10 @@ export function Run() {
         <Metric size={76}>{km.toFixed(2)}</Metric>
         <span style={{ fontSize: 34, color: C.muted }}>km</span>
       </Chip>
-      <Chip delay={48} style={{ top: 1260, left: 40 }}>
+      <Chip delay={46} style={{ top: 1260, left: 40 }}>
         음성으로 페이스 안내
       </Chip>
-      <Chip delay={60} style={{ top: 1460, right: 40 }}>
+      <Chip delay={66} style={{ top: 1460, right: 40 }}>
         화면을 꺼도 계속 기록
       </Chip>
     </AbsoluteFill>
@@ -123,8 +124,9 @@ export function Run() {
 export function Result() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pb = spring({ frame: frame - 52, fps, config: { damping: 14 } });
-  const strike = interpolate(frame, [62, 74], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const pbAt = useOnBeat(52); // PB 칩은 박에 맞춰 튀어나온다
+  const pb = spring({ frame: frame - pbAt, fps, config: { damping: 14 } });
+  const strike = interpolate(frame, [pbAt + 10, pbAt + 22], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (
     <AbsoluteFill>
       <Backdrop />
@@ -202,11 +204,13 @@ export function Together() {
   );
 }
 
-export function End() {
+export function End({ accent, credit: creditText }: { accent: number; credit: string }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const icon = spring({ frame: frame - 6, fps, config: { damping: 12, stiffness: 140 } });
-  const pill = interpolate(frame, [48, 60], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  // 출시 안내는 음악의 마디 첫 박(timeline.ts의 accentBar)에 튀어나온다
+  const pill = spring({ frame: frame - accent, fps, config: { damping: 11, stiffness: 170 } });
+  const credit = interpolate(frame, [accent + 6, accent + 18], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (
     <AbsoluteFill>
       <Backdrop />
@@ -234,12 +238,13 @@ export function End() {
             fontFamily: FONT,
             fontWeight: 800,
             fontSize: 44,
-            opacity: pill,
-            transform: `translateY(${(1 - pill) * 30}px)`,
+            opacity: Math.min(1, pill * 1.5),
+            transform: `scale(${pill})`,
           }}
         >
           곧 App Store · Google Play 출시
         </div>
+        {creditText ? <div style={{ marginTop: 40, fontFamily: FONT, fontWeight: 500, fontSize: 26, color: C.muted, opacity: credit * 0.8 }}>{creditText}</div> : null}
       </AbsoluteFill>
     </AbsoluteFill>
   );
