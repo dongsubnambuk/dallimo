@@ -5,7 +5,8 @@ info:
   title: DALLIMO API
   version: v1
 servers:
-- url: /
+- description: "지금 연 주소의 서버 (배포: https://dallimo.gamjabox.cloud)"
+  url: /
 paths:
   /api/v1/activities:
     get:
