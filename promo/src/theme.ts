@@ -9,4 +9,3 @@ export const C = {
   signalDeep: '#0a6e5a',
 };
 export const FONT = "'Pretendard', 'Apple SD Gothic Neo', sans-serif";
-export const FPS = 30;

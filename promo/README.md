@@ -3,15 +3,23 @@
 인스타그램 릴스용 30초 세로 영상이다. Remotion(React로 영상을 만드는 라이브러리)으로 만든다 (결정 로그 69항).
 
 - 규격: 1080×1920, 30fps, 900프레임(30초), H.264 · yuv420p · bt709, AAC 스테레오
-- 음악: `scripts/make-music.mjs`가 코드로 만든 원곡(120BPM, A단조). 직접 만든 소리라 저작권 문제가 없다. 장면이 바뀌는 순간 킥 · 전환 효과음이 들어가고, 마지막 장면에 큰 타격음이 난다
+- 음악: "Shiny Tech" Kevin MacLeod (incompetech.com), Creative Commons BY 4.0. 무료로 상업 · 홍보에 쓸 수 있고 **저작권 표시(credit)를 꼭 단다**. 영상 끝 장면에 작게 넣었고, 인스타그램 설명에도 아래 문구를 붙인다
 - 화면: 랜딩과 같은 실제 앱 캡처(`landing/public/screens`)와 같은 iPhone 틀 · 민트 경로 선 · Pretendard
+
+### 인스타그램 설명에 붙일 문구
+
+```
+Music: "Shiny Tech" Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 4.0 License
+http://creativecommons.org/licenses/by/4.0/
+```
 
 ## 장면
 
 | 시간 | 장면 | 문구 |
 | --- | --- | --- |
 | 0:00 | 시작 | 오늘 저녁, 어디 달리지? |
-| 0:02 | 탐색 | 내 주변 코스를 지도에서 바로 |
+| 0:02.5 | 탐색 | 내 주변 코스를 지도에서 바로 |
 | 0:06 | 코스 상세 | 달리기 전에 알아야 할 것만 (거리 · 오르막 · 내 PB) |
 | 0:10 | 달리는 중 | 달리는 중엔 숫자 세 개만 (0.50km, 음성 안내, 화면 꺼도 기록) |
 | 0:14 | 결과 | 멈추는 순간 공식 기록으로 (인증, PB 10:12 → 10:08) |
@@ -31,7 +39,8 @@ npm run render     # out/dallimo-promo.mp4
 npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 ```
 
-- `npm run assets`가 앱 화면 · 아이콘 · 글꼴을 `public/`으로 복사하고 배경 음악(`public/music.wav`)을 만든다. 원본은 `landing/public/screens`, `frontend/assets`. 앱 화면을 다시 찍으면 영상도 다시 만들면 된다.
+- `npm run assets`가 앱 화면 · 아이콘 · 글꼴을 `public/`으로 복사하고 배경 음악을 incompetech에서 받는다(`public/music/`, 커밋하지 않는다). 앱 화면을 다시 찍으면 영상도 다시 만들면 된다.
+- 장면 전환은 음악 마디에 맞춘다(`src/timeline.ts`): 곡의 드롭(6.957초)이 영상 2.5초에 오고, 두 마디(약 3.5초)마다 장면이 바뀐다. 곡이 비는 마디(fill) 뒤 새 흐름이 시작되는 8 · 12번째 마디에 결과 → 랭킹, 함께 달리기 → 끝 장면 전환이 온다. 출시 안내는 14번째 마디 첫 박에 나온다.
 - Chrome이 없거나 headless shell을 써야 하면 `REMOTION_BROWSER=/path/to/headless_shell`을 붙인다.
 
 ## 고칠 곳
@@ -39,12 +48,13 @@ npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 | 무엇 | 어디 |
 | --- | --- |
 | 장면 문구 · 칩 · 숫자 | `src/Scenes.tsx` |
-| 장면 길이 · 전환 | `src/timeline.json` (음악도 이 값으로 비트를 맞춘다. 120BPM에서 한 박 = 15프레임이라 박 단위로 바꾼다) |
+| 장면 전환 마디 · 음악 시작점 | `src/timeline.ts` (`CUT_BARS`, `MUSIC`) |
 | 장면 순서 | `src/Promo.tsx`의 `COMPONENTS` |
-| 음악 | `scripts/make-music.mjs` |
+| 음악 파일 | `scripts/fetch-music.mjs` (곡을 바꾸면 `timeline.ts`의 빠르기 · 드롭 시각도 다시 잰다) |
 | 마지막 출시 문구 (출시 뒤) | `src/Scenes.tsx`의 `End` |
 
 ## 올릴 때
 
-- 직접 만든 음악이 들어 있다. 인스타그램 음악을 쓰고 싶으면 올릴 때 원래 소리를 0으로 줄이고 인스타그램 음악을 고른다.
+- 설명에 위 음악 저작권 문구를 붙인다.
+- 인스타그램 음악을 쓰고 싶으면 올릴 때 원래 소리를 0으로 줄이고 인스타그램 음악을 고른다.
 - Remotion은 개인 · 3명 이하 회사는 무료로 쓸 수 있다.

@@ -2,7 +2,7 @@ import { Composition } from 'remotion';
 
 import { Cover } from './Cover';
 import { DURATION, Promo } from './Promo';
-import { FPS } from './theme';
+import { FPS } from './timeline';
 
 // 인스타그램 릴스 세로 영상 1080×1920
 export function Root() {
