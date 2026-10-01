@@ -2,7 +2,8 @@
 
 인스타그램 릴스용 30초 세로 영상이다. Remotion(React로 영상을 만드는 라이브러리)으로 만든다 (결정 로그 69항).
 
-- 규격: 1080×1920, 30fps, 900프레임(30초), H.264 · yuv420p · bt709, 소리 없음
+- 규격: 1080×1920, 30fps, 900프레임(30초), H.264 · yuv420p · bt709, AAC 스테레오
+- 음악: `scripts/make-music.mjs`가 코드로 만든 원곡(120BPM, A단조). 직접 만든 소리라 저작권 문제가 없다. 장면이 바뀌는 순간 킥 · 전환 효과음이 들어가고, 마지막 장면에 큰 타격음이 난다
 - 화면: 랜딩과 같은 실제 앱 캡처(`landing/public/screens`)와 같은 iPhone 틀 · 민트 경로 선 · Pretendard
 
 ## 장면
@@ -30,7 +31,7 @@ npm run render     # out/dallimo-promo.mp4
 npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 ```
 
-- `npm run assets`가 앱 화면 · 아이콘 · 글꼴을 `public/`으로 복사한다(원본은 `landing/public/screens`, `frontend/assets`). 앱 화면을 다시 찍으면 영상도 다시 만들면 된다.
+- `npm run assets`가 앱 화면 · 아이콘 · 글꼴을 `public/`으로 복사하고 배경 음악(`public/music.wav`)을 만든다. 원본은 `landing/public/screens`, `frontend/assets`. 앱 화면을 다시 찍으면 영상도 다시 만들면 된다.
 - Chrome이 없거나 headless shell을 써야 하면 `REMOTION_BROWSER=/path/to/headless_shell`을 붙인다.
 
 ## 고칠 곳
@@ -38,10 +39,12 @@ npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 | 무엇 | 어디 |
 | --- | --- |
 | 장면 문구 · 칩 · 숫자 | `src/Scenes.tsx` |
-| 장면 길이 · 순서 · 전환 | `src/Promo.tsx`의 `SCENES` |
+| 장면 길이 · 전환 | `src/timeline.json` (음악도 이 값으로 비트를 맞춘다. 120BPM에서 한 박 = 15프레임이라 박 단위로 바꾼다) |
+| 장면 순서 | `src/Promo.tsx`의 `COMPONENTS` |
+| 음악 | `scripts/make-music.mjs` |
 | 마지막 출시 문구 (출시 뒤) | `src/Scenes.tsx`의 `End` |
 
 ## 올릴 때
 
-- 소리가 없다. 인스타그램에서 올릴 때 음악을 고른다(저작권이 정리된 음악이라 안전하다).
+- 직접 만든 음악이 들어 있다. 인스타그램 음악을 쓰고 싶으면 올릴 때 원래 소리를 0으로 줄이고 인스타그램 음악을 고른다.
 - Remotion은 개인 · 3명 이하 회사는 무료로 쓸 수 있다.

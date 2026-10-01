@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "assets": "node scripts/sync-assets.mjs",
+    "assets": "node scripts/sync-assets.mjs && node scripts/make-music.mjs",
     "studio": "npm run assets && remotion studio",
     "render": "npm run assets && remotion render Promo out/dallimo-promo.mp4",
     "cover": "npm run assets && remotion still Cover out/dallimo-promo-cover.png --frame=50",
