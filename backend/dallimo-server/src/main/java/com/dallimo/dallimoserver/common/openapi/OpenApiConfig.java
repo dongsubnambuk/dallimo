@@ -34,8 +34,8 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info().title("DALLIMO API").version("v1")
                         .description("달리모 서버 API. 응답은 { success, data, error, timestamp } (7.1장), 오류 코드는 27.1장. 명세 41~45장과 다른 곳은 frontend/docs/api/MOCK-CONTRACT-CHECK.md"))
-                // 문서가 실행 환경(주소 · 포트)에 따라 바뀌지 않게
-                .servers(List.of(new Server().url("/")))
+                // 문서가 실행 환경(주소 · 포트)에 따라 바뀌지 않게 "/"(Swagger를 연 주소)로 둔다. 배포 서버에서 열면 배포 서버로 보낸다
+                .servers(List.of(new Server().url("/").description("지금 연 주소의 서버 (배포: https://dallimo.gamjabox.cloud)")))
                 .components(new Components()
                         .addSecuritySchemes(BEARER, new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT")
                                 .description("Access Token (14.1장)"))
