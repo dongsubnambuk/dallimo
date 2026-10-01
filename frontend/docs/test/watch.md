@@ -17,7 +17,7 @@
 | 항목 | 방법 |
 | --- | --- |
 | Xcode | 16 이상 (워치 타깃이 폴더 동기화 그룹을 쓴다), watchOS 10 이상 워치 |
-| 번들 id | 없으면 개발용 `com.dallimo.dev`, 워치는 `com.dallimo.dev.watchkitapp`. 바꾸려면 `IOS_BUNDLE_ID` |
+| 번들 id | `com.dongseopseo.dallimo`, 워치는 `com.dongseopseo.dallimo.watchkitapp`(결정 로그 63항). 바꾸려면 `IOS_BUNDLE_ID`와 `app.json` appExtensions를 같이 |
 | 서명 팀 | `APPLE_TEAM_ID`를 주거나 Xcode에서 휴대폰 · 워치 타깃 모두 팀을 고른다. HealthKit capability가 두 타깃에 붙는다 |
 | 빌드 | `cd frontend && APPLE_TEAM_ID={팀 id} npx expo prebuild --platform ios --clean` → `npx expo run:ios --device` (휴대폰 앱에 워치 앱이 들어간다) |
 | 워치 앱 설치 | 휴대폰 Watch 앱 › 사용 가능한 앱 › 달리모 설치. 설정 › Apple Watch에 "Apple Watch와 연결됐어요"가 보이면 된다 |
