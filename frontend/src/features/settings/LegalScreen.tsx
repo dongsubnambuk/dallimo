@@ -23,10 +23,11 @@ export function isLegalKind(v: string | undefined): v is LegalKind {
   return v === 'terms' || v === 'location' || v === 'privacy';
 }
 
-// 항(①) · 호(1.) · 목(가.) 머리. 번호를 내어 쓰고 글끼리 줄을 맞춘다
+// 항(①) · 호(1.) · 목록(·)은 번호 · 점을 내어 쓰고 글끼리 줄을 맞춘다. 소제목(가.)은 진하게 쓴다
 const CLAUSE = /^([\u2460-\u2473])\s*/;
 const ITEM = /^(\d+\.)\s+/;
-const SUB_ITEM = /^([가-힣]\.)\s+/;
+const BULLET = /^(·)\s+/;
+const SUBHEAD = /^[가-힣]\.\s+/;
 
 // SCR-A01 약관 · 정책 진입, SCR-M07 개인정보. 정식 법률 문서 형식(제n조 · 항 · 호)으로 썼다(사용자 결정, 결정 로그 66항). 법적 검토는 출시 전에 따로 한다(16장, OI-07).
 // 로그인 전(가입 화면)에도 연다.
@@ -64,10 +65,16 @@ export function LegalScreen({ kind }: { kind: LegalKind }) {
 }
 
 function Paragraph({ text }: { text: string }) {
+  if (SUBHEAD.test(text)) {
+    return (
+      <AppText role="body" style={[styles.subhead, styles.th]}>
+        {text}
+      </AppText>
+    );
+  }
   const clause = CLAUSE.exec(text);
-  const item = clause ? null : ITEM.exec(text);
-  const sub = clause || item ? null : SUB_ITEM.exec(text);
-  const m = clause ?? item ?? sub;
+  const item = clause ? null : (ITEM.exec(text) ?? BULLET.exec(text));
+  const m = clause ?? item;
   if (!m) {
     return (
       <AppText role="body" tone="secondary">
@@ -75,7 +82,7 @@ function Paragraph({ text }: { text: string }) {
       </AppText>
     );
   }
-  const indent = item ? spacing.md : sub ? spacing.xl : 0;
+  const indent = item ? spacing.md : 0;
   return (
     <View style={[styles.hang, { paddingLeft: indent }]}>
       <AppText role="body" tone="secondary">
@@ -164,6 +171,9 @@ const styles = StyleSheet.create({
   },
   th: {
     fontFamily: fontFamily.bold,
+  },
+  subhead: {
+    marginTop: spacing.xs,
   },
   flex: {
     flex: 1,
