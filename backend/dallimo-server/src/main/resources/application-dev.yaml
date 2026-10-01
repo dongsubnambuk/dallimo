@@ -8,7 +8,8 @@ spring:
   datasource:
     # MySQL 개발 DB
     # DB가 없으면 자동 생성
-    url: jdbc:mysql://localhost:3306/dallimo?createDatabaseIfNotExist=true
+    # rewriteBatchedStatements: GPS point Batch INSERT를 한 문장으로 묶어 보낸다 (결정 로그 70항)
+    url: jdbc:mysql://localhost:3306/dallimo?createDatabaseIfNotExist=true&rewriteBatchedStatements=true
     username: root
     password: 123456
 

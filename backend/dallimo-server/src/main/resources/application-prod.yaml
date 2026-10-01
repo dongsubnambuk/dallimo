@@ -2,8 +2,9 @@
 spring:
   # DB_URL을 주면 그대로 쓰고, 없으면 DB_HOST · DB_PORT · DB_NAME으로 만든다. DB가 없으면 만든다(권한이 있을 때).
   # 드라이버: 운영 MySQL은 mysql(기본), MariaDB면 DB_DRIVER=mariadb. 테이블은 서버가 시작할 때 Flyway가 만든다(SQL을 따로 실행하지 않는다)
+  # rewriteBatchedStatements: MySQL 드라이버가 GPS point Batch INSERT를 한 문장으로 묶어 보낸다 (결정 로그 70항. MariaDB 드라이버는 원래 묶는다)
   datasource:
-    url: ${DB_URL:jdbc:${DB_DRIVER:mysql}://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:dallimo}?createDatabaseIfNotExist=true}
+    url: ${DB_URL:jdbc:${DB_DRIVER:mysql}://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:dallimo}?createDatabaseIfNotExist=true&rewriteBatchedStatements=true}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   # 8장 실시간 상태 (ADR-005)

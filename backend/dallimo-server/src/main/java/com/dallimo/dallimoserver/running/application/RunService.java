@@ -155,7 +155,7 @@ public class RunService {
                 log.warn("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=CONFLICT", runId, batchUuid, fromSeq, toSeq);
                 throw new ApiException(ErrorCode.IDEMPOTENCY_CONFLICT);
             }
-            int last = points.lastContiguousSeq(runId);
+            int last = contiguous(run);
             // 응답을 못 받은 앱의 재전송
             log.info("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=DUPLICATE lastSeq={}", runId, batchUuid, fromSeq, toSeq, last);
             return new BatchResult(batchUuid, true, last);
@@ -167,9 +167,16 @@ public class RunService {
         validate(fromSeq, toSeq, batch);
         points.insertAll(runId, batch);
         batches.insert(runId, batchUuid, received, clock.instant());
-        int last = points.lastContiguousSeq(runId);
+        int last = contiguous(run);
         log.info("run.batch runId={} batchUuid={} fromSeq={} toSeq={} count={} result=ACCEPTED lastSeq={}", runId, batchUuid, fromSeq, toSeq, batch.size(), last);
         return new BatchResult(batchUuid, true, last);
+    }
+
+    /** 1부터 이어진 마지막 seq. Run에 저장한 값 뒤부터만 세고 다시 저장한다 (Run을 잠근 트랜잭션 안에서 부른다) */
+    private int contiguous(Run run) {
+        int last = points.lastContiguousSeq(run.getId(), run.getContiguousSeq());
+        run.advanceContiguousSeq(last);
+        return last;
     }
 
     @Transactional
@@ -219,7 +226,7 @@ public class RunService {
             steps.forEach(RunWorkoutStep::validate);
         }
         if (run.getStatus() == RunStatus.CANCELED) throw new ApiException(ErrorCode.RUN_INVALID_STATE);
-        int serverSeq = points.lastContiguousSeq(runId);
+        int serverSeq = contiguous(run);
         if (lastSeq > 0 && serverSeq < lastSeq) {
             run.markFinishing(clock.instant());
             // 빠진 Batch가 있어 확정하지 않는다 (앱이 채운 뒤 다시 요청)
