@@ -11,8 +11,8 @@
 		<string>workout-processing</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>달리는 동안 심박을 재서 워치와 휴대폰에 보여 주려고 심박을 읽어요.</string>
+	<string>달리는 동안 심박을 재서 워치와 휴대폰 화면에 보여 줘요.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>달리모로 달린 러닝을 Apple 건강에 운동으로 남겨요. 활동 링에도 반영돼요.</string>
+	<string>달리모로 달린 기록을 건강 앱에 운동으로 저장해요. 활동 링에도 반영돼요.</string>
 </dict>
 </plist>
