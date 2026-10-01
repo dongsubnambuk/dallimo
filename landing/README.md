@@ -1,47 +1,67 @@
 # 달리모 소개 사이트 (landing)
 
-앱 소개 · 약관 · 문의 페이지를 담은 정적 사이트다. 빌드 과정 없이 이 폴더를 그대로 올린다 (결정 로그 68항).
+출시용 소개 사이트다. React + Vite + Tailwind CSS + motion으로 만들고, 빌드 때 페이지를 HTML로 미리 그려 정적 호스팅에 올린다 (결정 로그 68항). 디자인 규칙은 `design-system.md`.
 
-| 주소 | 파일 | 만드는 방법 |
-| --- | --- | --- |
-| `/` | `index.html` | 직접 고친다 |
-| `/terms/` | `terms/index.html` | 스크립트가 만든다 |
-| `/location-terms/` | `location-terms/index.html` | 스크립트가 만든다 |
-| `/privacy/` | `privacy/index.html` | 스크립트가 만든다 (스토어 개인정보 처리방침 URL) |
-| `/support/` | `support/index.html` | 스크립트가 만든다 (App Store 지원 URL) |
+| 주소 | 내용 |
+| --- | --- |
+| `/` | 랜딩 |
+| `/privacy/` | 개인정보 처리방침 (스토어 개인정보 처리방침 URL) |
+| `/terms/` | 서비스 이용약관 |
+| `/location-terms/` | 위치기반서비스 이용약관 |
+| `/support/` | 문의 (App Store 지원 URL) |
+| `404.html` | 없는 주소 |
 
-## 약관을 고칠 때
+## 실행
 
-1. 앱 코드 `frontend/src/features/settings/legal/`의 본문을 고친다.
-2. `frontend`에서 `npm run legal:web`을 실행한다.
-3. 바뀐 `landing/` 파일을 같이 커밋한다.
+```bash
+cd landing
+npm install
+npm run dev        # 개발 서버 (Pretendard 대신 기본 글꼴로 보인다)
+npm run build      # 타입 확인 → 빌드 → 미리 그리기 → 글꼴 줄이기. 결과는 dist/
+npm run preview    # dist 확인
+```
 
-`terms` · `location-terms` · `privacy` · `support`의 `index.html`은 직접 고치지 않는다. 다음에 스크립트를 돌리면 덮어쓴다.
+`npm run build`는 세 가지를 한다.
 
-## 올리는 방법
+1. `vite build`로 페이지마다 HTML을 만든다.
+2. `scripts/prerender.mjs`가 각 HTML에 화면을 미리 그려 넣는다. 자바스크립트가 오기 전에도 글과 화면이 보이고 검색 엔진이 읽는다.
+3. 같은 스크립트가 Pretendard Variable에서 사이트에 나오는 글자만 남긴 글꼴 `dist/fonts/pretendard-site.woff2`를 만든다.
 
-정적 호스팅 서비스에서 이 저장소를 연결하고 아래처럼 설정한다.
+## 올리기 (정적 호스팅)
+
+Cloudflare Pages · Vercel · Netlify에 이 저장소를 연결하고 아래처럼 설정한다.
 
 | 항목 | 값 |
 | --- | --- |
 | 루트 폴더 (Root directory) | `landing` |
-| 빌드 명령 (Build command) | 없음 |
-| 출력 폴더 (Output directory) | `.` (루트 폴더 그대로) |
-| 브랜치 | `main` |
+| 빌드 명령 (Build command) | `npm run build` |
+| 출력 폴더 (Output directory) | `dist` |
+| Node | 20 이상 |
+| 환경 변수 (선택) | `SITE_URL` = 사이트 주소 (예: `https://dallimo.app`) |
 
-Cloudflare Pages · Vercel · Netlify 모두 이 설정으로 된다. `main`에 머지하면 자동으로 다시 올라간다.
+- `SITE_URL`을 넣으면 canonical · og:url · og:image · `sitemap.xml`이 들어간다. 주소가 정해지면 꼭 넣는다.
+- 약관 본문은 앱 코드(`frontend/src/features/settings/legal`)에서 읽는다. 루트 폴더 밖 파일을 읽으므로 Vercel은 "Include files outside the root directory"를 켠다(기본값).
 
-## 스토어 주소가 생기면
+## 고칠 곳
 
-`index.html`의 스토어 칸 두 곳(첫 화면 · 마지막 안내)을 바꾼다.
+| 무엇 | 어디 |
+| --- | --- |
+| 스토어 주소 (출시 뒤) | `src/content.ts`의 `STORE`. 넣으면 "출시 준비 중" 칸이 내려받기 버튼으로 바뀐다 |
+| 문의 이메일 · 운영 주체 | 앱 코드 `frontend/src/features/settings/legal/types.ts`의 `LEGAL_CONTACT` (앱과 같이 바뀐다) |
+| 약관 본문 | 앱 코드 `frontend/src/features/settings/legal/*.ts`. 따로 고칠 것 없다 |
+| 자주 묻는 질문 · 메뉴 | `src/content.ts` |
 
-```html
-<!-- 지금 -->
-<div class="store" aria-disabled="true"><b>App Store</b><span>출시 준비 중</span></div>
-<!-- 출시 뒤 -->
-<a class="store" href="https://apps.apple.com/..."><b>App Store</b><span>내려받기</span></a>
+## 화면 다시 찍기
+
+`public/screens/*.webp`는 앱을 iPhone 15 Pro 크기(393×852pt, 3배)와 안전 영역으로 띄워 찍은 실제 앱 화면에 상태 표시줄 · 홈 막대를 그린 것이다. 지금은 mock 데이터(수성못 둘레길 등)로 찍었다.
+
+```bash
+# 1. 앱을 mock 모드 웹으로 띄운다
+cd frontend && EXPO_PUBLIC_API_URL= npx expo start --web
+# 2. 찍는다 (playwright가 있는 환경)
+cd landing && node scripts/capture-screens.mjs /tmp/raw
+# 3. 상태 표시줄을 그리고 public/screens에 저장한다
+python3 scripts/statusbar.py /tmp/raw explore:explore course:course ranking:ranking together:together room:room live:live result:result activity:activity run:run
 ```
 
-## 화면 이미지
-
-`assets/screens/*.webp`는 웹(mock)에서 찍은 앱 화면이다. 실기기 화면을 찍으면 같은 이름으로 바꾼다 (가로 540px).
+실기기에서 찍은 화면으로 바꿀 때는 같은 비율(1179×2556)인지 확인하고 같은 이름으로 780px · 480px(`-480`) webp 두 개를 넣는다. 실기기 화면에는 상태 표시줄이 이미 있어 `statusbar.py`는 쓰지 않는다.

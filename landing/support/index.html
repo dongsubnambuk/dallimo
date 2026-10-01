@@ -1,55 +1,26 @@
 <!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>문의 · 달리모</title>
-  <meta name="description" content="달리모 문의와 자주 묻는 질문">
-  <meta name="theme-color" content="#0b0b0c">
-  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
-  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/site.css">
-</head>
-<body>
-  <!-- 이 파일은 frontend/scripts/export-legal-web.mjs가 만든다. 직접 고치지 않는다 -->
-  <a class="skip" href="#main">본문으로 건너뛰기</a>
-  <header class="wrap top">
-    <a class="brand" href="../"><img src="../assets/icon-192.png" alt="" width="32" height="32">달리모</a>
-    <nav aria-label="바로가기"><a href="../support/">문의</a></nav>
-  </header>
-  <main id="main" class="wrap doc">
-    <h1>문의</h1>
-    <p class="intro">달리모를 쓰다가 궁금한 점이나 불편한 점이 있으면 메일로 알려 주세요.</p>
-    <section>
-      <h2>메일 문의</h2>
-      <p>달리모 운영팀 · [문의 이메일]</p>
-      <a class="mail" href="mailto:[문의 이메일]">메일 보내기</a>
-    </section>
-    <section>
-      <h2>자주 묻는 질문</h2>
-      <dl class="faq">
-        <dt>탈퇴는 어떻게 하나요?</dt>
-        <dd>앱의 설정 &gt; 계정 &gt; 탈퇴하기에서 할 수 있어요. 탈퇴하면 계정 정보는 바로 지워져요.</dd>
-        <dt>위치 권한을 다시 켜고 싶어요.</dt>
-        <dd>휴대폰 설정에서 달리모를 찾아 위치를 허용해 주세요. 위치를 켜야 달리기를 기록할 수 있어요.</dd>
-        <dt>기록이 코스 순위에 올라가지 않아요.</dt>
-        <dd>코스 경로를 따라 끝까지 달린 기록만 순위에 올라가요. GPS가 약하거나 경로를 벗어나면 기록만 남고 순위에는 들어가지 않아요.</dd>
-        <dt>저장된 심박을 지우고 싶어요.</dt>
-        <dd>설정 &gt; Apple Watch에서 "심박을 기록에 저장"을 끄면 저장된 심박이 모두 지워져요.</dd>
-      </dl>
-    </section>
-  </main>
-  <footer class="foot">
-    <div class="wrap">
-      <ul>
-        <li><a href="../terms/">서비스 이용약관</a></li>
-        <li><a href="../location-terms/">위치기반서비스 이용약관</a></li>
-        <li><a href="../privacy/"><b>개인정보 처리방침</b></a></li>
-        <li><a href="../support/">문의</a></li>
-      </ul>
-      <p>© 2026 달리모</p>
-    </div>
-  </footer>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>문의 · 달리모</title>
+    <meta name="description" content="달리모 문의와 자주 묻는 질문" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="달리모" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="문의 · 달리모" />
+    <meta property="og:description" content="달리모 문의와 자주 묻는 질문" />
+    <meta name="twitter:card" content="summary_large_image" />
+    %CANONICAL%
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="preload" href="/fonts/pretendard-site.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>달리모 소개 페이지는 JavaScript를 켜야 볼 수 있어요.</noscript>
+    <script type="module" src="/src/entries/support.tsx"></script>
+  </body>
 </html>
