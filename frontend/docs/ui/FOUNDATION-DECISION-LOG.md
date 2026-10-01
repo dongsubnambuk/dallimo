@@ -1357,3 +1357,22 @@ SCR-E02 지역 검색의 주요 요소 "최근 검색"을 넣는다. 탐색 화�
 | 화면 | `LegalScreen`: "가. "는 진한 소제목, "· "는 점을 내어 쓰는 목록 | 참고 양식 모양 |
 | 자리 표시 | `LEGAL_CONTACT`는 `operator`("달리모 운영팀") · `email`. 출시 전에 문의 이메일만 받으면 된다 | |
 | 확인한 것 | `tsc` · `expo lint`. 웹 375×812: 개인정보 처리방침 소제목 · 목록, 이용약관 · 위치기반서비스 이용약관의 "운영팀" 표기 | 법적 검토는 하지 않았다 |
+
+## 68. 소개 사이트 (랜딩 · 약관 · 문의)
+
+사용자 결정: 출시용 랜딩을 만든다. 서버와 따로 정적 호스팅에 올린다. 스토어 주소가 생기기 전에는 "출시 준비 중"으로 보여 준다. 랜딩 · 약관 3개 · 문의를 한 번에 만든다. 단순한 HTML이 아니라 React와 라이브러리로 출시 수준으로 만들고, 실제 앱 화면을 기기 목업에 넣는다. 명세 20.2장은 "공유 Web Landing"을 Phase 2~3 오픈 이슈로만 두고, 117.2장에 랜딩 문구 후보가 있다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 스택 | `landing/`: React 19 · Vite · Tailwind CSS 4 · motion(LazyMotion) · lucide-react · simple-icons(스토어 로고). 페이지마다 HTML을 따로 만들고(멀티 페이지) 빌드 때 `scripts/prerender.mjs`가 화면을 미리 그려 넣는다(hydrate) | 사용자 결정(React · 라이브러리). 정적 호스팅에서 주소 그대로 열리고 검색 엔진이 읽는다 |
+| 디자인 시스템 | `landing/design-system.md`. 앱 dark 토큰(ink · surface · elevated · signal)과 밝은 구간(paper · signal-ink). 대비는 모두 AA 이상으로 계산해 적었다. 글꼴은 앱과 같은 Pretendard | ui-design 스킬 INIT → BUILD. 새 색 토큰 없음 |
+| 앱 화면 | 앱을 mock 모드 웹으로 iPhone 15 Pro(393×852pt, 3배)와 안전 영역(CDP `Emulation.setSafeAreaInsetsOverride`)으로 띄워 찍었다. 상태 표시줄(9:41 · 신호 · Wi-Fi · 배터리)과 홈 막대를 그려 780 · 480px webp로 저장. 탐색 · 코스 상세 · 랭킹 · 달리는 중(mock 러너 6배속) · 결과(검증 끝난 PB) · 함께 달리기 목록 · 대기실 · 레이스 · 친구 활동 | 실기기 테스트 전이라 mock 데이터. 다시 찍는 방법은 `landing/README.md` |
+| 기기 목업 | `DeviceFrame`: CSS로 그린 iPhone(티타늄 테두리 · 옆 버튼 · Dynamic Island, container query 단위). 이미지 파일 목업을 쓰지 않아 어떤 크기에서도 선명하다 | |
+| 랜딩 흐름 | 첫 화면(제목 "코스를 찾고, 같이 달리고, 기록을 깨다." · 휴대폰 세 대 · 경로 선 · 인증 · PB 칩) → 한 바퀴(발견 → 달리기 → 인증 → 순위) → 코스(밝은 구간, 데스크톱은 휴대폰이 멈춰 있고 글을 내리면 화면이 바뀐다) → 달리기(숫자 세 개 · 결과와 검증) → 함께 달리기(모드 · 위치 비공개) → 더 있어요(워치 · 인터벌 · 고스트 · Apple 건강 · 공유 카드 · 친구 활동) → 개인정보 → 자주 묻는 질문 → 출시 안내 | 제품 루프 DISCOVER → RUN → VERIFIED → RANK. 실제 있는 기능과 캡처 화면의 숫자만 쓴다. 가짜 사용자 수 · 후기는 넣지 않는다 |
+| 고스트 · 공유 카드 그림 | 수성못 둘레길 실제 경로(OpenStreetMap)를 SVG로 그렸다 | |
+| 약관 · 문의 | 약관 페이지는 앱 본문(`frontend/src/features/settings/legal`)을 빌드 때 그대로 읽는다(`@legal` 별칭). 앱 LegalScreen과 같은 규칙에 목차를 더했다. 문의 페이지는 운영팀 · 이메일과 자주 묻는 질문 | 본문은 앱 코드 한 곳에서만 고친다. 정적 HTML 내보내기 스크립트는 없앴다 |
+| 성능 | Pretendard 나눠진 글꼴(92개)을 쓰면 파일이 올 때마다 다시 그려 모바일 Style & Layout이 3.8초였다. 빌드 때 사이트 글자(566자)만 남긴 글꼴 하나(133KB, `subset-font`)를 만들고 미리 받는다. 첫 화면 글은 애니메이션 없이 바로 보인다. 휴대폰 이미지는 srcset(480 · 780) | Lighthouse 모바일 성능 65 → 92 |
+| SEO · 공유 | 페이지별 title · description · og, `og.png`(1200×630, 실제 달리는 중 화면), manifest. `SITE_URL`이 있으면 canonical · og:url · sitemap.xml, robots.txt는 늘 | |
+| 접근성 | 본문 건너뛰기, 랜드마크, 이미지 대체 글(화면 속 숫자까지), 숫자 세기는 최종값을 aria-label로, 자주 묻는 질문은 details/summary, 터치 영역 44px 이상, 동작 줄이기 설정이면 움직임 끔 | |
+| 스토어 칸 | `src/content.ts`의 `STORE`가 null이면 누를 수 없는 "출시 준비 중" 칸, 주소를 넣으면 내려받기 버튼 | 사용자 결정 |
+| 확인한 것 | `tsc` · `npm run build`. Lighthouse(mobile) 성능 92 · 접근성 100 · 권장 사항 100 · SEO 100, (desktop) 100 · 100 · 100 · 100, CLS 0. 375 · 390 · 1440 폭: 가로 스크롤 없음, 콘솔 오류 · hydrate 오류 없음, 모든 페이지 글꼴 적용, 코스 구간 단계별 휴대폰 전환 | 호스팅 주소는 사용자가 정한다. 공유 링크 페이지(`/s/{code}`)에서 랜딩으로 가는 링크는 주소가 정해진 뒤 붙인다 |
