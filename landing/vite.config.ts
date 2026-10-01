@@ -38,6 +38,7 @@ function siteUrl(siteUrl: string | undefined): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
+    tsconfig: './tsconfig.json',
     plugins: [react(), tailwindcss(), siteUrl(env.SITE_URL)],
     resolve: {
       // 약관 본문은 앱 코드 한 곳에만 둔다 (frontend/src/features/settings/legal)
