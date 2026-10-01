@@ -56,7 +56,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "legal:web": "node scripts/export-legal-web.mjs"
   },
   "private": true
 }
