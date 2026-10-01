@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 
+import { useOnBeat } from './beat';
 import { C, FONT } from './theme';
 
 // 한 줄씩 아래에서 밀려 올라오는 글자 (가려진 칸 안에서 움직인다)
@@ -39,11 +40,12 @@ export function Metric({ children, size, color = C.text, style }: { children: Re
   );
 }
 
-// 둥근 알약 라벨 (칩)
+// 둥근 알약 라벨 (칩). 음악 박에 맞춰 튀어나온다
 export function Chip({ children, delay = 0, style }: { children: ReactNode; delay?: number; style?: CSSProperties }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const p = spring({ frame: frame - delay, fps, config: { damping: 14, stiffness: 160 } });
+  const at = useOnBeat(delay);
+  const p = spring({ frame: frame - at, fps, config: { damping: 14, stiffness: 160 } });
   return (
     <div
       style={{

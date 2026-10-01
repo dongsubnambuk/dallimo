@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const BASE = 'https://incompetech.com/music/royalty-free/mp3-royaltyfree/';
 const TRACKS = [
-  { title: 'Hitman', file: 'hitman.mp3' }, // Promo
+  { title: 'Laserpack', file: 'laserpack.mp3' }, // Promo
   { title: 'Shiny Tech', file: 'shiny-tech.mp3' }, // PromoShinyTech
 ];
 const dir = join(dirname(fileURLToPath(import.meta.url)), '../public/music');

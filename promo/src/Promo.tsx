@@ -3,6 +3,7 @@ import { fade } from '@remotion/transitions/fade';
 import { slide } from '@remotion/transitions/slide';
 import { AbsoluteFill, Audio, interpolate, staticFile } from 'remotion';
 
+import { BeatContext } from './beat';
 import { loadFonts } from './fonts';
 import { Course, End, Explore, Hook, Ranking, Result, Run, Together } from './Scenes';
 import { C } from './theme';
@@ -14,7 +15,7 @@ loadFonts();
 const SCENES = [Hook, Explore, Course, Run, Result, Ranking, Together];
 
 export function Promo({ track: id }: { track: TrackId }) {
-  const { track, trim, sceneFrames, endAccent } = timeline(id);
+  const { track, trim, starts, sceneFrames, beats, endAccent } = timeline(id);
   const scenes = [...SCENES.map((Scene) => <Scene />), <End accent={endAccent} credit={track.credit} />];
   return (
     <AbsoluteFill style={{ background: C.ink }}>
@@ -26,7 +27,7 @@ export function Promo({ track: id }: { track: TrackId }) {
       <TransitionSeries>
         {scenes.flatMap((scene, i) => [
           <TransitionSeries.Sequence key={`s${i}`} durationInFrames={sceneFrames[i]}>
-            {scene}
+            <BeatContext.Provider value={{ start: starts[i], ...beats }}>{scene}</BeatContext.Provider>
           </TransitionSeries.Sequence>,
           ...(i < scenes.length - 1
             ? [

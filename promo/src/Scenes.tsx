@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 
 import { Backdrop } from './Backdrop';
+import { useOnBeat } from './beat';
 import { Chip, Line, Metric } from './Kinetic';
 import { Phone } from './Phone';
 import { Route } from './Route';
@@ -123,8 +124,9 @@ export function Run() {
 export function Result() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pb = spring({ frame: frame - 52, fps, config: { damping: 14 } });
-  const strike = interpolate(frame, [62, 74], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const pbAt = useOnBeat(52); // PB 칩은 박에 맞춰 튀어나온다
+  const pb = spring({ frame: frame - pbAt, fps, config: { damping: 14 } });
+  const strike = interpolate(frame, [pbAt + 10, pbAt + 22], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (
     <AbsoluteFill>
       <Backdrop />

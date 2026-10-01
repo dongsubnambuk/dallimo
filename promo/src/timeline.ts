@@ -15,16 +15,16 @@ type Track = {
 };
 
 export const TRACKS = {
-  // "Hitman"(실측 74.90BPM, 한 마디 3.204초): 51.913초에 베이스 · 합창이 한꺼번에 터진다.
-  // 드롭 한 마디 앞(48.709초, 마디 첫 박)부터 틀어 영상 시작이 빌드업이 되고, 한 마디마다 장면을 바꾼다
-  hitman: {
-    file: 'music/hitman.mp3',
-    credit: 'Music: "Hitman" Kevin MacLeod (incompetech.com) · CC BY 4.0',
-    bpm: 74.9,
-    trackDrop: 51.913,
-    videoDrop: 3.204,
-    cutBars: [0, 1, 2, 3, 4, 5, 6],
-    accentBar: 7,
+  // "Laserpack"(실측 128.02BPM, 한 마디 1.875초): 저음이 빠지는 브레이크다운 · 상승음 뒤 90.03초에 베이스가 다시 들어온다.
+  // 드롭 뒤 8마디(105초)에서 펌핑 구간으로 넘어가 두 마디마다 장면을 바꾸면 8번째 마디에서 새 흐름과 장면이 같이 시작된다
+  laserpack: {
+    file: 'music/laserpack.mp3',
+    credit: 'Music: "Laserpack" Kevin MacLeod (incompetech.com) · CC BY 4.0',
+    bpm: 128.02,
+    trackDrop: 90.03,
+    videoDrop: 2.5,
+    cutBars: [0, 2, 4, 6, 8, 10, 12],
+    accentBar: 13,
     fadeOut: 2,
   },
   // "Shiny Tech"(실측 137.69BPM, 표기 138): 6.957초에 킥이 들어온다. 드롭 뒤 7 · 11번째 마디가 비는 마디(fill)라
@@ -57,5 +57,8 @@ export function timeline(id: TrackId) {
   const sceneFrames = starts.map((s, i) => (i < cutFrames.length ? cutFrames[i] : DURATION) - s);
   const endStart = starts[starts.length - 1];
 
-  return { track, trim, cutFrames, sceneFrames, endAccent: barFrame(track.accentBar) - endStart };
+  // 장면 안 칩이 박에 맞춰 튀어나오도록 박 격자(프레임)를 넘긴다
+  const beats = { drop: drop * FPS, beat: (bar / 4) * FPS };
+
+  return { track, trim, starts, sceneFrames, beats, endAccent: barFrame(track.accentBar) - endStart };
 }
