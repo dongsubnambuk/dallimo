@@ -1285,6 +1285,18 @@ SCR-E02 지역 검색의 주요 요소 "최근 검색"을 넣는다. 탐색 화�
 | 운영 CORS | `CORS_ALLOWED_ORIGINS`(쉼표로 여럿). compose는 `http://localhost:8081` | 웹으로 띄운 앱에서 배포 서버를 부를 수 있게. Bearer 토큰 방식이라 쿠키가 없다. 휴대폰 앱은 CORS와 상관없다 |
 | 확인한 것 | 서버 전체 빌드 · 테스트. prod jar를 MySQL 8.4 · Redis에 띄워 `/swagger-ui.html` 200, Swagger에서 가입 Try it out → 201, `/` 401. Expo가 개발 모드에서 `.env.development`를 읽고 production 모드에서는 읽지 않음. `tsc` · `expo lint` 통과. 배포 서버 `GET /api/v1/courses/nearby` 200(코스 0개) | |
 
+## 63. 앱 id (번들 ID · 패키지 · Apple 팀)
+
+사용자 결정: iOS 번들 ID와 Android 패키지를 `com.dongseopseo.dallimo`로 한다. Apple 팀 ID는 `Q336TS439T`. 48항의 개발용 `com.dallimo.dev`를 바꾼다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 기본값 | `app.config.ts`의 기본값으로 둔다(`IOS_BUNDLE_ID` · `ANDROID_PACKAGE` · `APPLE_TEAM_ID`로 바꿀 수 있다). 개발 · gps-poc · production 빌드가 모두 같은 id를 쓴다 | 워치 앱 id(`app.json` appExtensions)가 하나라 빌드마다 휴대폰 앱 id가 다르면 워치 서명이 어긋난다 |
+| 워치 앱 | `com.dongseopseo.dallimo.watchkitapp` | 휴대폰 앱 id + `.watchkitapp`(48항) |
+| Android 패키지 | 늘 넣는다(전에는 App Link 도메인이 있을 때만 넣었다) | 패키지가 없으면 EAS가 빌드 때 묻는다 |
+| 서버 App Link | compose에 `APP_LINK_IOS_APP_IDS=Q336TS439T.com.dongseopseo.dallimo`, `APP_LINK_ANDROID_PACKAGE=com.dongseopseo.dallimo`. `APP_LINK_ANDROID_SHA256`은 Play Console에 올린 뒤 넣는다 | 앱 id와 같아야 공유 링크가 앱을 연다 |
+| 확인한 것 | `expo config`로 iOS 번들 · 팀 · Android 패키지 · App Link 도메인. `tsc` · `expo lint`. 서버 compose 검증 | 실기기 빌드는 개발이 끝난 뒤 사용자가 한다 |
+
 ## 64. 온보딩 (첫 실행 소개 · 러너 정보 · 권한 안내)
 
 사용자 결정: 온보딩을 제대로 만든다. 첫 실행 소개(3장), 가입 직후 러너 정보(평소 거리 · 러닝 경험 · 주로 달리는 시간), 가입 직후 권한 안내를 넣는다. 첫 코스 안내는 넣지 않는다. 명세에는 로그인 · 최초 프로필(SCR-A01~A02) · 위치 권한(LOC-001~002)만 있다. 22항의 "소개 슬라이드는 넣지 않았다"와 Push 권한을 "필요한 순간에만 묻는다"를 바꾼다.
