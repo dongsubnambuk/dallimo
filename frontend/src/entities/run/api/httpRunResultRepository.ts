@@ -32,6 +32,8 @@ type ServerSummary = {
   // 가져온 기록 (122.3장)
   source?: string;
   sourceDeviceName?: string | null;
+  // 목록 썸네일용으로 줄인 경로 [위도, 경도] (GET /runs에만, 상세는 null)
+  previewRoute?: [number, number][] | null;
 };
 // 판정 전(PENDING)이면 status만 있다
 type ServerVerification = {
@@ -217,7 +219,7 @@ export function createHttpRunResultRepository(): RunResultRepository {
       // 이번 실행에서 끝낸 기록은 첫 페이지에 모두 기기 값(코스 이름 · 경로 포함)으로 보여준다.
       // 서버에 아직 없는 기록(기기에만 있음 · 올리는 중)도 여기에 들어간다. 다음 페이지에서는 같은 기록을 빼서 두 번 나오지 않게 한다.
       const localUuids = new Set([...local.values()].map((l) => l.input.clientRunUuid));
-      const items: RunSummary[] = page.items.filter((s) => !localUuids.has(s.clientRunUuid)).map((s) => toRunSummary(fromServer(s, [], [], null)));
+      const items: RunSummary[] = page.items.filter((s) => !localUuids.has(s.clientRunUuid)).map((s) => toRunSummary(fromServer(s, [], s.previewRoute ?? [], null)));
       if (!cursor) {
         // 서버에 올라간 기기 기록은 서버 판정 상태를 쓴다
         const judged = new Map(page.items.map((s) => [s.clientRunUuid, toVerification(s.verificationStatus)]));

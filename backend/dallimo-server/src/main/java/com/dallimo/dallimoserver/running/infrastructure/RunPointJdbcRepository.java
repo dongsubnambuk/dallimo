@@ -2,11 +2,15 @@ package com.dallimo.dallimoserver.running.infrastructure;
 
 import com.dallimo.dallimoserver.running.domain.RunPoint;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * RunPoint 대량 저장 · 조회 (28.1장 JdbcTemplate batch, ADR-003).
@@ -44,6 +48,29 @@ public class RunPointJdbcRepository {
                 rs.getInt(1), rs.getDouble(2), rs.getDouble(3),
                 (Double) rs.getObject(4, Double.class), (Double) rs.getObject(5, Double.class), (Double) rs.getObject(6, Double.class),
                 rs.getTimestamp(7).toInstant()), runId);
+    }
+
+    /**
+     * 히스토리 목록 썸네일용으로 줄인 경로 (runId → [위도, 경도] 최대 maxPoints+1개).
+     * 한 번의 쿼리로 러닝마다 점을 고르게 건너뛰어 뽑고 마지막 점은 꼭 넣는다. 정확도가 50m보다 나쁜 점은 뺀다.
+     * MySQL 8 · MariaDB 10.2+ 창 함수
+     */
+    public Map<Long, List<double[]>> previews(List<Long> runIds, int maxPoints) {
+        Map<Long, List<double[]>> out = new HashMap<>();
+        if (runIds.isEmpty()) return out;
+        new NamedParameterJdbcTemplate(jdbc).query("""
+                SELECT run_id, latitude, longitude FROM (
+                  SELECT run_id, seq, latitude, longitude,
+                         ROW_NUMBER() OVER (PARTITION BY run_id ORDER BY seq) AS rn,
+                         COUNT(*) OVER (PARTITION BY run_id) AS cnt
+                  FROM tbl_run_point
+                  WHERE run_id IN (:ids) AND (accuracy_m IS NULL OR accuracy_m <= 50)
+                ) t
+                WHERE MOD(rn - 1, CEIL(cnt / :max)) = 0 OR rn = cnt
+                ORDER BY run_id, seq""", Map.of("ids", runIds, "max", maxPoints), rs -> {
+            out.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(new double[]{rs.getDouble(2), rs.getDouble(3)});
+        });
+        return out;
     }
 
     /** 1부터 빠짐없이 이어진 마지막 seq (0이면 아직 없음) */

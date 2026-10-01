@@ -122,7 +122,10 @@ public class RunController {
                                                             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
         CursorPage<Run> page = runs.list(userId(jwt), mode, cursor, size);
         Map<Long, String> names = runs.courseNames(page.items());
-        return ApiResponse.ok(new CursorPage<>(page.items().stream().map(r -> RunSummaryResponse.from(r, names.get(r.getCourseId()))).toList(),
+        // 목록 썸네일 (서버에 올라간 기록도 경로 모양을 보여 준다)
+        Map<Long, List<double[]>> previews = runs.previews(page.items());
+        return ApiResponse.ok(new CursorPage<>(page.items().stream()
+                .map(r -> RunSummaryResponse.from(r, names.get(r.getCourseId()), previews.getOrDefault(r.getId(), List.of()))).toList(),
                 page.nextCursor(), page.hasNext()));
     }
 

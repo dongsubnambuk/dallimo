@@ -4275,6 +4275,13 @@ components:
           - TIME_ATTACK
           - TOGETHER
           - INTERVAL
+        previewRoute:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double
         runId:
           type: integer
           format: int64
