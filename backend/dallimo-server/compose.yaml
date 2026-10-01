@@ -29,8 +29,10 @@ services:
 
       # ── 공개 주소(gamjabox 도메인) · App Link ─────────────────────────
       SHARE_PUBLIC_BASE_URL: https://dallimo.gamjabox.cloud
-      APP_LINK_IOS_APP_IDS: ${APP_LINK_IOS_APP_IDS}
-      APP_LINK_ANDROID_PACKAGE: ${APP_LINK_ANDROID_PACKAGE}
+      # {Apple 팀 ID}.{iOS 번들 ID} · Android 패키지 (결정 로그 63항, 앱 app.config.ts와 같게)
+      APP_LINK_IOS_APP_IDS: Q336TS439T.com.dongseopseo.dallimo
+      APP_LINK_ANDROID_PACKAGE: com.dongseopseo.dallimo
+      # Play Console 앱 서명 키의 SHA-256. Play Console에 앱을 올린 뒤 .env에 넣는다
       APP_LINK_ANDROID_SHA256: ${APP_LINK_ANDROID_SHA256}
 
       # ── 관리 API (X-Admin-Key). 비어 있으면 관리 API를 모두 닫는다 ──────
