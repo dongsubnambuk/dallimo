@@ -1,0 +1,9 @@
+[build]
+  # The landing site is a Vite project inside this monorepo.
+  # Netlify must build it first and publish the generated files, not the TSX sources.
+  base = "landing"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
