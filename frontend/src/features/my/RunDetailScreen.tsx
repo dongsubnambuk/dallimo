@@ -111,6 +111,13 @@ function Detail({ run: r, bottomInset }: { run: RunResult; bottomInset: number }
           )}
           <MetricBlock label="평균 페이스" value={formatPace(r.avgPaceSec)} unit="/km" size="medium" labelPosition="top" style={styles.flex} />
         </View>
+        {/* 워치 심박 (심박 저장에 동의한 기록, 결정 로그 65항) */}
+        {r.heartRate ? (
+          <View style={styles.metricRow}>
+            <MetricBlock label="평균 심박" value={String(r.heartRate.avgBpm)} unit="bpm" size="medium" labelPosition="top" style={styles.flex} />
+            <MetricBlock label="최고 심박" value={String(r.heartRate.maxBpm)} unit="bpm" size="medium" labelPosition="top" style={styles.flex} />
+          </View>
+        ) : null}
       </View>
 
       {r.workout?.steps.length ? (

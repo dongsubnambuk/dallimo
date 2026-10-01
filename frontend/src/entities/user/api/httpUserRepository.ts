@@ -33,6 +33,9 @@ export function createHttpUserRepository(): UserRepository {
         throw e;
       }
     },
+    async deleteHeartRates() {
+      await apiRequest<void>('/api/v1/users/me/heart-rates', { method: 'DELETE' });
+    },
     async updateRunnerProfile(profile) {
       return { ...EMPTY_RUNNER, ...(await apiRequest<RunnerProfile>('/api/v1/users/me/runner-profile', { method: 'PUT', body: profile })) };
     },

@@ -26,9 +26,11 @@ export type Preferences = {
   pushRecord: boolean;
   // 달리는 중 로컬 알림 (GPS 약함 · 코스 이탈 · 완주 · 일시정지 방치 · 함께 달리기 연결 끊김)
   runAlerts: boolean;
+  // 워치 심박을 러닝 기록에 저장 (건강정보 따로 동의, 결정 로그 65항). 기본은 끔
+  heartRateSave: boolean;
 };
 
-const DEFAULTS: Preferences = { healthImport: false, watchMirror: true, autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true };
+const DEFAULTS: Preferences = { healthImport: false, watchMirror: true, autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true, heartRateSave: false };
 const KEY = 'dallimo.preferences';
 
 let current: Preferences = DEFAULTS;

@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.auth.application;
 
+import com.dallimo.dallimoserver.running.infrastructure.RunHeartRateJdbcRepository;
 import com.dallimo.dallimoserver.auth.domain.RefreshSession;
 import com.dallimo.dallimoserver.auth.domain.TokenHashes;
 import com.dallimo.dallimoserver.auth.infrastructure.RefreshSessionRepository;
@@ -32,11 +33,13 @@ public class AuthService {
     private final TokenIssuer tokens;
     private final AuthProperties props;
     private final Clock clock;
+    private final RunHeartRateJdbcRepository heartRates;
     // 없는 이메일로 로그인해도 비밀번호 확인 시간이 비슷하게 걸리도록 (가입 여부를 시간으로 알 수 없게)
     private final String dummyHash;
 
     public AuthService(UserService users, FriendService friends, NotificationService notifications, RefreshSessionRepository sessions,
-                       PasswordEncoder passwords, TokenIssuer tokens, AuthProperties props, Clock clock) {
+                       PasswordEncoder passwords, TokenIssuer tokens, AuthProperties props, Clock clock, RunHeartRateJdbcRepository heartRates) {
+        this.heartRates = heartRates;
         this.users = users;
         this.friends = friends;
         this.notifications = notifications;
@@ -113,6 +116,8 @@ public class AuthService {
     @Transactional
     public void withdraw(long userId) {
         users.withdraw(userId);
+        // 심박(건강정보)은 탈퇴하면 바로 지운다 (FOUNDATION-DECISION-LOG 65항)
+        heartRates.deleteAllOfUser(userId);
         friends.endAllOf(userId);
         notifications.forgetUser(userId);
         sessions.revokeAllOfUser(userId, clock.instant());

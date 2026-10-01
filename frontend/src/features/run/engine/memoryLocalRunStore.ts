@@ -1,9 +1,9 @@
 import type { RunPoint } from '@/entities/run/types';
 
-import type { LocalRun, LocalRunStats, LocalRunStore, RunSegment, SyncBatch } from './localRunStore';
+import type { HeartRateSample, LocalRun, LocalRunStats, LocalRunStore, RunSegment, SyncBatch } from './localRunStore';
 
 // 웹(개발 확인용)에서 쓰는 메모리 저장소. SQLite 저장소와 같은 동작을 하지만 새로고침하면 사라진다.
-type Entry = { run: LocalRun; points: (RunPoint & { synced: boolean })[]; segments: RunSegment[] };
+type Entry = { run: LocalRun; points: (RunPoint & { synced: boolean })[]; segments: RunSegment[]; heart: HeartRateSample[] };
 
 export function createMemoryLocalRunStore(): LocalRunStore {
   const runs = new Map<string, Entry>();
@@ -24,6 +24,7 @@ export function createMemoryLocalRunStore(): LocalRunStore {
         run: { clientRunUuid, mode, courseId, status: 'RUNNING', startedAt, endedAt: null, elapsedMs: 0, lastSeq: 0, plan, serverRunId: null, syncState: 'PENDING', workoutProgress: null },
         points: [],
         segments: [{ startedAt, endedAt: null }],
+        heart: [],
       });
     },
     async findOpenRun() {
@@ -38,6 +39,16 @@ export function createMemoryLocalRunStore(): LocalRunStore {
     async setWorkoutProgress(runUuid, json) {
       const e = runs.get(runUuid);
       if (e) e.run.workoutProgress = json;
+    },
+    async appendHeartRate(runUuid, recordedAt, bpm) {
+      const e = runs.get(runUuid);
+      if (e && !e.heart.some((h) => h.recordedAt === recordedAt)) e.heart.push({ recordedAt, bpm });
+    },
+    async clearHeartRates() {
+      for (const e of runs.values()) e.heart = [];
+    },
+    async getHeartRates(runUuid) {
+      return [...(runs.get(runUuid)?.heart ?? [])].sort((a, b) => a.recordedAt - b.recordedAt);
     },
     async pauseRun(runUuid, at) {
       const e = runs.get(runUuid);

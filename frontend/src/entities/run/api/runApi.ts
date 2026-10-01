@@ -35,7 +35,14 @@ export type PointBatchResponse = { batchUuid: string; accepted: boolean; lastAcc
 // 42.4장 POST /runs/{runId}/finish. 서버에 저장된 마지막 seq가 lastSeq보다 작으면 FINISHING으로 답하고, 앱은 빠진 Batch를 보낸 뒤 다시 요청한다.
 // activeSeconds: 앱이 잰 달린 시간(일시정지 제외). 서버는 시작~종료 시간을 넘지 않는지만 본다 (사용자 결정, FOUNDATION-DECISION-LOG 31항)
 // workoutSteps: 인터벌 달리기의 구간별 실제 거리 · 시간 (123.2장). 서버는 끝낼 때 한 번 저장한다
-export type FinishRunRequest = { endedAt: string; lastSeq: number; activeSeconds: number; workoutSteps?: WorkoutStepDto[] };
+// heartRate: 워치 심박 (심박 저장에 동의했을 때만, 결정 로그 65항)
+export type FinishRunRequest = {
+  endedAt: string;
+  lastSeq: number;
+  activeSeconds: number;
+  workoutSteps?: WorkoutStepDto[];
+  heartRate?: { recordedAt: string; bpm: number }[];
+};
 export type WorkoutStepDto = Omit<StepResult, 'elapsedSec'> & { elapsedSeconds: number };
 
 export function toWorkoutStepDto({ elapsedSec, ...s }: StepResult): WorkoutStepDto {

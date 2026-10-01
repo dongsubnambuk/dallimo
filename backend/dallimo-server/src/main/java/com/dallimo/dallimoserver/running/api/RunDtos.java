@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.running.api;
 
+import com.dallimo.dallimoserver.running.infrastructure.RunHeartRateJdbcRepository;
 import com.dallimo.dallimoserver.challenge.api.ChallengeController;
 import com.dallimo.dallimoserver.gamification.application.SegmentService;
 import com.dallimo.dallimoserver.ranking.application.RankingService;
@@ -15,6 +16,7 @@ import com.dallimo.dallimoserver.workout.domain.StepType;
 import com.dallimo.dallimoserver.workout.domain.TargetType;
 import com.dallimo.dallimoserver.workout.domain.WorkoutDefinition;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -108,8 +110,18 @@ public final class RunDtos {
     /**
      * 42.4장 + activeSeconds: 앱이 계산한 달린 시간(일시정지 제외). 사용자 결정으로 더했다(오프라인 일시정지 시각을 서버가 알 수 없어서).
      */
+    /** heartRate: 워치 심박 (FOUNDATION-DECISION-LOG 65항). 앱에서 심박 저장에 동의한 사람만 보낸다. 5초마다 하나, 최대 5시간 */
     public record FinishRunRequest(@NotNull OffsetDateTime endedAt, @NotNull @Min(0) Integer lastSeq, @Min(0) Integer activeSeconds,
-                                   @Size(max = RunWorkoutStep.MAX_STEPS) List<@Valid @NotNull WorkoutStepDto> workoutSteps) {
+                                   @Size(max = RunWorkoutStep.MAX_STEPS) List<@Valid @NotNull WorkoutStepDto> workoutSteps,
+                                   @Size(max = HEART_RATE_MAX_SAMPLES) List<@Valid @NotNull HeartRateDto> heartRate) {
+    }
+
+    public static final int HEART_RATE_MAX_SAMPLES = 3600;
+
+    public record HeartRateDto(@NotNull OffsetDateTime recordedAt, @NotNull @Min(30) @Max(250) Integer bpm) {
+        RunHeartRateJdbcRepository.Sample toSample() {
+            return new RunHeartRateJdbcRepository.Sample(recordedAt.toInstant(), bpm);
+        }
     }
 
     public record FinishRunResponse(long runId, RunStatus status, int distanceM, int elapsedSeconds, Integer avgPaceSecPerKm, String verificationStatus) {
@@ -148,7 +160,9 @@ public final class RunDtos {
     }
 
     /** 상세 (GET /runs/{id}): 요약 + 스플릿 + 표시용 경로([위도, 경도]) + 검증(코스 러닝일 때) + 이 Run으로 한 도전(CHL-003) + 인터벌 결과 */
+    /** heartRate: 워치 심박 평균 · 최고 (저장된 심박이 없으면 null) */
     public record RunDetailResponse(RunSummaryResponse summary, List<RunMetrics.Split> splits, List<double[]> path,
-                                    VerificationResponse verification, ChallengeController.ChallengeResponse challenge, WorkoutResultResponse workout) {
+                                    VerificationResponse verification, ChallengeController.ChallengeResponse challenge, WorkoutResultResponse workout,
+                                    RunHeartRateJdbcRepository.Summary heartRate) {
     }
 }

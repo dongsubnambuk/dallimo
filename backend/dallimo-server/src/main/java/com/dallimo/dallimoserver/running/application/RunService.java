@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.running.application;
 
+import com.dallimo.dallimoserver.running.infrastructure.RunHeartRateJdbcRepository;
 import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
@@ -61,10 +62,12 @@ public class RunService {
     private final ChallengeService challenges;
     private final RunWorkoutJdbcRepository workoutSteps;
     private final WorkoutService workouts;
+    private final RunHeartRateJdbcRepository heartRates;
 
     public RunService(RunJpaRepository runs, RunPointJdbcRepository points, RunSyncBatchRepository batches, JdbcTemplate jdbc, Clock clock,
                       ApplicationEventPublisher events, LiveMemberJdbcRepository liveMembers, ChallengeService challenges,
-                      RunWorkoutJdbcRepository workoutSteps, WorkoutService workouts) {
+                      RunWorkoutJdbcRepository workoutSteps, WorkoutService workouts, RunHeartRateJdbcRepository heartRates) {
+        this.heartRates = heartRates;
         this.runs = runs;
         this.points = points;
         this.batches = batches;
@@ -86,7 +89,7 @@ public class RunService {
     public record Finished(Run run) {
     }
 
-    public record Detail(Run run, RunMetrics.Result metrics, List<RunWorkoutStep> workoutSteps) {
+    public record Detail(Run run, RunMetrics.Result metrics, List<RunWorkoutStep> workoutSteps, RunHeartRateJdbcRepository.Summary heartRate) {
     }
 
     /** 인터벌 달리기에서 달린 인터벌. 저장한 인터벌이면 id · 버전, 추천 인터벌이면 이름만 */
@@ -197,9 +200,17 @@ public class RunService {
         return finish(userId, runId, endedAt, lastSeq, activeSeconds, null);
     }
 
-    /** steps: 인터벌 달리기의 구간별 결과. 끝낼 때 한 번 저장한다 (FINISHING이면 다음 요청에 다시 온다) */
-    @Transactional
     public Finished finish(long userId, long runId, Instant endedAt, int lastSeq, Integer activeSeconds, List<RunWorkoutStep> steps) {
+        return finish(userId, runId, endedAt, lastSeq, activeSeconds, steps, null);
+    }
+
+    /**
+     * steps: 인터벌 달리기의 구간별 결과. heartRate: 워치 심박 (FOUNDATION-DECISION-LOG 65항).
+     * 끝낼 때 한 번 저장한다 (FINISHING이면 다음 요청에 다시 온다)
+     */
+    @Transactional
+    public Finished finish(long userId, long runId, Instant endedAt, int lastSeq, Integer activeSeconds, List<RunWorkoutStep> steps,
+                           List<RunHeartRateJdbcRepository.Sample> heartRate) {
         Run run = lockOwned(userId, runId);
         if (run.getStatus() == RunStatus.FINISHED) return new Finished(run);
         if (steps != null && !steps.isEmpty()) {
@@ -222,6 +233,13 @@ public class RunService {
         int distance = (int) Math.round(m.distanceM());
         run.finish(end, elapsed, distance, RunMetrics.avgPace(m.distanceM(), elapsed), clock.instant());
         if (steps != null && !steps.isEmpty()) workoutSteps.insertAll(runId, steps);
+        // 러닝 시간 밖(앞뒤 1분 넘게)의 심박은 버린다
+        if (heartRate != null && !heartRate.isEmpty()) {
+            Instant from = run.getStartedAt().minusSeconds(60), to = end.plusSeconds(60);
+            List<RunHeartRateJdbcRepository.Sample> inRun = heartRate.stream()
+                    .filter(s -> !s.recordedAt().isBefore(from) && !s.recordedAt().isAfter(to)).toList();
+            if (!inRun.isEmpty()) heartRates.insertAll(runId, inRun);
+        }
         // 코스 러닝이면 커밋 뒤 완주 검증 (26장)
         if (run.awaitingVerification()) events.publishEvent(new RunFinishedEvent(runId));
         log.info("run.finish runId={} status={} lastSeq={} distanceM={} activeSec={} verification={}", runId, run.getStatus(), lastSeq, distance, elapsed,
@@ -265,7 +283,15 @@ public class RunService {
     public Detail detail(long userId, long runId) {
         Run run = owned(runs.findById(runId).orElseThrow(() -> new ApiException(ErrorCode.RUN_NOT_FOUND)), userId, ErrorCode.RESOURCE_FORBIDDEN);
         return new Detail(run, RunMetrics.compute(points.findAll(runId)),
-                run.getMode() == RunMode.INTERVAL ? workoutSteps.findAll(runId) : List.of());
+                run.getMode() == RunMode.INTERVAL ? workoutSteps.findAll(runId) : List.of(), heartRates.summary(runId));
+    }
+
+    /** 심박 저장 동의를 끄면 이 사람의 심박을 모두 지운다 (FOUNDATION-DECISION-LOG 65항). 지운 수 */
+    @Transactional
+    public int deleteHeartRates(long userId) {
+        int n = heartRates.deleteAllOfUser(userId);
+        log.info("run.heart-rate.delete user={} rows={}", userId, n);
+        return n;
     }
 
     /** 코스 러닝의 코스 이름 (courseId → 이름) */

@@ -13,19 +13,20 @@ import { radius, spacing, touchTarget } from '@/design/tokens';
 import { SOURCE_LABEL } from '@/entities/import/types';
 import { getNotificationRepository } from '@/entities/notification/api';
 import { runResultRepository } from '@/entities/run/api';
+import { getUserRepository } from '@/entities/user/api';
 import { hasRunInProgress, signOut, withdraw } from '@/features/auth/session';
 import { useMe } from '@/features/my/useMy';
+import { runnerSummary } from '@/features/onboarding/runnerOptions';
+import { getRunStore } from '@/features/run/engine/runStore';
 import { API_BASE_URL } from '@/shared/api/config';
 import { getPreferences, setPreference, usePreferences, type Preferences } from '@/shared/preferences';
 import { useWatchState, type WatchState } from '@/shared/watch/watchTransport';
 
 import { ConfirmSheet } from './components/ConfirmSheet';
-import { runnerSummary } from '@/features/onboarding/runnerOptions';
-
 import { SettingChoice, SettingRow, SettingSection } from './components/SettingRow';
 
-
-type Sheet = 'logout' | 'withdraw' | 'running' | null;
+// heartOn · heartOff: 워치 심박 저장 동의 · 철회 (결정 로그 65항)
+type Sheet = 'logout' | 'withdraw' | 'running' | 'heartOn' | 'heartOff' | null;
 
 // SCR-M07 설정 (MY-006): 자동 일시정지, 음성, Push, 개인정보, 로그아웃/탈퇴.
 // 러닝 → 알림 → 개인정보 → 계정 순서. 자주 바꾸는 러닝 설정을 위에 둔다.
@@ -58,6 +59,15 @@ function watchFooter(w: WatchState): string {
   if (!w.installed) return 'Apple Watch에 달리모 앱이 없어요. 휴대폰의 Watch 앱 › 사용 가능한 앱에서 달리모를 설치해 주세요.';
   return 'Apple Watch와 연결됐어요.';
 }
+
+// 심박은 건강정보(민감정보)라 따로 동의를 받는다 (개인정보 보호법 23조, 결정 로그 65항)
+const HEART_CONSENT = [
+  '심박은 건강정보라 따로 동의를 받아요. 동의하지 않아도 다른 기능은 그대로 쓸 수 있어요.',
+  '',
+  '· 저장하는 정보: 달리는 동안 Apple Watch로 5초마다 잰 심박수',
+  '· 쓰는 곳: 내 러닝 결과와 기록 상세의 평균 · 최고 심박 (다른 사람에게는 보이지 않아요)',
+  '· 보관 기간: 동의를 끄거나 탈퇴할 때까지. 끄면 저장된 심박을 모두 지워요',
+].join('\n');
 
 export function SettingsScreen() {
   const { colors } = useTheme();
@@ -169,6 +179,16 @@ export function SettingsScreen() {
               value={prefs.watchMirror}
               onChange={(v) => setPreference('watchMirror', v)}
             />
+            <SettingRow
+              kind="toggle"
+              label="심박을 기록에 저장"
+              caption="달리는 동안 워치로 잰 심박을 저장해 결과와 기록 상세에 평균 · 최고 심박을 보여 줘요"
+              value={prefs.heartRateSave}
+              onChange={(v) => {
+                setError(null);
+                setSheet(v ? 'heartOn' : 'heartOff');
+              }}
+            />
           </SettingSection>
         ) : null}
 
@@ -240,6 +260,36 @@ export function SettingsScreen() {
           busy={busy}
           error={error}
           onConfirm={() => run(signOut, '로그아웃하지 못했어요. 다시 시도해 주세요.')}
+          onClose={() => setSheet(null)}
+        />
+      ) : sheet === 'heartOn' ? (
+        <ConfirmSheet
+          title="심박을 기록에 저장할까요?"
+          body={HEART_CONSENT}
+          confirmLabel="동의하고 켜기"
+          onConfirm={() => {
+            setPreference('heartRateSave', true);
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      ) : sheet === 'heartOff' ? (
+        <ConfirmSheet
+          title="심박 저장을 끌까요?"
+          body="지금까지 저장한 심박을 모두 지워요. 지운 심박은 되돌릴 수 없어요. 거리 · 시간 · 경로 같은 다른 기록은 그대로예요."
+          confirmLabel="끄고 지우기"
+          danger
+          busy={busy}
+          error={error}
+          onConfirm={() =>
+            run(async () => {
+              await getUserRepository().deleteHeartRates();
+              await (await getRunStore()).clearHeartRates();
+              setPreference('heartRateSave', false);
+              setBusy(false);
+              setSheet(null);
+            }, '지우지 못했어요. 연결을 확인하고 다시 시도해 주세요.')
+          }
           onClose={() => setSheet(null)}
         />
       ) : sheet === 'withdraw' ? (

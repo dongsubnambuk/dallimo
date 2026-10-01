@@ -7,7 +7,7 @@ import type { AuthSession, SignupInput } from '@/entities/auth/types';
 import { finishOnboarding, loadOnboarding, startOnboarding } from '@/features/onboarding/onboardingState';
 import { getActiveRun } from '@/features/run/engine/activeRunSession';
 import { registerAuthHooks } from '@/shared/api/http';
-import { loadPreferences } from '@/shared/preferences';
+import { loadPreferences, setPreference } from '@/shared/preferences';
 import { clearRecentSearches } from '@/shared/recentSearches';
 import { getDeviceId } from '@/shared/storage/deviceId';
 import { getItem, removeItem, setItem } from '@/shared/storage/keyValueStore';
@@ -62,6 +62,8 @@ async function clearSession() {
   await removeItem(REFRESH_KEY);
   // 가입 직후 온보딩 중에 로그아웃하면 다음 로그인 계정에 이어지지 않게 끝낸다
   finishOnboarding();
+  // 심박 저장 동의는 사람마다 받는다. 이 기기를 다음에 쓰는 사람에게 이어지지 않게 끈다 (결정 로그 65항)
+  setPreference('heartRateSave', false);
   set('signedOut');
 }
 

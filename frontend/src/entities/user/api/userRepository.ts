@@ -8,4 +8,6 @@ export interface UserRepository {
   checkNickname(nickname: string): Promise<NicknameCheck>;
   // 온보딩 · 설정의 러너 정보. 세 값을 통째로 바꾼다 (PUT /users/me/runner-profile, 결정 로그 64항)
   updateRunnerProfile(profile: RunnerProfile): Promise<RunnerProfile>;
+  // 심박 저장 동의를 끄면 서버에 저장된 심박을 모두 지운다 (DELETE /users/me/heart-rates, 결정 로그 65항)
+  deleteHeartRates(): Promise<void>;
 }
