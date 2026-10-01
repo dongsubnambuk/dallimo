@@ -327,7 +327,7 @@ export function createMockCourseRepository(scenario: MockCourseScenario): Course
       await wait(DELAY_MS);
       if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
       if (scenario === 'empty') return [];
-      return MOCK_COURSES.map((c) => ({ ...c, ...ratingOf(c.id), startDistanceM: Math.round(distanceM(center, c.displayRoute[0])) }))
+      return MOCK_COURSES.map((c) => ({ ...c, ...ratingOf(c.id), difficulty: MOCK_DETAIL[c.id]?.difficulty ?? null, recommendedTime: MOCK_DETAIL[c.id]?.recommendedTime ?? null, startDistanceM: Math.round(distanceM(center, c.displayRoute[0])) }))
         .filter((c) => c.startDistanceM <= radiusM)
         .sort((a, b) => a.startDistanceM - b.startDistanceM);
     },

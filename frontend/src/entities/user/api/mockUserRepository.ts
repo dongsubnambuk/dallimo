@@ -1,7 +1,9 @@
 import { currentMockAccount, DEMO_EMAIL, nicknameTaken, updateMockAccount } from '@/entities/auth/api/mockAccounts';
 import { createMockRunResultRepository, type HistoryScenario } from '@/entities/run/api/mockRunResultRepository';
 
-import type { Me, MyProfile, NicknameCheck } from '../types';
+import { getJson, setJson } from '@/shared/storage/keyValueStore';
+
+import { EMPTY_RUNNER, type Me, type MyProfile, type NicknameCheck, type RunnerProfile } from '../types';
 import type { UserRepository } from './userRepository';
 
 export const NICKNAME_MAX = 40;
@@ -16,6 +18,9 @@ function profile(): MyProfile {
     friendCode: a?.friendCode ?? 'RUN-7Q2KSU',
   };
 }
+
+// 서버 없이 쓸 때 러너 정보는 계정마다 기기에 둔다
+const runnerKey = () => `dallimo.mock.runner.${profile().userId}`;
 
 export function checkNicknameLocal(nickname: string): NicknameCheck | null {
   const n = nickname.trim();
@@ -43,6 +48,7 @@ export function createMockUserRepository(scenario: HistoryScenario = 'normal'): 
           totalActiveSec: items.reduce((s, r) => s + r.activeSec, 0),
           runCount: items.length,
         },
+        runner: { ...EMPTY_RUNNER, ...((await getJson<RunnerProfile>(runnerKey())) ?? {}) },
       };
     },
     async updateMe(update) {
@@ -53,6 +59,11 @@ export function createMockUserRepository(scenario: HistoryScenario = 'normal'): 
       if (nicknameTaken(update.nickname.trim(), me.userId)) throw new Error('taken');
       await updateMockAccount(me.userId, { nickname: update.nickname.trim() });
       return profile();
+    },
+    async updateRunnerProfile(next) {
+      await new Promise((r) => setTimeout(r, 400));
+      await setJson(runnerKey(), next);
+      return next;
     },
     async checkNickname(nickname) {
       await new Promise((r) => setTimeout(r, 300));

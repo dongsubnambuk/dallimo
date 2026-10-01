@@ -2,7 +2,7 @@ import { getNotificationRepository } from '@/entities/notification/api';
 import { API_BASE_URL } from '@/shared/api/config';
 import { expoPushToken, notificationPermission } from '@/shared/notifications/notifier';
 
-// Push 토큰 등록. 권한은 앱을 켜자마자 묻지 않고 필요한 순간에 묻는다 (사용자 결정):
+// Push 토큰 등록. 권한은 앱을 켜자마자 묻지 않는다. 가입 직후 권한 안내에서 고르게 하고(결정 로그 64항), 그때 미뤘으면 필요한 순간에 묻는다 (사용자 결정):
 // 친구 요청을 보낼 때, 함께 달리기 방을 만들거나 참가할 때, 달리기를 시작할 때(달리는 중 알림).
 // 이미 허락했으면 앱이 켜질 때 조용히 등록한다. EAS 프로젝트가 없거나 웹이면 토큰이 없어 등록하지 않는다.
 

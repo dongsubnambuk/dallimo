@@ -169,6 +169,9 @@ abstract class CourseApiContractTest {
         assertThat(ids(body(search("지역" + tag, "")))).containsExactly(id);
         assertThat(ids(body(search("태그" + tag, "")))).containsExactly(id);
         assertThat((String) JsonPath.read(body(search("지역" + tag, "")), "$.data.items[0].region")).isEqualTo("지역" + tag + " 수성구");
+        // 목록에도 추천 시간 · 난이도 (앱 추천이 달리는 시간 · 러닝 경험에 맞춘다, 결정 로그 64항). 사용자 코스는 난이도가 없다
+        assertThat((String) JsonPath.read(body(search("지역" + tag, "")), "$.data.items[0].recommendedTime")).isEqualTo("새벽 · 저녁");
+        assertThat((Object) JsonPath.read(body(search("지역" + tag, "")), "$.data.items[0].difficulty")).isNull();
         // 길이 제한
         long other = finishedRun(me.token, somewhere(), 300, false);
         assertThat(post(me.token, "/api/v1/courses", """

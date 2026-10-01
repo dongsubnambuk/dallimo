@@ -1718,6 +1718,26 @@ paths:
       - bearerAuth: []
       tags:
       - 알림 (14.2장)
+  /api/v1/users/me/runner-profile:
+    put:
+      operationId: updateRunnerProfile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunnerProfile"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseRunnerProfile"
+          description: OK
+      security:
+      - bearerAuth: []
+      tags:
+      - 사용자 (41장)
   /api/v1/users/nickname-availability:
     get:
       operationId: nicknameAvailability
@@ -2413,6 +2433,18 @@ components:
         timestamp:
           type: string
           format: date-time
+    ApiResponseRunnerProfile:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/RunnerProfile"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseSegments:
       type: object
       properties:
@@ -2752,6 +2784,8 @@ components:
         createdAt:
           type: string
           format: date-time
+        difficulty:
+          type: string
         displayRoute:
           type: array
           items:
@@ -2785,6 +2819,8 @@ components:
         ratingAvg:
           type: number
           format: double
+        recommendedTime:
+          type: string
         region:
           type: string
         reviewCount:
@@ -3479,6 +3515,8 @@ components:
           type: string
         nickname:
           type: string
+        runnerProfile:
+          $ref: "#/components/schemas/RunnerProfile"
         stats:
           $ref: "#/components/schemas/Totals"
         userId:
@@ -4266,6 +4304,29 @@ components:
           type: string
         workoutName:
           type: string
+    RunnerProfile:
+      type: object
+      properties:
+        distance:
+          type: string
+          enum:
+          - UNDER_3K
+          - K3_TO_5
+          - K5_TO_10
+          - OVER_10K
+        experience:
+          type: string
+          enum:
+          - BEGINNER
+          - OCCASIONAL
+          - REGULAR
+        preferredTime:
+          type: string
+          enum:
+          - MORNING
+          - DAYTIME
+          - EVENING
+          - NIGHT
     SegmentView:
       type: object
       properties:

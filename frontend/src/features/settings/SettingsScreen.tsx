@@ -20,6 +20,8 @@ import { getPreferences, setPreference, usePreferences, type Preferences } from 
 import { useWatchState, type WatchState } from '@/shared/watch/watchTransport';
 
 import { ConfirmSheet } from './components/ConfirmSheet';
+import { runnerSummary } from '@/features/onboarding/runnerOptions';
+
 import { SettingChoice, SettingRow, SettingSection } from './components/SettingRow';
 
 
@@ -124,6 +126,10 @@ export function SettingsScreen() {
             <AppIcon name="collapse" size={18} color={colors.text.secondary} />
           </AppPressable>
         ) : null}
+
+        <SettingSection title="러너 정보" footer="추천 코스와 탐색의 거리 칩에 써요.">
+          <SettingRow kind="link" label="평소 달리기" value={me.data ? (runnerSummary(me.data.runner) ?? '고르지 않음') : undefined} onPress={() => router.push('/settings/runner')} />
+        </SettingSection>
 
         <SettingSection title="러닝">
           <SettingRow kind="toggle" label="자동 일시정지" caption="멈춰 서면 기록을 멈추고, 다시 달리면 이어서 기록해요. 함께 달리기에서는 쓰지 않아요" value={prefs.autoPause} onChange={(v) => setPreference('autoPause', v)} />

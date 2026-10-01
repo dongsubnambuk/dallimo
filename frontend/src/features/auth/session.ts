@@ -4,6 +4,7 @@ import { authRepository } from '@/entities/auth/api';
 import { AuthError } from '@/entities/auth/api/authRepository';
 import { loadMockAccounts } from '@/entities/auth/api/mockAccounts';
 import type { AuthSession, SignupInput } from '@/entities/auth/types';
+import { finishOnboarding, loadOnboarding, startOnboarding } from '@/features/onboarding/onboardingState';
 import { getActiveRun } from '@/features/run/engine/activeRunSession';
 import { registerAuthHooks } from '@/shared/api/http';
 import { loadPreferences } from '@/shared/preferences';
@@ -59,6 +60,8 @@ async function clearSession() {
   accessToken = null;
   accessExpiresAt = 0;
   await removeItem(REFRESH_KEY);
+  // 가입 직후 온보딩 중에 로그아웃하면 다음 로그인 계정에 이어지지 않게 끝낸다
+  finishOnboarding();
   set('signedOut');
 }
 
@@ -108,7 +111,7 @@ registerAuthHooks({
 
 /** AUTH-003 자동 로그인: 저장된 Refresh Token으로 새 토큰을 받는다 */
 export async function restoreSession() {
-  await Promise.all([loadMockAccounts(), loadPreferences()]);
+  await Promise.all([loadMockAccounts(), loadPreferences(), loadOnboarding()]);
   if (!(await getItem(REFRESH_KEY))) return set('signedOut');
   try {
     const token = await refreshSession();
@@ -125,9 +128,10 @@ export async function logIn(email: string, password: string) {
   set('signedIn');
 }
 
-/** 이메일 · 비밀번호 · 닉네임 가입. 가입하면 바로 로그인된다 */
+/** 이메일 · 비밀번호 · 닉네임 가입. 가입하면 바로 로그인되고 러너 정보 · 권한 안내로 간다 (결정 로그 64항) */
 export async function signUp(input: SignupInput) {
   await adopt(await authRepository.signup({ ...input, email: input.email.trim(), nickname: input.nickname.trim() }, await getDeviceId()));
+  await startOnboarding();
   set('signedIn');
 }
 

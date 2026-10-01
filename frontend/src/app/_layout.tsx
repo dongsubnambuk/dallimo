@@ -8,6 +8,7 @@ import { BrandSplash } from '@/components/Brand/BrandSplash';
 import { darkTheme, lightTheme, ThemeProvider } from '@/design/theme';
 import { fontAssets, fontFamily } from '@/design/tokens';
 import { restoreSession, useAuthStatus } from '@/features/auth/session';
+import { useOnboarding } from '@/features/onboarding/onboardingState';
 import { usePendingShareLink } from '@/features/share/usePendingShareLink';
 // 백그라운드 위치 task는 앱이 뜰 때 먼저 등록되어 있어야 한다 (OS가 백그라운드에서 앱을 다시 켤 때 포함)
 import '@/tasks/background-location';
@@ -19,6 +20,9 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontAssets);
   const [queryClient] = useState(() => new QueryClient());
   const auth = useAuthStatus();
+  // 가입 직후 러너 정보 · 권한 안내가 남았는가 (결정 로그 64항)
+  const { pending: onboarding } = useOnboarding();
+  const inApp = auth === 'signedIn' && !onboarding;
   const ready = (fontsLoaded || !!fontError) && auth !== 'restoring';
   // 네이티브 스플래시 뒤를 이어 받는 앱 안 스플래시 (한 번만)
   const [splashDone, setSplashDone] = useState(false);
@@ -29,7 +33,8 @@ export default function RootLayout() {
   }, []);
 
   // 로그인 전에 연 공유 · 초대 링크는 로그인한 뒤 이어서 연다
-  usePendingShareLink(auth);
+  // 온보딩이 끝나 앱 화면에 들어간 뒤에 연다
+  usePendingShareLink(auth === 'signedIn' && !inApp ? 'restoring' : auth);
 
 
   // 로그아웃 · 탈퇴하면 이전 계정의 서버 데이터 캐시를 비운다
@@ -51,8 +56,8 @@ export default function RootLayout() {
             headerBackButtonDisplayMode: 'minimal',
           }}
         >
-          {/* 로그인한 사용자만 쓰는 화면 */}
-          <Stack.Protected guard={auth === 'signedIn'}>
+          {/* 로그인한 사용자만 쓰는 화면 (가입 직후 온보딩이 남았으면 온보딩만) */}
+          <Stack.Protected guard={inApp}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="course/[id]/index" options={{ headerShown: false }} />
             <Stack.Screen name="course/[id]/ranking" options={{ headerShown: false }} />
@@ -96,6 +101,7 @@ export default function RootLayout() {
             <Stack.Screen name="settings/index" options={{ headerShown: false }} />
             <Stack.Screen name="settings/profile" options={{ headerShown: false }} />
             <Stack.Screen name="settings/password" options={{ headerShown: false }} />
+            <Stack.Screen name="settings/runner" options={{ headerShown: false }} />
             {/* 122.3장 외부 기록 가져오기 */}
             <Stack.Screen name="import/index" options={{ headerShown: false }} />
             {/* SCR-R05 공유 카드, SHR-004 공유 링크 열기 */}
@@ -104,8 +110,14 @@ export default function RootLayout() {
             {/* App Link: 공유 페이지 주소(https://{도메인}/s/{code})를 앱이 바로 열 때 */}
             <Stack.Screen name="s/[code]" options={{ headerShown: false, animation: 'fade' }} />
           </Stack.Protected>
-          {/* SCR-A01 로그인 · 회원가입 (dark) */}
+          {/* 가입 직후 온보딩: 러너 정보 → 권한 안내 (dark, 결정 로그 64항) */}
+          <Stack.Protected guard={auth === 'signedIn' && onboarding}>
+            <Stack.Screen name="onboarding/runner" options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
+            <Stack.Screen name="onboarding/permissions" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
+          </Stack.Protected>
+          {/* 첫 실행 소개(한 번만) → SCR-A01 로그인 · 회원가입 (dark) */}
           <Stack.Protected guard={auth === 'signedOut'}>
+            <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
             <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
             <Stack.Screen name="signup" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
           </Stack.Protected>

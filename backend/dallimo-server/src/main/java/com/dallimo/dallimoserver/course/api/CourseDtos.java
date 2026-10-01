@@ -48,18 +48,19 @@ public final class CourseDtos {
 
     /** 목록 한 줄 (CourseSummary). displayRoute는 100점 이하로 줄인 경로 */
     /** ratingAvg: 평가 평균(소수 한 자리, 평가가 없으면 null) · reviewCount (CRS-004 평점 필터 · 정렬) */
+    /** difficulty · recommendedTime: 앱 추천 코스가 러닝 경험 · 달리는 시간에 맞춘다 (FOUNDATION-DECISION-LOG 64항). 모르면 null */
     public record CourseSummaryResponse(long id, String name, CourseStatus status, int distanceM, List<String> tags,
                                         Integer startDistanceM, List<double[]> displayRoute, int estimatedSec,
                                         Integer myBestSec, int myFinishCount, Integer leaderSec, int finisherCount,
                                         int weeklyRunnerCount, boolean bookmarked, Instant createdAt, String region, Double ratingAvg,
-                                        int reviewCount, CourseSource source) {
+                                        int reviewCount, CourseSource source, String difficulty, String recommendedTime) {
         static CourseSummaryResponse from(CourseView v) {
             return new CourseSummaryResponse(v.course().getId(), v.course().getName(), v.course().getStatus(), v.course().getDistanceM(),
                     v.tags(), v.startDistanceM() == null ? null : (int) Math.round(v.startDistanceM()),
                     CourseRoute.decimate(v.route(), CourseRoute.SUMMARY_MAX_POINTS), v.estimatedSec(),
                     v.stats().myBestSec(), v.stats().myFinishCount(), v.stats().leaderSec(), v.stats().finisherCount(),
                     v.stats().weeklyRunnerCount(), v.bookmarked(), v.course().getCreatedAt(), v.course().getRegion(), oneDecimal(v.reviews().ratingAvg()),
-                    v.reviews().reviewCount(), v.course().getSource());
+                    v.reviews().reviewCount(), v.course().getSource(), v.course().getDifficulty(), v.course().getRecommendedTime());
         }
     }
 

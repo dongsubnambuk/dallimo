@@ -25,6 +25,9 @@ import { ExploreMap } from './components/ExploreMap';
 import { RecentSearchPanel } from './components/RecentSearchPanel';
 import { StateNotice } from '@/components/StateNotice';
 import { recommendCourses, typicalDistance, type Recommendation } from './recommend';
+import type { RunnerProfile } from '@/entities/user/types';
+import { useMe } from '@/features/my/useMy';
+import { DISTANCE_RANGE_M, labelOf } from '@/features/onboarding/runnerOptions';
 import { useNearbyCourses } from './useNearbyCourses';
 
 // SCR-E01 Explore 홈 (CRS-001 주변 코스, CRS-002 지도 이 지역에서 찾기, CRS-003 이름 · 지역 · 태그 검색,
@@ -43,8 +46,14 @@ const TICKET_HEIGHT = 148;
 
 type QuickFilter = { key: string; label: string; match: (c: CourseSummary) => boolean };
 
-const QUICK_FILTERS: QuickFilter[] = [
-  { key: 'short', label: '3~5km', match: (c) => c.distanceM >= 3000 && c.distanceM <= 5000 },
+// 거리 칩은 온보딩에서 고른 평소 거리 구간을 따른다. 고르지 않았으면 3~5km (결정 로그 64항)
+function quickFilters(runner: RunnerProfile | null | undefined): QuickFilter[] {
+  const [min, max] = runner?.distance ? DISTANCE_RANGE_M[runner.distance] : [3000, 5000];
+  const label = runner?.distance ? labelOf.distance(runner.distance) : '3~5km';
+  return [{ key: 'distance', label, match: (c) => c.distanceM >= min && c.distanceM <= max }, ...OTHER_FILTERS];
+}
+
+const OTHER_FILTERS: QuickFilter[] = [
   { key: 'flat', label: '평지', match: (c) => c.tags.includes('평지') },
   { key: 'night', label: '야간 밝음', match: (c) => c.tags.includes('야간 밝음') },
   { key: 'easy', label: '초보 추천', match: (c) => c.tags.includes('초보 추천') },
@@ -121,15 +130,18 @@ export function ExploreScreen() {
   const locationDenied = state.kind === 'ready' && state.locationDenied;
   const all = useMemo(() => ready ?? [], [ready]);
 
+  // 온보딩 러너 정보: 거리 칩과 추천에 쓴다 (My와 같은 조회를 함께 쓴다)
+  const runner = useMe('normal').data?.runner;
+  const quick = useMemo(() => quickFilters(runner), [runner]);
   const visible = useMemo(() => {
-    const active = QUICK_FILTERS.filter((f) => filters[f.key]);
+    const active = quick.filter((f) => filters[f.key]);
     return all.filter((c) => active.every((f) => f.match(c))).sort(sorters[sort]);
-  }, [all, filters, sort]);
+  }, [all, filters, sort, quick]);
 
   // CRS-005 추천: 평소 달리는 거리(최근 기록 20개의 가운데 값)에 맞춘 규칙 기반 추천 하나
   const recent = useQuery({ queryKey: ['run', 'typical-distance'], queryFn: () => runResultRepository.list(null, 20), staleTime: 5 * 60_000, retry: false });
   const typical = typicalDistance((recent.data?.items ?? []).map((r) => r.distanceM));
-  const recommendation = useMemo(() => (searchMode ? null : (recommendCourses(all, typical)[0] ?? null)), [all, typical, searchMode]);
+  const recommendation = useMemo(() => (searchMode ? null : (recommendCourses(all, typical, 1, runner)[0] ?? null)), [all, typical, searchMode, runner]);
 
   const weeklyRunners = all.reduce((n, c) => n + c.weeklyRunnerCount, 0);
   // 이번 주에 달린 사람이 있을 때만 "이번 주 인기" (아무도 안 달렸는데 인기라고 하지 않는다)
@@ -292,6 +304,7 @@ export function ExploreScreen() {
           sort={sort}
           onSort={setSort}
           filters={filters}
+          quickFilters={quick}
           onToggleFilter={(key) => setFilters((s) => ({ ...s, [key]: !s[key] }))}
           onPressCard={onPressCard}
           onWiden={() => setRadiusM(WIDE_RADIUS_M)}
@@ -447,6 +460,7 @@ function SheetBody({
   sort,
   onSort,
   filters,
+  quickFilters,
   onToggleFilter,
   onPressCard,
   onWiden,
@@ -465,6 +479,7 @@ function SheetBody({
   sort: SortKey;
   onSort: (s: SortKey) => void;
   filters: Record<string, boolean>;
+  quickFilters: QuickFilter[];
   onToggleFilter: (key: string) => void;
   onPressCard: (c: CourseSummary) => void;
   onWiden: () => void;
@@ -549,7 +564,7 @@ function SheetBody({
         }
       />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        {QUICK_FILTERS.map((f) => (
+        {quickFilters.map((f) => (
           <FilterChip key={f.key} label={f.label} selected={!!filters[f.key]} onPress={() => onToggleFilter(f.key)} />
         ))}
       </ScrollView>

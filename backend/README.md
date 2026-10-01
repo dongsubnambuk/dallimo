@@ -96,6 +96,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `POST /api/v1/auth/logout` | Bearer. 이 기기 세션을 끊는다 (204) |
 | `GET · PATCH · DELETE /api/v1/users/me` | 내 정보 · 닉네임 변경 · 탈퇴(모든 기기 세션 끊음). PATCH는 JSON `{ nickname }`만 받는다(프로필 사진은 뺐다, 결정 로그 60항). 사람마다 분당 10번 |
 | `GET /api/v1/users/nickname-availability?nickname=` | 로그인 없이. `{ available }` |
+| `PUT /api/v1/users/me/runner-profile` | 온보딩 · 설정의 러너 정보(결정 로그 64항). `{ distance: UNDER_3K\|K3_TO_5\|K5_TO_10\|OVER_10K, experience: BEGINNER\|OCCASIONAL\|REGULAR, preferredTime: MORNING\|DAYTIME\|EVENING\|NIGHT }`, 고르지 않은 값은 null(통째로 바꾼다). `GET /users/me`의 `runnerProfile`로도 온다 |
 | `POST /api/v1/auth/password/change` | Bearer. `{ currentPassword, newPassword }` → 204. 이 기기 세션만 남기고 다른 기기를 끊는다 |
 
 - **Access Token**: JWT(HS256) 30분. `sub` = 사용자 id, `sid` = 세션 id. 요청마다 세션이 살아 있는지 확인해서 로그아웃 · 같은 기기 재로그인 · 탈퇴하면 남은 Access Token도 바로 막힌다.

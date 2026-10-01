@@ -30,6 +30,8 @@ export type CourseSummaryDto = {
   region: string | null;
   ratingAvg: number | null;
   reviewCount: number;
+  difficulty?: CourseDifficulty | null;
+  recommendedTime?: string | null;
   // USER · OSM · DURUNUBI · GPX (앱 목록은 아직 쓰지 않는다)
   source?: string;
 };
@@ -118,6 +120,8 @@ function toSummary(c: CourseSummaryDto): CourseSummary {
     region: c.region,
     ratingAvg: c.ratingAvg,
     reviewCount: c.reviewCount,
+    difficulty: c.difficulty ?? null,
+    recommendedTime: c.recommendedTime ?? null,
   };
 }
 
