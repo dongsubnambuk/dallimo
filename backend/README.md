@@ -373,7 +373,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `GET /.well-known/apple-app-site-association` · `/.well-known/assetlinks.json` | App Link · Universal Link 확인 파일(로그인 없이). 공유 페이지 `/s/*`만 앱으로. 값이 없으면 404 |
 | `GET /api/v1/users/me` | `stats { runCount, totalDistanceM, totalActiveSec }` (MY-002, 끝난 러닝만) |
 
-- **요청 제한 구현**: Redis 고정 창(INCR + 첫 번째에만 만료, Lua 하나)이라 서버가 여러 대여도 같은 값. 인증 필터 뒤에서 돌아 로그인한 사람은 사람마다 센다. Redis에 닿지 못하면 막지 않는다. 값은 `dallimo.rate-limit.*`(`enabled`, `window`, `login`, `search`, `friend-request`, `share-resolve`, `ws-connect`, `profile-update`), 테스트 프로필은 끈다.
+- **요청 제한 구현**: Redis 고정 창(INCR + 첫 번째에만 만료, Lua 하나)이라 서버가 여러 대여도 같은 값. 인증 필터 뒤에서 돌아 로그인한 사람은 사람마다 센다. Redis에 닿지 못하면 막지 않고, 그 뒤 30초 동안은 Redis에 묻지 않는다(Redis가 죽은 동안 요청마다 타임아웃을 기다리지 않게). Redis 연결 · 명령 타임아웃은 1초(`spring.data.redis.connect-timeout` · `timeout`)라 헬스체크도 1~2초 안에 DOWN을 알린다. 값은 `dallimo.rate-limit.*`(`enabled`, `window`, `login`, `search`, `friend-request`, `share-resolve`, `ws-connect`, `profile-update`), 테스트 프로필은 끈다.
 - **App Link 설정**: `dallimo.share.app-links.ios-app-ids`(팀ID.번들ID), `android-package`, `android-sha256`. 운영은 `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` · `SHARE_PUBLIC_BASE_URL`. 앱은 `APP_LINK_DOMAIN` · `IOS_BUNDLE_ID` · `ANDROID_PACKAGE`로 빌드한다(frontend `app.config.ts`).
 - **테스트**: `RateLimitApiTest`(로그인 · 검색 사람마다 · 공유 해석), `AppLinksTest`, 확인 파일 없음은 `ShareAndRoomApiContractTest`, 누적 통계는 `CourseApiContractTest`.
 
