@@ -33,10 +33,14 @@ abstract class SchemaContractTest {
     void allMigrationsApplied() {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 AND version IS NOT NULL ORDER BY installed_rank", String.class);
-        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18");
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19");
         List<String> tables = jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()", String.class);
         assertThat(tables).map(String::toLowerCase).containsAll(TABLES);
+        // V19 온보딩 러너 정보 (결정 로그 64항)
+        List<String> userColumns = jdbc.queryForList(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'tbl_user'", String.class);
+        assertThat(userColumns).map(String::toLowerCase).contains("runner_distance", "runner_experience", "runner_time");
     }
 
     @Test
