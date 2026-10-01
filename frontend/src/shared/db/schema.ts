@@ -7,6 +7,7 @@
 // - local_run_segment: 달린 구간(시작/재개 ~ 일시정지/종료). 복구할 때 일시정지 시간을 빼고
 //   일시정지 동안 움직인 거리를 세지 않으려면 구간 경계가 필요하다 (51.2장 pause segment 제외).
 // - v2 local_run.workout_progress: 인터벌 달리기의 끝난 구간 경계(JSON). 이어 달리기 · 서버 구간 결과에 쓴다 (FOUNDATION-DECISION-LOG 45항).
+// - v3 local_run_heart: 워치 심박(5초마다). 심박 저장에 동의했을 때만 남기고 finish로 서버에 보낸다 (FOUNDATION-DECISION-LOG 65항).
 export const MIGRATIONS: readonly string[] = [
   `
   CREATE TABLE IF NOT EXISTS local_run (
@@ -57,6 +58,14 @@ export const MIGRATIONS: readonly string[] = [
   `,
   `
   ALTER TABLE local_run ADD COLUMN workout_progress TEXT NULL;
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS local_run_heart (
+    client_run_uuid TEXT NOT NULL,
+    recorded_at INTEGER NOT NULL,
+    bpm INTEGER NOT NULL,
+    PRIMARY KEY (client_run_uuid, recorded_at)
+  );
   `,
 ];
 

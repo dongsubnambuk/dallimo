@@ -60,6 +60,9 @@ export function createMockUserRepository(scenario: HistoryScenario = 'normal'): 
       await updateMockAccount(me.userId, { nickname: update.nickname.trim() });
       return profile();
     },
+    async deleteHeartRates() {
+      await new Promise((r) => setTimeout(r, 400));
+    },
     async updateRunnerProfile(next) {
       await new Promise((r) => setTimeout(r, 400));
       await setJson(runnerKey(), next);

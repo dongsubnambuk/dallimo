@@ -63,6 +63,7 @@ type ServerDetail = {
   verification: ServerVerification | null;
   challenge?: ChallengeDto | null;
   workout?: ServerWorkout | null;
+  heartRate?: { avgBpm: number; maxBpm: number; sampleCount: number } | null;
 };
 
 function toWorkoutResult(w: ServerWorkout | null | undefined, name: string | null | undefined): RunWorkoutResult | null {
@@ -119,6 +120,7 @@ function fromServer(
   v: ServerVerification | null,
   c?: ChallengeDto | null,
   w?: ServerWorkout | null,
+  heart?: ServerDetail['heartRate'],
 ): RunResult {
   const startedAt = Date.parse(s.startedAt);
   const { recordSec, ...judged } = verdict(v, s.verificationStatus);
@@ -139,6 +141,7 @@ function fromServer(
     ...judged,
     ...challengeOf(c),
     workout: toWorkoutResult(w, s.workoutName),
+    heartRate: heart ? { avgBpm: heart.avgBpm, maxBpm: heart.maxBpm } : null,
     source: s.source && s.source !== 'DALLIMO' ? { kind: s.source as NonNullable<RunResult['source']>['kind'], device: s.sourceDeviceName ?? null } : null,
   };
 }
@@ -203,7 +206,7 @@ export function createHttpRunResultRepository(): RunResultRepository {
       if (!id.startsWith(SERVER_PREFIX)) throw new RunResultNotFoundError(id);
       try {
         const d = await detailOf(id.slice(SERVER_PREFIX.length));
-        return fromServer(d.summary, d.splits, d.path, d.verification, d.challenge, d.workout);
+        return fromServer(d.summary, d.splits, d.path, d.verification, d.challenge, d.workout, d.heartRate);
       } catch (e) {
         if (e instanceof ApiRequestError && (e.code === 'RUN_NOT_FOUND' || e.code === 'RESOURCE_FORBIDDEN')) throw new RunResultNotFoundError(id);
         throw e;

@@ -32,6 +32,11 @@ let jumpStreak = 0;
 const listeners = new Set<(e: LocationEvent) => void>();
 let chain: Promise<void> = Promise.resolve();
 
+/** 지금 달리는 중인(일시정지 아님) 기기 러닝. 워치 심박을 이 러닝에 남긴다 (결정 로그 65항) */
+export function runningRunUuid(): string | null {
+  return recording?.running ? recording.runUuid : null;
+}
+
 /** 엔진이 기록 상태를 알려준다. running이 true가 된 시각(since) 이전 위치는 저장하지 않는다. */
 export function setRecording(next: { runUuid: string; running: boolean; since: number } | null) {
   if (!next || next.runUuid !== recording?.runUuid) {

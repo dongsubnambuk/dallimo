@@ -1660,6 +1660,16 @@ paths:
       - bearerAuth: []
       tags:
       - 내 코스 (MY-005)
+  /api/v1/users/me/heart-rates:
+    delete:
+      operationId: deleteHeartRates
+      responses:
+        "200":
+          description: OK
+      security:
+      - bearerAuth: []
+      tags:
+      - 사용자 (41장)
   /api/v1/users/me/notification-settings:
     get:
       operationId: settings
@@ -3130,6 +3140,12 @@ components:
         endedAt:
           type: string
           format: date-time
+        heartRate:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeartRateDto"
+          maxItems: 3600
+          minItems: 0
         lastSeq:
           type: integer
           format: int32
@@ -3228,6 +3244,20 @@ components:
         userId:
           type: integer
           format: int64
+    HeartRateDto:
+      type: object
+      properties:
+        bpm:
+          type: integer
+          format: int32
+          maximum: 250
+          minimum: 30
+        recordedAt:
+          type: string
+          format: date-time
+      required:
+      - bpm
+      - recordedAt
     Holder:
       type: object
       properties:
@@ -4185,6 +4215,8 @@ components:
       properties:
         challenge:
           $ref: "#/components/schemas/ChallengeResponse"
+        heartRate:
+          $ref: "#/components/schemas/Summary"
         path:
           type: array
           items:
@@ -4472,6 +4504,18 @@ components:
           enum:
           - TARGET_TIME
           - TARGET_PACE
+    Summary:
+      type: object
+      properties:
+        avgBpm:
+          type: integer
+          format: int32
+        maxBpm:
+          type: integer
+          format: int32
+        sampleCount:
+          type: integer
+          format: int32
     TargetBest:
       type: object
       properties:

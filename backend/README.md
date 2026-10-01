@@ -124,7 +124,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `POST /api/v1/runs` | `{ clientRunUuid, mode, courseId?, challengeId?, liveRoomId?, startedAt, workout? }`. `workout { templateId?, version?, name }`은 인터벌 달리기(`mode: INTERVAL`)에만. 새로 만들면 201, 같은 `clientRunUuid`면 200과 같은 Run. 다른 사용자의 `clientRunUuid`면 409 `IDEMPOTENCY_CONFLICT` |
 | `POST /api/v1/runs/{id}/points` | `{ batchUuid, fromSeq, toSeq, points[] }` (최대 500개). `Idempotency-Key` 헤더를 보내면 batchUuid와 같아야 한다 |
 | `POST /api/v1/runs/{id}/pause` · `resume` | RUNNING ↔ PAUSED. 상태가 맞지 않으면 409 `RUN_INVALID_STATE` |
-| `POST /api/v1/runs/{id}/finish` | `{ endedAt, lastSeq, activeSeconds?, workoutSteps? }`. `workoutSteps`는 인터벌 달리기의 구간별 결과(끝낼 때 한 번 저장). 빠진 seq가 있으면 200 + `status: FINISHING`, 다 있으면 FINISHED와 거리 · 시간 · 페이스. 이미 끝났으면 같은 결과 |
+| `POST /api/v1/runs/{id}/finish` | `{ endedAt, lastSeq, activeSeconds?, workoutSteps?, heartRate? }`. `workoutSteps`는 인터벌 달리기의 구간별 결과(끝낼 때 한 번 저장). `heartRate`는 워치 심박 `[{ recordedAt, bpm }]`(30~250, 최대 3600개, 러닝 앞뒤 1분 밖은 버림, 앱에서 심박 저장에 동의한 사람만, 결정 로그 65항). 상세 `GET /runs/{id}`의 `heartRate { avgBpm, maxBpm, sampleCount }`(없으면 null). `DELETE /api/v1/users/me/heart-rates`로 모두 지우고, 탈퇴하면 같이 지운다. 빠진 seq가 있으면 200 + `status: FINISHING`, 다 있으면 FINISHED와 거리 · 시간 · 페이스. 이미 끝났으면 같은 결과 |
 | `GET /api/v1/runs?cursor=&size=&mode=` | 내 FINISHED 기록, `startedAt` 최신순. size 1~50(기본 20). `mode`를 주면 그 모드만(최근 인터벌 달리기). 항목에 `workoutName` |
 | `GET /api/v1/runs/{id}` | `{ summary, splits, path, verification, challenge, workout }`. path는 표시용으로 400개 이하. `workout { templateId, version, name, steps[] }`은 인터벌 달리기일 때 |
 
