@@ -29,7 +29,7 @@ npm run preview    # dist 확인
 
 ## 올리기 (정적 호스팅)
 
-Cloudflare Pages · Vercel · Netlify에 이 저장소를 연결하고 아래처럼 설정한다.
+지금은 Netlify에 올려 `https://dallimo-landing.kro.kr`로 연다. 설정은 저장소 루트 `netlify.toml`에 있다(결정 로그 71항).
 
 | 항목 | 값 |
 | --- | --- |
@@ -37,17 +37,28 @@ Cloudflare Pages · Vercel · Netlify에 이 저장소를 연결하고 아래처
 | 빌드 명령 (Build command) | `npm run build` |
 | 출력 폴더 (Output directory) | `dist` |
 | Node | 20 이상 |
-| 환경 변수 (선택) | `SITE_URL` = 사이트 주소 (예: `https://dallimo.app`) |
+| 환경 변수 | `SITE_URL` = `https://dallimo-landing.kro.kr` (`netlify.toml`에 넣었다) |
 
-- `SITE_URL`을 넣으면 canonical · og:url · og:image · `sitemap.xml`이 들어간다. 주소가 정해지면 꼭 넣는다.
+- `SITE_URL`을 넣으면 canonical · og:url · og:image · `sitemap.xml`이 들어간다. 주소를 바꾸면 `netlify.toml`과 `LEGAL_CONTACT.support`(약관 속 문의 페이지 주소)를 같이 바꾼다.
+
+### 문의 양식 (Netlify Forms)
+
+`/support/`의 문의 양식은 Netlify Forms로 받는다. 이메일 주소를 공개하지 않는다(결정 로그 71항).
+
+1. Netlify 사이트 설정 > Forms에서 **Enable form detection**을 켠다. 켠 뒤 한 번 다시 배포해야 `support` 양식이 잡힌다.
+2. Forms > Form notifications에서 **Email notification**을 추가해 문의가 올 때 받을 메일을 넣는다. 이 메일은 사이트에 나오지 않는다.
+3. 받은 문의는 Forms > `support`에서 본다. 답장은 적힌 이메일로 직접 보낸다. 처리 완료 후 1년이 지나면 지운다(개인정보 처리방침 3 · 6항).
+
+- 양식 칸: 문의 종류(`topic`), 답변 받을 이메일(`email`), 내용(`message`), 수집 동의(`consent`). `bot-field`는 스팸 거름 칸이다.
+- 미리 그린 `dist/support/index.html`에 `data-netlify="true"` 양식이 있어야 Netlify가 찾는다. 양식 칸을 바꾸면 빌드 결과에서 확인한다.
 - 약관 본문은 앱 코드(`frontend/src/features/settings/legal`)에서 읽는다. 루트 폴더 밖 파일을 읽으므로 Vercel은 "Include files outside the root directory"를 켠다(기본값).
 
 ## 고칠 곳
 
 | 무엇 | 어디 |
 | --- | --- |
-| 스토어 주소 (출시 뒤) | `src/content.ts`의 `STORE`. 넣으면 "출시 준비 중" 칸이 내려받기 버튼으로 바뀐다 |
-| 문의 이메일 · 운영 주체 | 앱 코드 `frontend/src/features/settings/legal/types.ts`의 `LEGAL_CONTACT` (앱과 같이 바뀐다) |
+| App Store 주소 (출시 뒤) | `src/content.ts`의 `STORE.ios`. 넣으면 "출시 준비 중" 칸이 내려받기 버튼으로 바뀐다. App Store에만 낸다(결정 로그 71항) |
+| 운영 주체 · 문의 페이지 주소 | 앱 코드 `frontend/src/features/settings/legal/types.ts`의 `LEGAL_CONTACT` (앱과 같이 바뀐다) |
 | 약관 본문 | 앱 코드 `frontend/src/features/settings/legal/*.ts`. 따로 고칠 것 없다 |
 | 자주 묻는 질문 · 메뉴 | `src/content.ts` |
 

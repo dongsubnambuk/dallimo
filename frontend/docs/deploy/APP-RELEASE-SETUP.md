@@ -1,6 +1,8 @@
 # 앱 출시 준비: 등록 · 빌드 설정 (Codex 작업 문서)
 
 앱을 실제 서버에 붙여 스토어 빌드를 만들기 위해 남은 등록과 설정이다.
+
+**App Store에만 낸다 (사용자 결정, 결정 로그 71항).** Google Play 등록, Firebase · FCM(Android Push), Android 서명 키 · App Link 값은 하지 않는다. 아래 Android 항목은 Google Play에 낼 때를 위해 남겨 둔다.
 기능 코드는 다 되어 있다. 여기 적힌 것은 계정 · 키 · 빌드 설정뿐이다.
 서버 쪽 설정은 `backend/README.md` "배포 환경변수" · `backend/dallimo-server/.env.example`에 있다.
 
@@ -22,8 +24,8 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 | Apple Developer Program 가입 (유료) | developer.apple.com | Apple 팀 ID (10자리) |
 | App Store Connect에 앱 등록 | appstoreconnect.apple.com | iOS 번들 ID `com.dongseopseo.dallimo` (팀 `Q336TS439T`) |
 | Expo 계정 로그인 | `npx eas-cli@latest login` | Expo 계정 이름 |
-| Google Play Console 가입 · 앱 등록 | play.google.com/console | Android 패키지 이름 `com.dongseopseo.dallimo` |
-| Firebase 프로젝트 · Android 앱 등록 | console.firebase.google.com | `google-services.json`, FCM V1 서비스 계정 키(JSON) |
+| ~~Google Play Console 가입 · 앱 등록~~ (하지 않음) | play.google.com/console | Android 패키지 이름 `com.dongseopseo.dallimo` |
+| ~~Firebase 프로젝트 · Android 앱 등록~~ (하지 않음) | console.firebase.google.com | `google-services.json`, FCM V1 서비스 계정 키(JSON) |
 | 서버 공개 도메인 | 사용자 인프라 | 예: `dallimo.app` (서버 `https://dallimo.app`) |
 
 ## 2. Codex 작업
@@ -50,7 +52,7 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 - 실시간 연결 주소는 `EXPO_PUBLIC_API_URL`에서 만든다(`https` → `wss`, `/ws`). 따로 넣을 값은 없다.
 - `development` · `gps-poc` 프로필은 지금처럼 둔다. 개발(`npx expo start`)은 `frontend/.env.development`의 배포 서버에 붙는다. 다른 서버나 mock은 `frontend/.env.local`의 `EXPO_PUBLIC_API_URL`로 바꾼다(`.env.example` 참고).
 
-### 2.3 Android Push (FCM)
+### 2.3 Android Push (FCM) — 하지 않음 (App Store만 낸다)
 
 - Expo Push는 Android에서 FCM을 거친다. SDK 57 문서("Push notifications setup", "FCM credentials")를 확인해 아래를 한다.
   - `google-services.json`을 앱 설정(`android.googleServicesFile`)에 연결한다. 파일 원본은 커밋하지 않고 EAS 파일 환경변수로 넣는다.
@@ -68,10 +70,13 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 
 - 본문은 `src/features/settings/legal/`(terms.ts · location.ts · privacy.ts)에 있고 `LegalScreen`이 보여 준다(결정 로그 66 · 67항).
 - 운영 주체는 "달리모 운영팀"이다. 개인정보 보호책임자 · 위치정보관리책임자도 운영팀이다(결정 로그 67항).
-- **출시 전에 `legal/types.ts`의 `LEGAL_CONTACT.email`(문의 이메일)을 실제 값으로 바꾼다.** 지금은 `[ ]` 자리 표시다. 사용자에게 받는다.
+- 연락처는 이메일 대신 소개 사이트 문의 페이지(`LEGAL_CONTACT.support` = `https://dallimo-landing.kro.kr/support/`)의 문의 양식이다(사용자 결정, 결정 로그 71항). 양식 설정은 `landing/README.md`.
 - 본문 내용을 Codex가 바꾸지 않는다. 기능이 바뀌어 처리하는 정보가 달라지면 사용자에게 알린다.
 - 소개 사이트(`landing/`)의 약관 페이지는 이 본문을 빌드 때 그대로 읽는다. 따로 고칠 것 없다(결정 로그 68항).
-- 스토어 등록 URL은 소개 사이트 주소를 쓴다. 개인정보 처리방침 `/privacy/`, 지원(문의) `/support/`, 마케팅 `/`. 호스팅 주소는 사용자가 정한다(`landing/README.md`).
+- App Store Connect에 넣는 URL은 소개 사이트 주소다.
+  - 개인정보 처리방침 URL: `https://dallimo-landing.kro.kr/privacy/`
+  - 지원 URL: `https://dallimo-landing.kro.kr/support/` (문의 양식이 있어 App Store 심사 지침 1.5의 연락 수단이 된다)
+  - 마케팅 URL: `https://dallimo-landing.kro.kr/`
 
 ## 3. 서버와 반드시 같게 맞출 값
 
@@ -93,7 +98,7 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 - [ ] production 빌드 설정에 2.2의 다섯 값이 모두 있다
 - [ ] `npx tsc --noEmit` · `npx expo lint` 통과
 - [ ] production 빌드 앱이 실제 서버로 로그인된다(mock 계정 `runner@dallimo.app`으로는 로그인되지 않아야 한다)
-- [ ] 실기기에서 Push 토큰이 서버에 등록된다 (iOS · Android)
-- [ ] 공유 링크 `https://{도메인}/s/{code}`를 누르면 앱이 열린다 (iOS · Android)
+- [ ] 실기기에서 Push 토큰이 서버에 등록된다 (iOS)
+- [ ] 공유 링크 `https://{도메인}/s/{code}`를 누르면 앱이 열린다 (iOS)
 - [ ] 워치 앱이 함께 설치된다
 - [ ] 약관 · 개인정보 처리방침 본문이 들어갔다(사용자가 본문을 준 경우)

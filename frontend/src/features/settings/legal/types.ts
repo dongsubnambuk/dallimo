@@ -12,10 +12,11 @@ export type LegalSection = { heading: string; blocks: LegalBlock[] };
 export type LegalDocument = { title: string; effectiveDate: string; intro: string; sections: LegalSection[] };
 
 // 운영 주체와 연락처 (사용자 결정: "달리모 운영팀"으로 쓴다, 결정 로그 67항).
-// 운영팀이 개인정보 보호책임자 · 위치정보관리책임자를 맡는다. 이메일은 출시 전에 실제 값으로 바꾼다
+// 운영팀이 개인정보 보호책임자 · 위치정보관리책임자를 맡는다.
+// 연락은 이메일을 공개하지 않고 소개 사이트 문의 페이지의 문의 양식으로 받는다 (사용자 결정, 결정 로그 71항)
 export const LEGAL_CONTACT = {
   operator: '달리모 운영팀',
-  email: '[문의 이메일]',
+  support: 'https://dallimo-landing.kro.kr/support/',
 };
 
 export const EFFECTIVE_DATE = '2026년 10월 1일';

@@ -242,7 +242,7 @@ export function End({ accent, credit: creditText }: { accent: number; credit: st
             transform: `scale(${pill})`,
           }}
         >
-          곧 App Store · Google Play 출시
+          곧 App Store 출시
         </div>
         {creditText ? <div style={{ marginTop: 40, fontFamily: FONT, fontWeight: 500, fontSize: 26, color: C.muted, opacity: credit * 0.8 }}>{creditText}</div> : null}
       </AbsoluteFill>
