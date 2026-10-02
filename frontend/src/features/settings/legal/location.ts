@@ -71,7 +71,7 @@ export const LOCATION_TERMS: LegalDocument = {
         '② 회원은 다음 방법으로 제1항의 권리를 행사할 수 있습니다.',
         '1. 수집 일시 정지: 휴대폰 설정에서 달리모의 위치 권한을 끕니다. 이때 러닝 기록과 주변 코스 찾기는 쓸 수 없습니다.',
         '2. 동의 철회: 설정 > 계정 > 탈퇴하기',
-        `3. 그 밖의 요구: ${LEGAL_CONTACT.email}`,
+        `3. 그 밖의 요구: 문의 페이지(${LEGAL_CONTACT.support})`,
         '③ 회원이 동의를 철회하면 운영팀은 지체 없이 수집한 개인위치정보와 위치정보 이용 · 제공 사실 확인자료를 파기합니다. 다만 관계 법령에 보관 의무가 있으면 그 기간 동안 보관합니다.',
         '④ 운영팀은 정당한 사유 없이 제1항의 요구를 거절하지 않습니다.',
       ],
@@ -101,7 +101,7 @@ export const LOCATION_TERMS: LegalDocument = {
           head: ['구분', '내용'],
           rows: [
             ['위치정보관리책임자', LEGAL_CONTACT.operator],
-            ['연락처', LEGAL_CONTACT.email],
+            ['연락처', `문의 페이지 ${LEGAL_CONTACT.support}`],
           ],
         },
       ],
