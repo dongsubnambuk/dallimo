@@ -1,7 +1,8 @@
 // 영상 시간표: 배경 음악의 마디에 장면 전환을 맞춘다 (결정 로그 69항)
 export const FPS = 30;
 export const DURATION = 30 * FPS;
-export const TRANSITION = 10; // 전환 10프레임이 끝나는 순간 박이 온다
+// 컷마다 전환 길이(프레임). 전환이 끝나는 순간 박이 온다. 전환 모양은 Promo.tsx의 CUTS (결정 로그 69항)
+export const TRANSITIONS = [8, 12, 10, 14, 14, 12, 16];
 
 type Track = {
   file: string;
@@ -54,7 +55,7 @@ export function timeline(id: TrackId) {
 
   const cutFrames = track.cutBars.map(barFrame);
   // TransitionSeries 장면 길이: 장면 i는 전환 i가 끝나는 프레임까지
-  const starts = [0, ...cutFrames.map((e) => e - TRANSITION)];
+  const starts = [0, ...cutFrames.map((e, i) => e - TRANSITIONS[i])];
   const sceneFrames = starts.map((s, i) => (i < cutFrames.length ? cutFrames[i] : DURATION) - s);
   const endStart = starts[starts.length - 1];
 
