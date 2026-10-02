@@ -135,14 +135,22 @@ public final class RunDtos {
     public record RunStatusResponse(long runId, RunStatus status, Instant at) {
     }
 
-    /** 히스토리 한 줄 (GET /runs). courseName은 코스 러닝일 때, workoutName은 인터벌 달리기일 때, source · sourceDeviceName · importedAt은 가져온 기록일 때(122.3장 Source Badge) */
+    /**
+     * 히스토리 한 줄 (GET /runs). courseName은 코스 러닝일 때, workoutName은 인터벌 달리기일 때, source · sourceDeviceName · importedAt은 가져온 기록일 때(122.3장 Source Badge).
+     * previewRoute: 목록 썸네일용으로 줄인 경로 [위도, 경도] 최대 41개. 목록에서만 주고(상세는 path, 여기는 null), 점이 없으면 빈 목록
+     */
     public record RunSummaryResponse(long runId, String clientRunUuid, RunMode mode, RunStatus status, Long courseId, String courseName,
                                      Instant startedAt, Instant endedAt, int distanceM, int elapsedSeconds, Integer avgPaceSecPerKm,
-                                     String verificationStatus, String workoutName, RunSource source, String sourceDeviceName, Instant importedAt) {
+                                     String verificationStatus, String workoutName, RunSource source, String sourceDeviceName, Instant importedAt,
+                                     List<double[]> previewRoute) {
         static RunSummaryResponse from(Run r, String courseName) {
+            return from(r, courseName, null);
+        }
+
+        static RunSummaryResponse from(Run r, String courseName, List<double[]> previewRoute) {
             return new RunSummaryResponse(r.getId(), r.getClientRunUuid(), r.getMode(), r.getStatus(), r.getCourseId(), courseName, r.getStartedAt(),
                     r.getEndedAt(), r.getDistanceM(), r.getElapsedSeconds(), r.getAvgPaceSecPerKm(), r.getVerificationStatus(), r.getWorkoutName(),
-                    r.getSource(), r.getSourceDeviceName(), r.getImportedAt());
+                    r.getSource(), r.getSourceDeviceName(), r.getImportedAt(), previewRoute);
         }
     }
 

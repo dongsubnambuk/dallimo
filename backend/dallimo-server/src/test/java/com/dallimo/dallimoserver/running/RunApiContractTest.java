@@ -214,6 +214,12 @@ abstract class RunApiContractTest {
         List<Integer> ids2 = JsonPath.read(body(page2), "$.data.items[*].runId");
         assertThat(ids2).hasSize(1).doesNotContainAnyElementsOf(ids1);
         assertThat(JsonPath.<Boolean>read(body(page2), "$.data.hasNext")).isFalse();
+        // 목록 썸네일: 400점을 41점 이하로 줄이고 첫 점 · 마지막 점을 넣는다
+        List<List<Double>> preview = JsonPath.read(body(page1), "$.data.items[0].previewRoute");
+        assertThat(preview.size()).isBetween(2, 41);
+        List<List<Double>> full = JsonPath.read(body(get(token, "/api/v1/runs/" + ids1.get(0))), "$.data.path");
+        assertThat(preview.get(0)).isEqualTo(full.get(0));
+        assertThat(preview.get(preview.size() - 1)).isEqualTo(full.get(full.size() - 1));
         // 최근 시작 순
         List<String> starts = JsonPath.read(body(page1), "$.data.items[*].startedAt");
         assertThat(starts.get(0)).isGreaterThan(starts.get(1));

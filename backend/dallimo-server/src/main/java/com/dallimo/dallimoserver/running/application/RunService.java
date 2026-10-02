@@ -301,6 +301,15 @@ public class RunService {
         return n;
     }
 
+    // 목록 썸네일은 작아서 점 40개면 모양이 충분하다 (앱 history.ts PREVIEW_POINTS와 같다)
+    static final int PREVIEW_POINTS = 40;
+
+    /** 히스토리 목록 썸네일용으로 줄인 경로 (runId → [위도, 경도]). 점이 없는 러닝(실내 가져오기 등)은 빠진다 */
+    @Transactional(readOnly = true)
+    public Map<Long, List<double[]>> previews(List<Run> list) {
+        return points.previews(list.stream().map(Run::getId).toList(), PREVIEW_POINTS);
+    }
+
     /** 코스 러닝의 코스 이름 (courseId → 이름) */
     @Transactional(readOnly = true)
     public Map<Long, String> courseNames(List<Run> list) {

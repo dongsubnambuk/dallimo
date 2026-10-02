@@ -215,7 +215,7 @@
 13. ~~일시정지 · 재개 시각~~ → finish에 `activeSeconds`를 더했다(사용자 결정). 명세 42.4장 요청 필드에 넣어야 한다
 14. FINISHING 응답 모양: 42.4장은 "동기화 미완료 오류/FINISHING 상태" 중 하나라고만 한다. 서버 · 앱 모두 200 + `status: FINISHING`으로 구현했다
 15. `RESOURCE_NOT_FOUND`(404): 서버가 27.1장 표에 없는 코드를 하나 더했다. 없는 주소처럼 도메인 코드가 없는 404에 쓴다. 명세 표에 넣을지 정한다
-16. 히스토리 목록 경로 미리보기: GET /runs 항목에 줄인 경로를 넣을지. 지금은 서버 기록 썸네일이 빈칸이다
+16. ~~히스토리 목록 경로 미리보기~~ → GET /runs 항목에 `previewRoute`(줄인 경로 [위도, 경도] 최대 41개, 정확도 50m보다 나쁜 점 제외)를 넣었다. 상세 응답의 같은 자리는 null. 명세 42장 응답 필드에 넣어야 한다
 17. ~~코스 지역 · 러닝 환경 · 추천 시간을 저장할 곳~~ → V10 `region` · `recommended_time`, 러닝 환경은 완주자 평가(course_review)를 모은 값. 화장실 · 급수는 평가에 `has_toilet` · `has_water`를 더했다. ERD에 넣어야 한다
 18. 실시간 메시지 필드: 46장은 `elapsedMs · currentPace · memberSeq · runId`, 서버 · 앱은 `elapsedSeconds · currentPaceSecPerKm · seq`, runId는 POST /runs `liveRoomId`로 잇는다. ROOM_SNAPSHOT 대신 SYNC_STATE. 명세에 맞출지 정한다
 19. 친구 API 모양: 44장은 경로만 있다. 요청 응답(요청 뒤 관계), 요청 목록 `{ received, sent }`, 검색 항목의 `relation · requestId`, 프로필 경로 `GET /users/{userId}`를 서버 · 앱이 정했다. 명세에 넣어야 한다

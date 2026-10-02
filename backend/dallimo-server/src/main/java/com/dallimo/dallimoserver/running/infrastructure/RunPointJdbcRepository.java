@@ -2,11 +2,18 @@ package com.dallimo.dallimoserver.running.infrastructure;
 
 import com.dallimo.dallimoserver.running.domain.RunPoint;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * RunPoint 대량 저장 · 조회 (28.1장 JdbcTemplate batch, ADR-003).
@@ -44,6 +51,41 @@ public class RunPointJdbcRepository {
                 rs.getInt(1), rs.getDouble(2), rs.getDouble(3),
                 (Double) rs.getObject(4, Double.class), (Double) rs.getObject(5, Double.class), (Double) rs.getObject(6, Double.class),
                 rs.getTimestamp(7).toInstant()), runId);
+    }
+
+    /**
+     * 히스토리 목록 썸네일용으로 줄인 경로 (runId → [위도, 경도] 최대 maxPoints+1개). 정확도가 50m보다 나쁜 점은 뺀다.
+     * 러닝마다 첫 · 마지막 seq 사이를 고르게 나눈 seq만 (run_id, seq) 인덱스로 읽는다.
+     * 러닝 점 전체를 창 함수로 정렬하면 2시간 러닝 20개(14만 점)에 0.6~1.3초가 걸렸다 (결정 로그 70항)
+     */
+    public Map<Long, List<double[]>> previews(List<Long> runIds, int maxPoints) {
+        Map<Long, List<double[]>> out = new HashMap<>();
+        if (runIds.isEmpty()) return out;
+        NamedParameterJdbcTemplate named = new NamedParameterJdbcTemplate(jdbc);
+        Map<Long, int[]> range = new HashMap<>();
+        named.query("SELECT run_id, MIN(seq), MAX(seq) FROM tbl_run_point WHERE run_id IN (:ids) GROUP BY run_id",
+                Map.of("ids", runIds), rs -> {
+                    range.put(rs.getLong(1), new int[]{rs.getInt(2), rs.getInt(3)});
+                });
+        if (range.isEmpty()) return out;
+        List<String> where = new ArrayList<>();
+        MapSqlParameterSource args = new MapSqlParameterSource();
+        int k = 0;
+        for (Map.Entry<Long, int[]> e : range.entrySet()) {
+            int first = e.getValue()[0], last = e.getValue()[1];
+            Set<Integer> seqs = new TreeSet<>();
+            for (int i = 0; i <= maxPoints; i++) seqs.add(first + (int) Math.round((double) (last - first) * i / maxPoints));
+            where.add("(run_id = :r" + k + " AND seq IN (:s" + k + "))");
+            args.addValue("r" + k, e.getKey()).addValue("s" + k, seqs);
+            k++;
+        }
+        named.query("""
+                SELECT run_id, latitude, longitude FROM tbl_run_point
+                WHERE (%s) AND (accuracy_m IS NULL OR accuracy_m <= 50)
+                ORDER BY run_id, seq""".formatted(String.join(" OR ", where)), args, rs -> {
+            out.computeIfAbsent(rs.getLong(1), x -> new ArrayList<>()).add(new double[]{rs.getDouble(2), rs.getDouble(3)});
+        });
+        return out;
     }
 
     /**
