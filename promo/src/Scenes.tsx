@@ -25,14 +25,26 @@ function Headline({ a, b, size = 128 }: { a: ReactNode; b: ReactNode; size?: num
   );
 }
 
-// 휴대폰이 아래에서 올라오고 천천히 커진다
-function RisingPhone({ screen, width = 620, top = 660, x = 0, rotate = 0, delay = 0 }: { screen: string; width?: number; top?: number; x?: number; rotate?: number; delay?: number }) {
+// 휴대폰이 들어오는 방식을 장면마다 바꾼다 (같은 등장만 반복하면 단조롭다). 들어온 뒤에는 천천히 커진다
+type Enter = 'rise' | 'zoom' | 'tilt' | 'drop' | 'left' | 'right';
+
+function ScenePhone({ screen, width = 620, top = 660, x = 0, rotate = 0, delay = 0, enter = 'rise' }: { screen: string; width?: number; top?: number; x?: number; rotate?: number; delay?: number; enter?: Enter }) {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
-  const p = spring({ frame: frame - delay, fps, config: { damping: 18, mass: 0.9 } });
+  // drop은 위에서 떨어져 한 번 튕기며 멈춘다 (덜 감쇠)
+  const p = spring({ frame: frame - delay, fps, config: enter === 'drop' ? { damping: 9, mass: 0.8, stiffness: 140 } : { damping: 18, mass: 0.9 } });
   const zoom = interpolate(frame, [0, durationInFrames], [1, 1.05]);
+  const move = {
+    rise: `translateY(${(1 - p) * 520}px)`,
+    zoom: `scale(${0.55 + 0.45 * p})`,
+    tilt: `perspective(1600px) translateY(${(1 - p) * 360}px) rotateX(${(1 - p) * 38}deg)`,
+    drop: `translateY(${(1 - p) * -900}px)`,
+    left: `translateX(${(1 - p) * -1000}px) rotate(${(1 - p) * -14}deg)`,
+    right: `translateX(${(1 - p) * 1000}px) rotate(${(1 - p) * 14}deg)`,
+  }[enter];
+  const opacity = enter === 'zoom' ? Math.min(1, p * 2) : 1;
   return (
-    <div style={{ position: 'absolute', top, left: '50%', marginLeft: -width / 2 + x, transform: `translateY(${(1 - p) * 520}px) rotate(${rotate}deg) scale(${zoom})`, transformOrigin: '50% 30%' }}>
+    <div style={{ position: 'absolute', top, left: '50%', marginLeft: -width / 2 + x, opacity, transform: `${move} rotate(${rotate}deg) scale(${zoom})`, transformOrigin: '50% 30%' }}>
       <Phone screen={screen} width={width} />
     </div>
   );
@@ -72,7 +84,7 @@ export function Explore() {
     <AbsoluteFill>
       <Backdrop />
       <Headline a="내 주변 코스를" b="지도에서 바로" />
-      <RisingPhone screen="explore" delay={4} />
+      <ScenePhone screen="explore" delay={4} enter="rise" />
       <Chip delay={38} style={{ top: 1160, right: 50 }}>
         <span style={{ color: C.signal }}>●</span> 수성못 둘레길 1.9km
       </Chip>
@@ -85,7 +97,7 @@ export function Course() {
     <AbsoluteFill>
       <Backdrop />
       <Headline a="달리기 전에" b="알아야 할 것만" />
-      <RisingPhone screen="course" delay={4} />
+      <ScenePhone screen="course" delay={6} enter="zoom" />
       <Chip delay={26} style={{ top: 1060, left: 40 }}>
         거리 <Metric size={48}>1.9km</Metric>
       </Chip>
@@ -106,7 +118,7 @@ export function Run() {
     <AbsoluteFill>
       <Backdrop />
       <Headline a="달리는 중엔" b="숫자 세 개만" />
-      <RisingPhone screen="run" delay={4} />
+      <ScenePhone screen="run" delay={4} enter="tilt" />
       <Chip delay={16} style={{ top: 880, right: 40, padding: '18px 34px' }}>
         <Metric size={76}>{km.toFixed(2)}</Metric>
         <span style={{ fontSize: 34, color: C.muted }}>km</span>
@@ -131,7 +143,7 @@ export function Result() {
     <AbsoluteFill>
       <Backdrop />
       <Headline a="멈추는 순간" b="공식 기록으로" />
-      <RisingPhone screen="result" delay={4} />
+      <ScenePhone screen="result" delay={6} enter="drop" />
       <Chip delay={28} style={{ top: 1160, left: 40 }}>
         <Check /> 공식 기록 인증됨
       </Chip>
@@ -176,7 +188,7 @@ export function Ranking() {
     <AbsoluteFill>
       <Backdrop />
       <Headline a="코스마다" b="순위가 있어요" />
-      <RisingPhone screen="ranking" delay={4} />
+      <ScenePhone screen="ranking" delay={8} enter="right" />
       <Chip delay={24} style={{ top: 1220, right: 40, padding: '24px 40px' }}>
         <span style={{ color: C.muted, fontSize: 38 }}>이번 주</span>
         <Metric size={110} color={C.signal}>
@@ -195,8 +207,8 @@ export function Together() {
     <AbsoluteFill>
       <Backdrop />
       <Headline a="장소가 달라도" b="같은 시간에 출발" />
-      <RisingPhone screen="room" width={500} top={760} x={-190} rotate={-6} delay={4} />
-      <RisingPhone screen="live" width={540} top={700} x={170} rotate={4} delay={12} />
+      <ScenePhone screen="room" width={500} top={760} x={-190} rotate={-6} delay={4} enter="left" />
+      <ScenePhone screen="live" width={540} top={700} x={170} rotate={4} delay={12} enter="right" />
       <Chip delay={46} style={{ top: 1560, left: '50%', transform: undefined, translate: '-50% 0' }}>
         위치 대신 거리 · 페이스만 보여요
       </Chip>
