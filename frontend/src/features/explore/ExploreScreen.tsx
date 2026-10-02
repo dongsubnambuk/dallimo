@@ -39,6 +39,8 @@ import { useNearbyCourses } from './useNearbyCourses';
 
 const DEFAULT_RADIUS_M = 3000;
 const WIDE_RADIUS_M = 10000;
+// 추천은 목록 범위와 따로 10km 안에서 고른다 (사용자 결정, 결정 로그 73항)
+const RECOMMEND_RADIUS_M = 10000;
 const MAP_RATIO = 0.64;
 const SHEET_OVERLAP = spacing.xxl;
 const TOP_BAR_HEIGHT = 44;
@@ -98,6 +100,9 @@ export function ExploreScreen() {
   const [moved, setMoved] = useState<{ center: GeoPoint; radiusM: number } | null>(null);
   const [area, setArea] = useState<{ center: GeoPoint; radiusM: number } | null>(null);
   const { state: nearbyState, position } = useNearbyCourses(scenario, radiusM, area);
+  // 추천 후보: 목록과 같은 곳을 중심으로 10km. 목록이 이미 10km면 같은 조회를 함께 쓴다
+  const recommendArea = area ? { center: area.center, radiusM: Math.max(area.radiusM, RECOMMEND_RADIUS_M) } : null;
+  const { state: poolState } = useNearbyCourses(scenario, Math.max(radiusM, RECOMMEND_RADIUS_M), recommendArea);
 
   // CRS-003 이름 · 지역 · 태그 검색 (서버). 검색어가 있으면 목록 · 지도가 검색 결과로 바뀐다
   const [searchQ, setSearchQ] = useState('');
@@ -138,10 +143,11 @@ export function ExploreScreen() {
     return all.filter((c) => active.every((f) => f.match(c))).sort(sorters[sort]);
   }, [all, filters, sort, quick]);
 
-  // CRS-005 추천: 평소 달리는 거리(최근 기록 20개의 가운데 값)에 맞춘 규칙 기반 추천 하나
+  // CRS-005 추천: 평소 달리는 거리(최근 기록 20개의 가운데 값)에 맞춘 규칙 기반 추천 하나. 후보는 10km 안 코스
   const recent = useQuery({ queryKey: ['run', 'typical-distance'], queryFn: () => runResultRepository.list(null, 20), staleTime: 5 * 60_000, retry: false });
   const typical = typicalDistance((recent.data?.items ?? []).map((r) => r.distanceM));
-  const recommendation = useMemo(() => (searchMode ? null : (recommendCourses(all, typical, 1, runner)[0] ?? null)), [all, typical, searchMode, runner]);
+  const pool = useMemo(() => (poolState.kind === 'ready' ? poolState.courses : []), [poolState]);
+  const recommendation = useMemo(() => (searchMode ? null : (recommendCourses(pool, typical, 1, runner)[0] ?? null)), [pool, typical, searchMode, runner]);
 
   const weeklyRunners = all.reduce((n, c) => n + c.weeklyRunnerCount, 0);
   // 이번 주에 달린 사람이 있을 때만 "이번 주 인기" (아무도 안 달렸는데 인기라고 하지 않는다)
@@ -295,7 +301,8 @@ export function ExploreScreen() {
           title={searchMode ? `'${searchQ}' 검색 결과` : area ? '이 지역 코스' : undefined}
           searchMode={searchMode}
           recommendation={recommendation}
-          onPressRecommendation={(c) => select(c.id)}
+          // 목록 범위 밖 코스는 지도에서 고를 수 없어 바로 상세로 간다
+          onPressRecommendation={(c) => (visible.some((v) => v.id === c.id) ? select(c.id) : openDetail(c))}
           all={all}
           visible={visible}
           locationDenied={locationDenied}
@@ -520,17 +527,21 @@ function SheetBody({
   }
 
   if (all.length === 0) {
+    // 목록 범위(3km)에 코스가 없어도 10km 안 추천은 보여 준다
     return (
-      <StateNotice
-        icon="search"
-        title={`${formatDistanceKm(radiusM, 0)}km 안에 등록된 코스가 없어요`}
-        body={radiusM < WIDE_RADIUS_M ? '범위를 넓히거나 다른 지역에서 찾아보세요.' : '다른 지역을 검색해 보세요.'}
-        actions={
-          radiusM < WIDE_RADIUS_M ? (
-            <SecondaryButton label={`${formatDistanceKm(WIDE_RADIUS_M, 0)}km까지 넓히기`} size="sm" onPress={onWiden} />
-          ) : undefined
-        }
-      />
+      <View>
+        {recommendation ? <RecommendRow item={recommendation} onPress={() => onPressRecommendation(recommendation.course)} /> : null}
+        <StateNotice
+          icon="search"
+          title={`${formatDistanceKm(radiusM, 0)}km 안에 등록된 코스가 없어요`}
+          body={radiusM < WIDE_RADIUS_M ? '범위를 넓히거나 다른 지역에서 찾아보세요.' : '다른 지역을 검색해 보세요.'}
+          actions={
+            radiusM < WIDE_RADIUS_M ? (
+              <SecondaryButton label={`${formatDistanceKm(WIDE_RADIUS_M, 0)}km까지 넓히기`} size="sm" onPress={onWiden} />
+            ) : undefined
+          }
+        />
+      </View>
     );
   }
 
@@ -606,7 +617,7 @@ function SheetBody({
   );
 }
 
-// CRS-005 오늘의 추천 한 줄. 누르면 지도 · 목록에서 그 코스를 고른다
+// CRS-005 오늘의 추천 한 줄. 누르면 지도 · 목록에서 그 코스를 고른다 (목록에 없으면 상세로)
 function RecommendRow({ item, onPress }: { item: Recommendation; onPress: () => void }) {
   const { colors } = useTheme();
   return (
