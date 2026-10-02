@@ -54,6 +54,8 @@ export type RunResult = {
   workout?: RunWorkoutResult | null;
   // 122.3장 Source Badge: 건강 앱에서 가져온 기록이면 어디서 (달리모로 기록했으면 없다)
   source?: RunSourceInfo | null;
+  // 워치 심박 평균 · 최고 (심박 저장에 동의하고 서버에 올라간 기록만, 결정 로그 65항)
+  heartRate?: { avgBpm: number; maxBpm: number } | null;
 };
 
 export type RunSegmentResult = { index: number; timeSec: number; previousBestSec: number | null; personalBest: boolean; rank: number; leaderSec: number };

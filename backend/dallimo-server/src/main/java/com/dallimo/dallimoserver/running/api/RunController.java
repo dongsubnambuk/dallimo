@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.running.api;
 
+import com.dallimo.dallimoserver.running.infrastructure.RunHeartRateJdbcRepository;
 import com.dallimo.dallimoserver.challenge.api.ChallengeController;
 import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.common.error.ApiException;
@@ -110,7 +111,8 @@ public class RunController {
     @PostMapping("/{runId}/finish")
     public ApiResponse<FinishRunResponse> finish(@AuthenticationPrincipal Jwt jwt, @PathVariable long runId, @Valid @RequestBody FinishRunRequest req) {
         List<RunWorkoutStep> steps = req.workoutSteps() == null ? null : req.workoutSteps().stream().map(RunDtos.WorkoutStepDto::toStep).toList();
-        Run r = runs.finish(userId(jwt), runId, req.endedAt().toInstant(), req.lastSeq(), req.activeSeconds(), steps).run();
+        List<RunHeartRateJdbcRepository.Sample> heart = req.heartRate() == null ? null : req.heartRate().stream().map(RunDtos.HeartRateDto::toSample).toList();
+        Run r = runs.finish(userId(jwt), runId, req.endedAt().toInstant(), req.lastSeq(), req.activeSeconds(), steps, heart).run();
         return ApiResponse.ok(FinishRunResponse.from(r));
     }
 
@@ -136,7 +138,7 @@ public class RunController {
         return ApiResponse.ok(new RunDetailResponse(RunSummaryResponse.from(r, runs.courseNames(List.of(r)).get(r.getCourseId())),
                 d.metrics().splits(), d.metrics().path(), verificationOf(r),
                 challenges.forRun(r.getUserId(), r.getId()).map(ChallengeController.ChallengeResponse::from).orElse(null),
-                RunDtos.WorkoutResultResponse.of(r, d.workoutSteps())));
+                RunDtos.WorkoutResultResponse.of(r, d.workoutSteps()), d.heartRate()));
     }
 
     /** 코스 러닝이 아니면 null. 판정 전이면 상태만 */

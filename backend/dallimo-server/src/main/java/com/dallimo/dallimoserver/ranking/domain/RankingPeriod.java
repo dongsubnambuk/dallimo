@@ -35,5 +35,10 @@ public enum RankingPeriod {
     }
 
     public record Window(Instant from, Instant to) {
+
+        /** 전체 기간이면 사용자별 최고 기록 projection(tbl_course_user_best)으로 바로 센다 */
+        public boolean allTime() {
+            return from.equals(EARLIEST) && to.equals(LATEST);
+        }
     }
 }

@@ -64,11 +64,14 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
 - Apple Watch 앱(`targets/watch`, `@bacons/apple-targets`)의 번들 ID는 `{IOS_BUNDLE_ID}.watchkitapp`이다. 이 번들 ID도 등록 · 서명되어야 한다. EAS가 워치 타깃 서명을 어떻게 다루는지 문서로 확인하고, 필요하면 사용자에게 Apple Developer에서 등록을 요청한다.
 - 확인: production 빌드가 TestFlight에 올라가고, 휴대폰 앱 · 워치 앱이 함께 설치된다.
 
-### 2.5 이용약관 · 개인정보 처리방침 본문
+### 2.5 이용약관 · 위치기반서비스 이용약관 · 개인정보 처리방침 본문
 
-- `src/features/settings/LegalScreen.tsx`는 지금 "문서를 준비하고 있어요" 안내만 보여 준다.
-- 본문은 사용자가 준다. 받으면 화면에 넣는다. 본문을 Codex가 지어내지 않는다.
-- 스토어 등록에 필요한 개인정보 처리방침 URL은 사용자와 정한다.
+- 본문은 `src/features/settings/legal/`(terms.ts · location.ts · privacy.ts)에 있고 `LegalScreen`이 보여 준다(결정 로그 66 · 67항).
+- 운영 주체는 "달리모 운영팀"이다. 개인정보 보호책임자 · 위치정보관리책임자도 운영팀이다(결정 로그 67항).
+- **출시 전에 `legal/types.ts`의 `LEGAL_CONTACT.email`(문의 이메일)을 실제 값으로 바꾼다.** 지금은 `[ ]` 자리 표시다. 사용자에게 받는다.
+- 본문 내용을 Codex가 바꾸지 않는다. 기능이 바뀌어 처리하는 정보가 달라지면 사용자에게 알린다.
+- 소개 사이트(`landing/`)의 약관 페이지는 이 본문을 빌드 때 그대로 읽는다. 따로 고칠 것 없다(결정 로그 68항).
+- 스토어 등록 URL은 소개 사이트 주소를 쓴다. 개인정보 처리방침 `/privacy/`, 지원(문의) `/support/`, 마케팅 `/`. 호스팅 주소는 사용자가 정한다(`landing/README.md`).
 
 ## 3. 서버와 반드시 같게 맞출 값
 

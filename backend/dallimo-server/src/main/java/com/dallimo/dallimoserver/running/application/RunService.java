@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.running.application;
 
+import com.dallimo.dallimoserver.running.infrastructure.RunHeartRateJdbcRepository;
 import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
@@ -61,10 +62,12 @@ public class RunService {
     private final ChallengeService challenges;
     private final RunWorkoutJdbcRepository workoutSteps;
     private final WorkoutService workouts;
+    private final RunHeartRateJdbcRepository heartRates;
 
     public RunService(RunJpaRepository runs, RunPointJdbcRepository points, RunSyncBatchRepository batches, JdbcTemplate jdbc, Clock clock,
                       ApplicationEventPublisher events, LiveMemberJdbcRepository liveMembers, ChallengeService challenges,
-                      RunWorkoutJdbcRepository workoutSteps, WorkoutService workouts) {
+                      RunWorkoutJdbcRepository workoutSteps, WorkoutService workouts, RunHeartRateJdbcRepository heartRates) {
+        this.heartRates = heartRates;
         this.runs = runs;
         this.points = points;
         this.batches = batches;
@@ -86,7 +89,7 @@ public class RunService {
     public record Finished(Run run) {
     }
 
-    public record Detail(Run run, RunMetrics.Result metrics, List<RunWorkoutStep> workoutSteps) {
+    public record Detail(Run run, RunMetrics.Result metrics, List<RunWorkoutStep> workoutSteps, RunHeartRateJdbcRepository.Summary heartRate) {
     }
 
     /** 인터벌 달리기에서 달린 인터벌. 저장한 인터벌이면 id · 버전, 추천 인터벌이면 이름만 */
@@ -152,7 +155,7 @@ public class RunService {
                 log.warn("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=CONFLICT", runId, batchUuid, fromSeq, toSeq);
                 throw new ApiException(ErrorCode.IDEMPOTENCY_CONFLICT);
             }
-            int last = points.lastContiguousSeq(runId);
+            int last = contiguous(run);
             // 응답을 못 받은 앱의 재전송
             log.info("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=DUPLICATE lastSeq={}", runId, batchUuid, fromSeq, toSeq, last);
             return new BatchResult(batchUuid, true, last);
@@ -164,9 +167,16 @@ public class RunService {
         validate(fromSeq, toSeq, batch);
         points.insertAll(runId, batch);
         batches.insert(runId, batchUuid, received, clock.instant());
-        int last = points.lastContiguousSeq(runId);
+        int last = contiguous(run);
         log.info("run.batch runId={} batchUuid={} fromSeq={} toSeq={} count={} result=ACCEPTED lastSeq={}", runId, batchUuid, fromSeq, toSeq, batch.size(), last);
         return new BatchResult(batchUuid, true, last);
+    }
+
+    /** 1부터 이어진 마지막 seq. Run에 저장한 값 뒤부터만 세고 다시 저장한다 (Run을 잠근 트랜잭션 안에서 부른다) */
+    private int contiguous(Run run) {
+        int last = points.lastContiguousSeq(run.getId(), run.getContiguousSeq());
+        run.advanceContiguousSeq(last);
+        return last;
     }
 
     @Transactional
@@ -197,9 +207,17 @@ public class RunService {
         return finish(userId, runId, endedAt, lastSeq, activeSeconds, null);
     }
 
-    /** steps: 인터벌 달리기의 구간별 결과. 끝낼 때 한 번 저장한다 (FINISHING이면 다음 요청에 다시 온다) */
-    @Transactional
     public Finished finish(long userId, long runId, Instant endedAt, int lastSeq, Integer activeSeconds, List<RunWorkoutStep> steps) {
+        return finish(userId, runId, endedAt, lastSeq, activeSeconds, steps, null);
+    }
+
+    /**
+     * steps: 인터벌 달리기의 구간별 결과. heartRate: 워치 심박 (FOUNDATION-DECISION-LOG 65항).
+     * 끝낼 때 한 번 저장한다 (FINISHING이면 다음 요청에 다시 온다)
+     */
+    @Transactional
+    public Finished finish(long userId, long runId, Instant endedAt, int lastSeq, Integer activeSeconds, List<RunWorkoutStep> steps,
+                           List<RunHeartRateJdbcRepository.Sample> heartRate) {
         Run run = lockOwned(userId, runId);
         if (run.getStatus() == RunStatus.FINISHED) return new Finished(run);
         if (steps != null && !steps.isEmpty()) {
@@ -208,7 +226,7 @@ public class RunService {
             steps.forEach(RunWorkoutStep::validate);
         }
         if (run.getStatus() == RunStatus.CANCELED) throw new ApiException(ErrorCode.RUN_INVALID_STATE);
-        int serverSeq = points.lastContiguousSeq(runId);
+        int serverSeq = contiguous(run);
         if (lastSeq > 0 && serverSeq < lastSeq) {
             run.markFinishing(clock.instant());
             // 빠진 Batch가 있어 확정하지 않는다 (앱이 채운 뒤 다시 요청)
@@ -222,6 +240,13 @@ public class RunService {
         int distance = (int) Math.round(m.distanceM());
         run.finish(end, elapsed, distance, RunMetrics.avgPace(m.distanceM(), elapsed), clock.instant());
         if (steps != null && !steps.isEmpty()) workoutSteps.insertAll(runId, steps);
+        // 러닝 시간 밖(앞뒤 1분 넘게)의 심박은 버린다
+        if (heartRate != null && !heartRate.isEmpty()) {
+            Instant from = run.getStartedAt().minusSeconds(60), to = end.plusSeconds(60);
+            List<RunHeartRateJdbcRepository.Sample> inRun = heartRate.stream()
+                    .filter(s -> !s.recordedAt().isBefore(from) && !s.recordedAt().isAfter(to)).toList();
+            if (!inRun.isEmpty()) heartRates.insertAll(runId, inRun);
+        }
         // 코스 러닝이면 커밋 뒤 완주 검증 (26장)
         if (run.awaitingVerification()) events.publishEvent(new RunFinishedEvent(runId));
         log.info("run.finish runId={} status={} lastSeq={} distanceM={} activeSec={} verification={}", runId, run.getStatus(), lastSeq, distance, elapsed,
@@ -265,7 +290,15 @@ public class RunService {
     public Detail detail(long userId, long runId) {
         Run run = owned(runs.findById(runId).orElseThrow(() -> new ApiException(ErrorCode.RUN_NOT_FOUND)), userId, ErrorCode.RESOURCE_FORBIDDEN);
         return new Detail(run, RunMetrics.compute(points.findAll(runId)),
-                run.getMode() == RunMode.INTERVAL ? workoutSteps.findAll(runId) : List.of());
+                run.getMode() == RunMode.INTERVAL ? workoutSteps.findAll(runId) : List.of(), heartRates.summary(runId));
+    }
+
+    /** 심박 저장 동의를 끄면 이 사람의 심박을 모두 지운다 (FOUNDATION-DECISION-LOG 65항). 지운 수 */
+    @Transactional
+    public int deleteHeartRates(long userId) {
+        int n = heartRates.deleteAllOfUser(userId);
+        log.info("run.heart-rate.delete user={} rows={}", userId, n);
+        return n;
     }
 
     // 목록 썸네일은 작아서 점 40개면 모양이 충분하다 (앱 history.ts PREVIEW_POINTS와 같다)

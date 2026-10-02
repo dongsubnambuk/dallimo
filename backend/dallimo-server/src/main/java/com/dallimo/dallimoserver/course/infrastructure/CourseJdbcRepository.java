@@ -122,9 +122,10 @@ public class CourseJdbcRepository {
         if (courseIds.isEmpty()) return out;
         Map<Long, Integer> leader = new HashMap<>();
         Map<Long, Integer> finishers = new HashMap<>();
+        // 1등 기록 · 완주자 수: 사용자별 최고 기록 projection (23.1장, 결정 로그 70항)
         named.query("""
-                SELECT course_id, MIN(duration_seconds) AS best, COUNT(DISTINCT user_id) AS users
-                FROM tbl_course_record WHERE course_id IN (:ids) GROUP BY course_id""", ids(courseIds), rs -> {
+                SELECT course_id, MIN(best_seconds) AS best, COUNT(*) AS users
+                FROM tbl_course_user_best WHERE course_id IN (:ids) GROUP BY course_id""", ids(courseIds), rs -> {
             leader.put(rs.getLong("course_id"), rs.getInt("best"));
             finishers.put(rs.getLong("course_id"), rs.getInt("users"));
         });

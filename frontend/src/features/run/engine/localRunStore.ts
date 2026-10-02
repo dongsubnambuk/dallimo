@@ -26,6 +26,8 @@ export type LocalRun = {
 
 export type LocalRunSyncState = 'PENDING' | 'SYNCED' | 'FAILED';
 
+export type HeartRateSample = { recordedAt: number; bpm: number };
+
 // 50.3장 Batch 상태
 export type SyncBatchStatus = 'PENDING' | 'SENDING' | 'ACKED' | 'RETRY_WAIT' | 'FAILED';
 export type SyncBatch = {
@@ -64,6 +66,11 @@ export interface LocalRunStore {
   endRun(runUuid: string, at: number, status: 'FINISHED' | 'CANCELED'): Promise<void>;
   // 인터벌 달리기: 구간이 끝날 때마다 경계를 저장한다
   setWorkoutProgress(runUuid: string, json: string): Promise<void>;
+  // 워치 심박 (심박 저장에 동의했을 때만, 결정 로그 65항). 같은 시각은 한 번만
+  appendHeartRate(runUuid: string, recordedAt: number, bpm: number): Promise<void>;
+  getHeartRates(runUuid: string): Promise<HeartRateSample[]>;
+  // 심박 저장 동의를 끄면 아직 올리지 않은 심박도 지운다
+  clearHeartRates(): Promise<void>;
   // 50.1장: seq > last_seq 확인 → INSERT → last_seq 갱신을 한 트랜잭션으로. 붙인 seq를 담아 돌려준다.
   appendPoints(runUuid: string, points: NewRunPoint[]): Promise<RunPoint[]>;
   getPoints(runUuid: string): Promise<RunPoint[]>;

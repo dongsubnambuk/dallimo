@@ -120,6 +120,12 @@ function ResultBody({ result: r, bottomInset }: { result: RunResult; bottomInset
           완주 뒤까지 합친 전체 {formatDistanceKm(r.distanceM)}km · {formatDuration(r.activeSec)}
         </AppText>
       ) : null}
+      {/* 워치 심박 (심박 저장에 동의한 기록, 결정 로그 65항) */}
+      {r.heartRate ? (
+        <AppText role="label" tone="secondary" tabular accessibilityLabel={`심박 평균 ${r.heartRate.avgBpm}, 최고 ${r.heartRate.maxBpm}`}>
+          심박 평균 {r.heartRate.avgBpm} · 최고 {r.heartRate.maxBpm} bpm
+        </AppText>
+      ) : null}
 
       {/* 인터벌 달리기: 구간별 기록이 핵심 수치 다음 (123.2장 WorkoutResult) */}
       {r.workout?.steps.length ? (

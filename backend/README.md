@@ -124,7 +124,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `POST /api/v1/runs` | `{ clientRunUuid, mode, courseId?, challengeId?, liveRoomId?, startedAt, workout? }`. `workout { templateId?, version?, name }`은 인터벌 달리기(`mode: INTERVAL`)에만. 새로 만들면 201, 같은 `clientRunUuid`면 200과 같은 Run. 다른 사용자의 `clientRunUuid`면 409 `IDEMPOTENCY_CONFLICT` |
 | `POST /api/v1/runs/{id}/points` | `{ batchUuid, fromSeq, toSeq, points[] }` (최대 500개). `Idempotency-Key` 헤더를 보내면 batchUuid와 같아야 한다 |
 | `POST /api/v1/runs/{id}/pause` · `resume` | RUNNING ↔ PAUSED. 상태가 맞지 않으면 409 `RUN_INVALID_STATE` |
-| `POST /api/v1/runs/{id}/finish` | `{ endedAt, lastSeq, activeSeconds?, workoutSteps? }`. `workoutSteps`는 인터벌 달리기의 구간별 결과(끝낼 때 한 번 저장). 빠진 seq가 있으면 200 + `status: FINISHING`, 다 있으면 FINISHED와 거리 · 시간 · 페이스. 이미 끝났으면 같은 결과 |
+| `POST /api/v1/runs/{id}/finish` | `{ endedAt, lastSeq, activeSeconds?, workoutSteps?, heartRate? }`. `workoutSteps`는 인터벌 달리기의 구간별 결과(끝낼 때 한 번 저장). `heartRate`는 워치 심박 `[{ recordedAt, bpm }]`(30~250, 최대 3600개, 러닝 앞뒤 1분 밖은 버림, 앱에서 심박 저장에 동의한 사람만, 결정 로그 65항). 상세 `GET /runs/{id}`의 `heartRate { avgBpm, maxBpm, sampleCount }`(없으면 null). `DELETE /api/v1/users/me/heart-rates`로 모두 지우고, 탈퇴하면 같이 지운다. 빠진 seq가 있으면 200 + `status: FINISHING`, 다 있으면 FINISHED와 거리 · 시간 · 페이스. 이미 끝났으면 같은 결과 |
 | `GET /api/v1/runs?cursor=&size=&mode=` | 내 FINISHED 기록, `startedAt` 최신순. size 1~50(기본 20). `mode`를 주면 그 모드만(최근 인터벌 달리기). 항목에 `workoutName` |
 | `GET /api/v1/runs/{id}` | `{ summary, splits, path, verification, challenge, workout }`. path는 표시용으로 400개 이하. `workout { templateId, version, name, steps[] }`은 인터벌 달리기일 때 |
 
@@ -373,7 +373,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `GET /.well-known/apple-app-site-association` · `/.well-known/assetlinks.json` | App Link · Universal Link 확인 파일(로그인 없이). 공유 페이지 `/s/*`만 앱으로. 값이 없으면 404 |
 | `GET /api/v1/users/me` | `stats { runCount, totalDistanceM, totalActiveSec }` (MY-002, 끝난 러닝만) |
 
-- **요청 제한 구현**: Redis 고정 창(INCR + 첫 번째에만 만료, Lua 하나)이라 서버가 여러 대여도 같은 값. 인증 필터 뒤에서 돌아 로그인한 사람은 사람마다 센다. Redis에 닿지 못하면 막지 않는다. 값은 `dallimo.rate-limit.*`(`enabled`, `window`, `login`, `search`, `friend-request`, `share-resolve`, `ws-connect`, `profile-update`), 테스트 프로필은 끈다.
+- **요청 제한 구현**: Redis 고정 창(INCR + 첫 번째에만 만료, Lua 하나)이라 서버가 여러 대여도 같은 값. 인증 필터 뒤에서 돌아 로그인한 사람은 사람마다 센다. Redis에 닿지 못하면 막지 않고, 그 뒤 30초 동안은 Redis에 묻지 않는다(Redis가 죽은 동안 요청마다 타임아웃을 기다리지 않게). Redis 연결 · 명령 타임아웃은 1초(`spring.data.redis.connect-timeout` · `timeout`)라 헬스체크도 1~2초 안에 DOWN을 알린다. 값은 `dallimo.rate-limit.*`(`enabled`, `window`, `login`, `search`, `friend-request`, `share-resolve`, `ws-connect`, `profile-update`), 테스트 프로필은 끈다.
 - **App Link 설정**: `dallimo.share.app-links.ios-app-ids`(팀ID.번들ID), `android-package`, `android-sha256`. 운영은 `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` · `SHARE_PUBLIC_BASE_URL`. 앱은 `APP_LINK_DOMAIN` · `IOS_BUNDLE_ID` · `ANDROID_PACKAGE`로 빌드한다(frontend `app.config.ts`).
 - **테스트**: `RateLimitApiTest`(로그인 · 검색 사람마다 · 공유 해석), `AppLinksTest`, 확인 파일 없음은 `ShareAndRoomApiContractTest`, 누적 통계는 `CourseApiContractTest`.
 

@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -74,20 +75,28 @@ public class CourseService {
         this.clock = clock;
     }
 
-    /** CRS-001 · 23.2장: bounding box로 후보를 줄이고 출발점까지 실제 거리로 거른 뒤 가까운 순 */
+    /**
+     * CRS-001 · 23.2장: bounding box로 후보를 줄이고 출발점까지 실제 거리로 거른 뒤 가까운 순.
+     * 후보는 id · 출발점만 읽고, 거리순으로 자른 한 페이지만 엔티티로 불러온다 (결정 로그 70항)
+     */
     @Transactional(readOnly = true)
     public CursorPage<CourseView> nearby(Long viewerId, double lat, double lng, int radiusM, String cursor, int size) {
         double dLat = radiusM / 111_320.0;
         double dLng = radiusM / (111_320.0 * Math.max(0.01, Math.cos(Math.toRadians(lat))));
-        List<Course> box = courses.findInBox(viewerId, bd(lat - dLat), bd(lat + dLat), bd(lng - dLng), bd(lng + dLng));
+        List<Object[]> box = courses.findStartsInBox(viewerId, bd(lat - dLat), bd(lat + dLat), bd(lng - dLng), bd(lng + dLng));
         Map<Long, Double> distance = new HashMap<>();
-        for (Course c : box) distance.put(c.getId(), CourseRoute.haversineM(lat, lng, c.getStartLat(), c.getStartLng()));
-        List<Course> hits = box.stream()
-                .filter(c -> distance.get(c.getId()) <= radiusM)
-                .sorted(Comparator.comparingDouble((Course c) -> distance.get(c.getId())).thenComparing(Course::getId))
+        for (Object[] row : box) {
+            double d = CourseRoute.haversineM(lat, lng, ((BigDecimal) row[1]).doubleValue(), ((BigDecimal) row[2]).doubleValue());
+            if (d <= radiusM) distance.put((Long) row[0], d);
+        }
+        List<Long> hits = distance.keySet().stream()
+                .sorted(Comparator.comparingDouble((Long id) -> distance.get(id)).thenComparing(id -> id))
                 .toList();
         int offset = decodeOffset(cursor);
-        List<Course> page = hits.subList(Math.min(offset, hits.size()), Math.min(offset + size, hits.size()));
+        List<Long> pageIds = hits.subList(Math.min(offset, hits.size()), Math.min(offset + size, hits.size()));
+        Map<Long, Course> loaded = new HashMap<>();
+        if (!pageIds.isEmpty()) for (Course c : courses.findVisible(viewerId, pageIds)) loaded.put(c.getId(), c);
+        List<Course> page = pageIds.stream().map(loaded::get).filter(Objects::nonNull).toList();
         boolean hasNext = offset + size < hits.size();
         return new CursorPage<>(assemble(page, viewerId, distance), hasNext ? encode("o:" + (offset + size)) : null, hasNext);
     }

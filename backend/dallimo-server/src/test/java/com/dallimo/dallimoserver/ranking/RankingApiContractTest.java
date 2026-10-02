@@ -1,6 +1,7 @@
 package com.dallimo.dallimoserver.ranking;
 
 import com.dallimo.dallimoserver.ranking.domain.RankingPeriod;
+import com.dallimo.dallimoserver.ranking.infrastructure.CourseBestProjection;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +69,31 @@ abstract class RankingApiContractTest {
         assertThat(other).containsEntry("relation", "normal").containsEntry("isPB", false);
         // 비회원도 본다
         assertThat(JsonPath.<List<?>>read(body(get(null, "/api/v1/courses/" + course + "/rankings")), "$.data.items")).hasSize(3);
+    }
+
+    @Test
+    void bestRecordProjectionMatchesRecords() {
+        // 결정 로그 70항: 사용자별 최고 기록 projection은 원본 GROUP BY와 같다. 같은 시간이면 먼저 세운 기록
+        User a = signup(), b = signup();
+        long course = course(a);
+        Instant now = Instant.now();
+        record(course, a, 300, now);
+        record(course, a, 280, now);
+        record(course, a, 280, now);
+        record(course, b, 310, now);
+        record(course, b, 330, now);
+        List<Map<String, Object>> expected = jdbc.queryForList("""
+                SELECT user_id, MIN(duration_seconds) AS best,
+                       (SELECT MIN(r.id) FROM tbl_course_record r WHERE r.course_id = c.course_id AND r.user_id = c.user_id
+                          AND r.duration_seconds = MIN(c.duration_seconds)) AS record_id
+                FROM tbl_course_record c WHERE course_id = ? GROUP BY course_id, user_id ORDER BY user_id""", course);
+        List<Map<String, Object>> actual = jdbc.queryForList(
+                "SELECT user_id, best_seconds AS best, record_id FROM tbl_course_user_best WHERE course_id = ? ORDER BY user_id", course);
+        assertThat(actual).hasSize(2);
+        assertThat(actual.toString()).isEqualTo(expected.toString());
+        // 랭킹 · 내 순위 · 코스 상세 숫자가 projection을 읽는다
+        assertThat(JsonPath.<Integer>read(body(get(b.token, "/api/v1/courses/" + course + "/rankings/me")), "$.data.entry.rank")).isEqualTo(2);
+        assertThat(JsonPath.<Integer>read(body(get(b.token, "/api/v1/courses/" + course + "/rankings/me")), "$.data.total")).isEqualTo(2);
     }
 
     @Test
@@ -264,6 +290,7 @@ abstract class RankingApiContractTest {
         jdbc.update("""
                 INSERT INTO tbl_course_record (course_id, run_id, user_id, duration_seconds, avg_pace_sec_per_km, match_rate, verified_at, created_at)
                 VALUES (?, ?, ?, ?, 333, 99.0, ?, ?)""", courseId, runId, user.id, sec, Timestamp.from(at), Timestamp.from(at));
+        jdbc.update(CourseBestProjection.REFRESH, courseId, user.id); // 검증이 같이 고치는 사용자별 최고 기록
     }
 
     private long courseRun(User user, long courseId, double[] at, int points, double stepM) {

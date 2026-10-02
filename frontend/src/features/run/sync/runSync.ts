@@ -5,6 +5,7 @@ import { stepResults } from '@/entities/workout/tracker';
 import type { ApiErrorCode } from '@/shared/api/contract';
 
 import { parseBoundaries } from '../engine/intervalTracking';
+import { heartRatePayload } from '../heartRateLog';
 import type { LocalRun, LocalRunStore, SyncBatch } from '../engine/localRunStore';
 
 // 29.4장 Sync Worker: 러닝 하나를 서버까지 올린다.
@@ -152,6 +153,7 @@ export async function syncRun(runUuid: string, deps: SyncDeps): Promise<SyncOutc
       // 일시정지 시간은 기기만 안다 (오프라인에서 멈춘 시각은 서버에 가지 않음)
       activeSeconds: Math.round(run.elapsedMs / 1000),
       workoutSteps: workoutSteps(run),
+      heartRate: heartRatePayload(await store.getHeartRates(runUuid)),
     });
     // 42.4장: 서버에 빠진 seq가 있으면 FINISHING. 빠진 Batch를 보낸 뒤 다시 요청한다
     if (finish.status === 'FINISHING') return outcome('pending', deps.now() + SYNC_POLICY.backoffBaseMs);

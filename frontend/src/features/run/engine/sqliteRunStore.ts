@@ -149,6 +149,24 @@ export function createSqliteRunStore(db: SqlDb): LocalRunStore {
         await db.runAsync('UPDATE local_run SET workout_progress = ? WHERE client_run_uuid = ?', json, runUuid);
       }),
 
+    appendHeartRate: (runUuid, recordedAt, bpm) =>
+      write(async () => {
+        await db.runAsync('INSERT OR IGNORE INTO local_run_heart (client_run_uuid, recorded_at, bpm) VALUES (?, ?, ?)', runUuid, recordedAt, bpm);
+      }),
+
+    clearHeartRates: () =>
+      write(async () => {
+        await db.runAsync('DELETE FROM local_run_heart');
+      }),
+
+    async getHeartRates(runUuid) {
+      const rows = await db.getAllAsync<{ recorded_at: number; bpm: number }>(
+        'SELECT recorded_at, bpm FROM local_run_heart WHERE client_run_uuid = ? ORDER BY recorded_at',
+        runUuid,
+      );
+      return rows.map((r) => ({ recordedAt: r.recorded_at, bpm: r.bpm }));
+    },
+
     pauseRun: (runUuid, at) =>
       tx(async () => {
         await closeSegment(runUuid, at);
@@ -268,6 +286,7 @@ export function createSqliteRunStore(db: SqlDb): LocalRunStore {
         await db.runAsync('DELETE FROM local_run_point WHERE client_run_uuid = ?', runUuid);
         await db.runAsync('DELETE FROM local_run_segment WHERE client_run_uuid = ?', runUuid);
         await db.runAsync('DELETE FROM local_sync_batch WHERE client_run_uuid = ?', runUuid);
+        await db.runAsync('DELETE FROM local_run_heart WHERE client_run_uuid = ?', runUuid);
         await db.runAsync('DELETE FROM local_run WHERE client_run_uuid = ?', runUuid);
       }),
 

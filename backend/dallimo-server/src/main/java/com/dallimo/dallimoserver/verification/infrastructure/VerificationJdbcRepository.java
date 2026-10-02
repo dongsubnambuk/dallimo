@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.verification.infrastructure;
 
+import com.dallimo.dallimoserver.ranking.infrastructure.CourseBestProjection;
 import com.dallimo.dallimoserver.verification.domain.VerificationResult;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -32,12 +33,13 @@ public class VerificationJdbcRepository {
                 rate(r.matchRate()), r.failureReason() == null ? null : r.failureReason().name(), policyVersion, Timestamp.from(now));
     }
 
-    /** run_id UNIQUE: 같은 Run으로 공식 기록이 두 번 생기지 않는다 */
+    /** run_id UNIQUE: 같은 Run으로 공식 기록이 두 번 생기지 않는다. 같은 트랜잭션에서 사용자별 최고 기록(23.1장 projection)도 고친다 */
     public void insertRecord(long courseId, long runId, long userId, int seconds, int paceSecPerKm, Double matchRate, Instant now) {
         jdbc.update("""
                         INSERT INTO tbl_course_record (course_id, run_id, user_id, duration_seconds, avg_pace_sec_per_km, match_rate, verified_at, created_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 courseId, runId, userId, seconds, paceSecPerKm, rate(matchRate), Timestamp.from(now), Timestamp.from(now));
+        jdbc.update(CourseBestProjection.REFRESH, courseId, userId);
     }
 
     public long recordIdOfRun(long runId) {

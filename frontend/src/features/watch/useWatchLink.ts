@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import type { ActiveRunSnapshot, RunningEngine } from '@/features/run/engine/runningEngine';
+import { recordHeartRate } from '@/features/run/heartRateLog';
 import { setHapticsMirror } from '@/shared/haptics';
 import { getPreferences, usePreferences } from '@/shared/preferences';
 import { watchTransport, type WatchCommand } from '@/shared/watch/watchTransport';
@@ -119,7 +120,10 @@ export function useWatchLink(engine: RunningEngine, options: WatchLinkOptions) {
     });
     const timer = setInterval(push, SEND_MS);
     const offMessage = watchTransport.onMessage((m) => {
-      if (m.t === 'hr') setHeart(m.bpm, m.at);
+      if (m.t === 'hr') {
+        setHeart(m.bpm, m.at);
+        recordHeartRate(m.bpm, m.at);
+      }
       else if (m.t === 'hello') {
         lastStatus = null;
         push();

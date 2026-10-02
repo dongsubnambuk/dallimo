@@ -2,6 +2,7 @@ package com.dallimo.dallimoserver.user.api;
 
 import com.dallimo.dallimoserver.auth.application.AuthService;
 import com.dallimo.dallimoserver.common.web.ApiResponse;
+import com.dallimo.dallimoserver.running.application.RunService;
 import com.dallimo.dallimoserver.running.infrastructure.RunStatsJdbcRepository;
 import com.dallimo.dallimoserver.user.application.UserService;
 import com.dallimo.dallimoserver.user.domain.RunnerProfile;
@@ -29,11 +30,13 @@ public class UserController {
     private final UserService users;
     private final AuthService auth;
     private final RunStatsJdbcRepository runStats;
+    private final RunService runs;
 
-    public UserController(UserService users, AuthService auth, RunStatsJdbcRepository runStats) {
+    public UserController(UserService users, AuthService auth, RunStatsJdbcRepository runStats, RunService runs) {
         this.users = users;
         this.auth = auth;
         this.runStats = runStats;
+        this.runs = runs;
     }
 
     public record UpdateMeRequest(@NotBlank @Size(max = 40) String nickname) {
@@ -71,6 +74,13 @@ public class UserController {
     @PatchMapping("/me")
     public ApiResponse<UserResponse> updateMe(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UpdateMeRequest req) {
         return ApiResponse.ok(UserResponse.from(users.changeNickname(userId(jwt), req.nickname())));
+    }
+
+    /** 심박 저장 동의를 끄면 저장된 심박을 모두 지운다 (FOUNDATION-DECISION-LOG 65항) */
+    @DeleteMapping("/me/heart-rates")
+    public ResponseEntity<Void> deleteHeartRates(@AuthenticationPrincipal Jwt jwt) {
+        runs.deleteHeartRates(userId(jwt));
+        return ResponseEntity.noContent().build();
     }
 
     /** 탈퇴 (AUTH-004) */

@@ -73,14 +73,20 @@ public class RunPointJdbcRepository {
         return out;
     }
 
-    /** 1부터 빠짐없이 이어진 마지막 seq (0이면 아직 없음) */
-    public int lastContiguousSeq(long runId) {
-        Integer first = jdbc.queryForObject("SELECT MIN(seq) FROM tbl_run_point WHERE run_id = ?", Integer.class, runId);
-        if (first == null || first != 1) return 0;
+    /**
+     * 1부터 빠짐없이 이어진 마지막 seq (0이면 아직 없음).
+     * knownSeq: 이미 이어진 것을 확인한 seq (Run.contiguousSeq). 그 뒤부터만 세서 러닝이 길어도 새로 받은 point만 읽는다.
+     * point는 지우지 않으므로 knownSeq까지는 계속 이어져 있다
+     */
+    public int lastContiguousSeq(long runId, int knownSeq) {
+        if (knownSeq <= 0) {
+            Integer first = jdbc.queryForObject("SELECT MIN(seq) FROM tbl_run_point WHERE run_id = ?", Integer.class, runId);
+            if (first == null || first != 1) return 0;
+        }
         Integer end = jdbc.queryForObject("""
                 SELECT MIN(p.seq) FROM tbl_run_point p
                 LEFT JOIN tbl_run_point q ON q.run_id = p.run_id AND q.seq = p.seq + 1
-                WHERE p.run_id = ? AND q.id IS NULL""", Integer.class, runId);
+                WHERE p.run_id = ? AND p.seq >= ? AND q.id IS NULL""", Integer.class, runId, Math.max(1, knownSeq));
         return end == null ? 0 : end;
     }
 

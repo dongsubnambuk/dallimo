@@ -178,11 +178,15 @@ function Signup() {
           <AppText role="caption" style={styles.link} onPress={() => router.push({ pathname: '/legal/[kind]', params: { kind: 'terms' } })} accessibilityRole="link">
             서비스 이용약관
           </AppText>
-          과{' '}
+          ,{' '}
+          <AppText role="caption" style={styles.link} onPress={() => router.push({ pathname: '/legal/[kind]', params: { kind: 'location' } })} accessibilityRole="link">
+            위치기반서비스 이용약관
+          </AppText>
+          에 동의하고{' '}
           <AppText role="caption" style={styles.link} onPress={() => router.push({ pathname: '/legal/[kind]', params: { kind: 'privacy' } })} accessibilityRole="link">
             개인정보 처리방침
           </AppText>
-          에 동의하게 돼요.
+          을 확인한 것으로 봐요.
         </AppText>
       </View>
     </>

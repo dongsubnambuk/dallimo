@@ -246,6 +246,8 @@ function pastRuns(): RunResult[] {
       weeklyRank: null,
       friendBest: null,
       workout: p.interval ? pastWorkout() : null,
+      // 워치 심박을 저장한 기록 흉내 (짝수 번째, 결정 로그 65항)
+      heartRate: i % 2 === 0 ? { avgBpm: 148 + (i % 5), maxBpm: 171 + (i % 7) } : null,
     };
   });
   pastCache = { day: today.getTime(), runs };

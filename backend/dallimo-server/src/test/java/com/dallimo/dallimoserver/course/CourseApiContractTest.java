@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.course;
 
+import com.dallimo.dallimoserver.ranking.infrastructure.CourseBestProjection;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -406,6 +407,7 @@ abstract class CourseApiContractTest {
         jdbc.update("""
                 INSERT INTO tbl_course_record (course_id, run_id, user_id, duration_seconds, avg_pace_sec_per_km, match_rate, verified_at, created_at)
                 VALUES (?, ?, ?, ?, 333, 98.5, ?, ?)""", courseId, runId, userId, sec, Timestamp.from(at), Timestamp.from(at));
+        jdbc.update(CourseBestProjection.REFRESH, courseId, userId); // 검증이 같이 고치는 사용자별 최고 기록
     }
 
     private int routeCount(long courseId) {

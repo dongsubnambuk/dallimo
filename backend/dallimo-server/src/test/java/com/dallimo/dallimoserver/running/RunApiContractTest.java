@@ -82,6 +82,21 @@ abstract class RunApiContractTest {
         assertThat(pointCount(runId)).isEqualTo(40);
     }
 
+    @Test
+    void firstBatchArrivingLateIsCountedFromStart() {
+        String token = signup();
+        long runId = newRun(token);
+        // 앞 Batch가 늦게 오면 1부터 이어진 것이 없다
+        assertThat(upload(token, runId, UUID.randomUUID().toString(), 31, 60)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.lastAcceptedSeq").isEqualTo(0);
+        assertThat(upload(token, runId, UUID.randomUUID().toString(), 1, 30)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.lastAcceptedSeq").isEqualTo(60);
+        assertThat(upload(token, runId, UUID.randomUUID().toString(), 61, 90)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.lastAcceptedSeq").isEqualTo(90);
+        // 결정 로그 70항: 확인한 seq를 Run에 저장해 다음 Batch는 그 뒤부터 센다
+        assertThat(jdbc.queryForObject("SELECT contiguous_seq FROM tbl_run WHERE id = ?", Integer.class, runId)).isEqualTo(90);
+    }
+
     // ── RUN-IT-005 ──
 
     @Test
@@ -234,6 +249,38 @@ abstract class RunApiContractTest {
     private MvcTestResult createRun(String token, String uuid) {
         return post(token, "/api/v1/runs", """
                 {"clientRunUuid":"%s","mode":"FREE","courseId":null,"challengeId":null,"liveRoomId":null,"startedAt":"%s"}""".formatted(uuid, T0));
+    }
+
+    /** 워치 심박 (FOUNDATION-DECISION-LOG 65항): finish로 받아 평균 · 최고를 상세에 준다. 러닝 시간 밖은 버리고, 동의를 끄면 지운다 */
+    @Test
+    void heartRateFromWatch() {
+        String token = signup();
+        long runId = newRun(token, T0);
+        upload(token, runId, UUID.randomUUID().toString(), 1, 120);
+        // 잘못된 심박(250 초과)은 400
+        assertThat(post(token, "/api/v1/runs/" + runId + "/finish", """
+                {"endedAt":"%s","lastSeq":120,"activeSeconds":120,"heartRate":[{"recordedAt":"%s","bpm":300}]}"""
+                .formatted(T0.plusSeconds(600), T0.plusSeconds(10)))).hasStatus(400);
+        // 러닝 앞 10분(범위 밖) 하나는 버린다
+        assertThat(post(token, "/api/v1/runs/" + runId + "/finish", """
+                {"endedAt":"%s","lastSeq":120,"activeSeconds":120,"heartRate":[
+                  {"recordedAt":"%s","bpm":120},{"recordedAt":"%s","bpm":140},{"recordedAt":"%s","bpm":160},{"recordedAt":"%s","bpm":200}]}"""
+                .formatted(T0.plusSeconds(600), T0.plusSeconds(5), T0.plusSeconds(10), T0.plusSeconds(15), T0.minusSeconds(600)))).hasStatusOk();
+        String detail = body(get(token, "/api/v1/runs/" + runId));
+        assertThat(JsonPath.<Integer>read(detail, "$.data.heartRate.avgBpm")).isEqualTo(140);
+        assertThat(JsonPath.<Integer>read(detail, "$.data.heartRate.maxBpm")).isEqualTo(160);
+        assertThat(JsonPath.<Integer>read(detail, "$.data.heartRate.sampleCount")).isEqualTo(3);
+
+        // 심박을 보내지 않은 러닝은 null
+        long other = newRun(token, T0.plusSeconds(7200));
+        upload(token, other, UUID.randomUUID().toString(), 1, 60);
+        finish(token, other, 60, 60);
+        assertThat((Object) JsonPath.read(body(get(token, "/api/v1/runs/" + other)), "$.data.heartRate")).isNull();
+
+        // 동의를 끄면 모두 지운다
+        var del = mvc.delete().uri("/api/v1/users/me/heart-rates").header("Authorization", "Bearer " + token).exchange();
+        assertThat(del).hasStatus(204);
+        assertThat((Object) JsonPath.read(body(get(token, "/api/v1/runs/" + runId)), "$.data.heartRate")).isNull();
     }
 
     private long newRun(String token) {

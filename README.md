@@ -12,7 +12,9 @@
 dallimo/
 ├─ frontend/   # React Native + Expo + TypeScript + Expo Router (npm)
 ├─ backend/    # Spring Boot 예정 (아직 생성하지 않음)
-├─ docs/       # 제품/기술 스펙 문서
+├─ docs/       # 제품/기술 스펙 문서, 서버 성능 측정 결과 (docs/perf/README.md)
+├─ landing/    # 소개 사이트 · 약관 · 문의 정적 페이지 (landing/README.md)
+├─ promo/      # 인스타그램 릴스 홍보 영상 (promo/README.md)
 ├─ .gitignore
 └─ README.md
 ```
