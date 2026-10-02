@@ -64,10 +64,10 @@ npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 ## App Store 스크린샷
 
 ```bash
-npm run store      # out/store/01.png ~ 07.png (6.9형 1320×2868)
+npm run store      # out/store/01.png ~ 08.png (6.9형 1320×2868)
 ```
 
-- 영상과 같은 휴대폰 틀 · 색 · 글꼴로 정지 화면을 만든다(`src/Store.tsx`, 문구는 `STORE_SHOTS`). 올리는 순서와 글은 `docs/store/APP-STORE.md`.
+- 영상과 같은 휴대폰 틀 · 색 · 글꼴로 정지 화면을 만든다(`src/Store.tsx`). 1장 서비스 소개는 `StoreBrand`, 2~8장 문구 · 바탕 · 아이콘 · 크게 띄울 영역은 `STORE_SHOTS`. 올리는 순서와 글은 `docs/store/APP-STORE.md`.
 - 화면은 원본 크기(1179×2556) 캡처에 상태 표시줄을 그린 `assets/store-screens/*.webp`다. 다시 찍으면 `landing/README.md` "화면 다시 찍기"의 캡처 뒤 아래처럼 만든다.
 
 ```bash
