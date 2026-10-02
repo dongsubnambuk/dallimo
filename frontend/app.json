@@ -15,6 +15,7 @@
       },
       "infoPlist": {
         "CFBundleDisplayName": "달리모",
+        "ITSAppUsesNonExemptEncryption": false,
         "NSHealthShareUsageDescription": "Apple Watch나 다른 앱으로 달린 기록을 달리모로 가져오려고 건강 앱의 운동과 경로를 읽어요.",
         "NSHealthUpdateUsageDescription": "달리모로 달린 기록을 건강 앱에 운동으로 저장해요."
       },

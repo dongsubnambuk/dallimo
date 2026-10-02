@@ -109,10 +109,11 @@ App Store Connect에 그대로 옮겨 넣는 글 · 이미지 · 답안이다. A
 
 ### 데모 계정
 
-심사자가 로그인해서 써 볼 계정이 필요하다. 운영 서버(`dallimo.gamjabox.cloud`)에 심사용 계정을 하나 만들어 아래에 넣는다. mock 계정(`runner@dallimo.app`)은 운영 서버에서 로그인되지 않는다.
+운영 서버(`dallimo.gamjabox.cloud`)에 심사용 계정을 만들어 두었다(2026-10-02). mock 계정(`runner@dallimo.app`)은 운영 서버에서 로그인되지 않는다.
 
-- 사용자 이름: (심사용 이메일)
-- 암호: (심사용 비밀번호)
+- 사용자 이름: `appreview@dallimo-landing.kro.kr` (닉네임 "앱심사")
+- 암호: 저장소에 올리지 않는다. 계정을 만든 사람이 따로 보관하고 App Store Connect에만 넣는다.
+- 받는 메일함이 없는 주소다. 비밀번호를 잊으면 메일로 재설정할 수 없으니 새 계정을 만든다.
 
 ### 메모 (심사자에게)
 
@@ -134,6 +135,10 @@ App Store Connect에 그대로 옮겨 넣는 글 · 이미지 · 답안이다. A
 
 [Apple Watch]
 · 휴대폰에서 달리기를 시작하면 워치 앱에 거리 · 시간 · 페이스가 보이고, 워치에서 일시정지 · 종료할 수 있습니다.
+
+[코스 찾기]
+· 코스는 지금 한국에만 있습니다. 심사하는 곳 주변에는 코스가 없어 지도가 비어 보일 수 있습니다.
+· 탐색 탭의 검색에서 "해파랑길"을 검색하면 코스 상세와 코스 랭킹을 볼 수 있습니다.
 
 [공식 기록 · 순위]
 · 코스 기록은 실제로 코스 경로를 끝까지 달려야 공식 기록으로 인증됩니다. 심사 환경에서는 자유 달리기와 코스 탐색 · 랭킹 보기로 기능을 확인할 수 있습니다.
@@ -172,5 +177,5 @@ App Store Connect 질문에 아래처럼 답한다. 결과 등급은 App Store C
 
 ## 7. 빌드 올릴 때
 
-- 수출 규정(암호화): 앱은 표준 HTTPS만 쓴다. App Store Connect에서 "표준 암호화만 사용"으로 답한다. 빌드마다 묻지 않게 하려면 `app.json`의 `ios.infoPlist`에 `"ITSAppUsesNonExemptEncryption": false`를 넣는다(아직 넣지 않았다).
+- 수출 규정(암호화): 앱은 표준 HTTPS만 쓴다. App Store Connect에서 "표준 암호화만 사용"으로 답한다. `app.json`의 `ios.infoPlist`에 `"ITSAppUsesNonExemptEncryption": false`를 넣어 두어서 빌드마다 묻지 않는다.
 - 첫 빌드: `cd frontend && npx eas-cli@latest build --platform ios --profile production` → `npx eas-cli@latest submit --platform ios`. Apple 계정 로그인이 필요하다.
