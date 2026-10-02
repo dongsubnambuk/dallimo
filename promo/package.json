@@ -9,6 +9,7 @@
     "render": "npm run assets && remotion render Promo out/dallimo-promo.mp4",
     "render:shiny-tech": "npm run assets && remotion render PromoShinyTech out/dallimo-promo-shiny-tech.mp4",
     "cover": "npm run assets && remotion still Cover out/dallimo-promo-cover.png --frame=50",
+    "store": "npm run assets && node scripts/render-store.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

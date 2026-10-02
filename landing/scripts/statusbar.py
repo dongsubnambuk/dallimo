@@ -1,5 +1,6 @@
 # 캡처에 iOS 상태 표시줄(9:41 · 신호 · Wi-Fi · 배터리)과 홈 막대를 그리고 public/screens에 780px · 480px webp로 저장한다.
 # 사용: python3 scripts/statusbar.py <캡처 폴더> explore:explore course:course ...  (캡처 이름:저장 이름)
+#       python3 scripts/statusbar.py --full <저장 폴더> <캡처 폴더> explore:explore ...  (원본 크기)
 import os
 import sys
 from PIL import Image, ImageDraw, ImageFont
@@ -45,11 +46,20 @@ def home_indicator(img):
     x, y = (W - w) / 2, H - 8 * S - h
     d.rounded_rectangle((x, y, x + w, y + h), radius=h / 2, fill=c)
 
-for src, dst in [a.split(':') for a in sys.argv[2:]]:
-    im = Image.open(f'{sys.argv[1]}/{src}.png').convert('RGB')
+# --full <저장 폴더>: 줄이지 않은 원본 크기(1179×2556)로 한 장씩 저장한다 (App Store 스크린샷용, promo/README.md)
+args = sys.argv[1:]
+full_out = None
+if args[0] == '--full':
+    full_out, args = args[1], args[2:]
+
+for src, dst in [a.split(':') for a in args[1:]]:
+    im = Image.open(f'{args[0]}/{src}.png').convert('RGB')
     status_bar(im)
     home_indicator(im)
-    for w, suffix in [(780, ''), (480, '-480')]:
-        out = im.resize((w, round(im.height * w / im.width)), Image.LANCZOS)
-        out.save(os.path.join(ROOT, f'public/screens/{dst}{suffix}.webp'), 'WEBP', quality=88, method=6)
+    if full_out:
+        im.save(os.path.join(full_out, f'{dst}.webp'), 'WEBP', quality=92, method=6)
+    else:
+        for w, suffix in [(780, ''), (480, '-480')]:
+            out = im.resize((w, round(im.height * w / im.width)), Image.LANCZOS)
+            out.save(os.path.join(ROOT, f'public/screens/{dst}{suffix}.webp'), 'WEBP', quality=88, method=6)
     print(dst)
