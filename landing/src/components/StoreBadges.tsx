@@ -1,17 +1,15 @@
-import { siApple, siGoogleplay } from 'simple-icons';
+import { siApple } from 'simple-icons';
 
 import { STORE } from '../content';
 
-type Store = { key: 'ios' | 'android'; name: string; caption: string; path: string };
-const STORES: Store[] = [
-  { key: 'ios', name: 'App Store', caption: 'App Store에서 받기', path: siApple.path },
-  { key: 'android', name: 'Google Play', caption: 'Google Play에서 받기', path: siGoogleplay.path },
-];
+// App Store에만 낸다 (결정 로그 71항)
+type Store = { key: 'ios'; name: string; caption: string; path: string };
+const STORES: Store[] = [{ key: 'ios', name: 'App Store', caption: 'App Store에서 받기', path: siApple.path }];
 
 // 스토어 주소가 없으면 누를 수 없는 "출시 준비 중" 칸으로 보인다
 export function StoreBadges({ className = '' }: { className?: string }) {
   return (
-    <ul className={`grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:gap-3 ${className}`} aria-label="앱 내려받기">
+    <ul className={`flex flex-wrap gap-3 ${className}`} aria-label="앱 내려받기">
       {STORES.map((s) => {
         const url = STORE[s.key];
         const body = (

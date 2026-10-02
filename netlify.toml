@@ -7,3 +7,5 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # 사이트 주소: canonical · og:url · og:image · sitemap.xml (landing/README.md, 결정 로그 71항)
+  SITE_URL = "https://dallimo-landing.kro.kr"

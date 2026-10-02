@@ -43,7 +43,7 @@ export function Footer() {
       </div>
       <div className="wrap mt-12 flex flex-col gap-1.5 border-t border-white/8 pt-6 text-[13px] md:flex-row md:justify-between">
         <p>
-          © 2026 달리모 · {CONTACT.operator} · <a href={`mailto:${CONTACT.email}`} className="underline-offset-2 hover:underline">{CONTACT.email}</a>
+          © 2026 달리모 · {CONTACT.operator} · <a href={CONTACT.supportPath} className="underline-offset-2 hover:underline">문의하기</a>
         </p>
         <p>화면 속 지도 데이터 © OpenStreetMap contributors</p>
       </div>

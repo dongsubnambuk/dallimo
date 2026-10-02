@@ -1,14 +1,15 @@
 import { LEGAL_CONTACT } from '@legal/types';
 
-// 스토어 주소. 출시 전에는 null이라 "출시 준비 중"으로 보인다 (landing/README.md)
-export const STORE: { ios: string | null; android: string | null } = {
+// App Store 주소. 출시 전에는 null이라 "출시 준비 중"으로 보인다 (landing/README.md).
+// App Store에만 낸다 (사용자 결정, 결정 로그 71항)
+export const STORE: { ios: string | null } = {
   ios: null,
-  android: null,
 };
 
+// 연락은 이메일 대신 문의 페이지(/support/)의 문의 양식으로 받는다 (결정 로그 71항)
 export const CONTACT = {
   operator: LEGAL_CONTACT.operator,
-  email: LEGAL_CONTACT.email,
+  supportPath: '/support/',
 };
 
 // 실제 앱 화면 (웹 mock을 393×852pt iPhone 화면으로 찍고 상태 표시줄을 합성, scripts는 landing/README.md)
@@ -40,7 +41,7 @@ export const FAQ = [
   },
   {
     q: '어떤 기기에서 쓸 수 있나요?',
-    a: 'iPhone과 Android 휴대폰에서 쓸 수 있어요. Apple Watch는 iPhone과 함께 쓸 때 거리 · 시간 · 페이스를 손목에서 보여 줘요.',
+    a: 'iPhone에서 쓸 수 있어요. Apple Watch는 iPhone과 함께 쓸 때 거리 · 시간 · 페이스를 손목에서 보여 줘요. Android 휴대폰은 아직 지원하지 않아요.',
   },
   {
     q: '우리 동네에 코스가 없으면요?',
