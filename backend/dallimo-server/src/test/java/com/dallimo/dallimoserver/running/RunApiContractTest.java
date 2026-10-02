@@ -82,6 +82,21 @@ abstract class RunApiContractTest {
         assertThat(pointCount(runId)).isEqualTo(40);
     }
 
+    @Test
+    void firstBatchArrivingLateIsCountedFromStart() {
+        String token = signup();
+        long runId = newRun(token);
+        // 앞 Batch가 늦게 오면 1부터 이어진 것이 없다
+        assertThat(upload(token, runId, UUID.randomUUID().toString(), 31, 60)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.lastAcceptedSeq").isEqualTo(0);
+        assertThat(upload(token, runId, UUID.randomUUID().toString(), 1, 30)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.lastAcceptedSeq").isEqualTo(60);
+        assertThat(upload(token, runId, UUID.randomUUID().toString(), 61, 90)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.lastAcceptedSeq").isEqualTo(90);
+        // 결정 로그 70항: 확인한 seq를 Run에 저장해 다음 Batch는 그 뒤부터 센다
+        assertThat(jdbc.queryForObject("SELECT contiguous_seq FROM tbl_run WHERE id = ?", Integer.class, runId)).isEqualTo(90);
+    }
+
     // ── RUN-IT-005 ──
 
     @Test

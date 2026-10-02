@@ -12,6 +12,7 @@ import java.util.List;
 /**
  * 23.1장 랭킹 쿼리: 코스 공식 기록(tbl_course_record, VERIFIED만 있다)을 사용자별 최고 기록으로 모아 빠른 순.
  * 같은 기록이면 user_id 순. 기간은 기록이 만들어진 시각(created_at)으로 거른다 (idx_course_record_period).
+ * 전체 기간은 사용자별 최고 기록 projection(tbl_course_user_best)을 순서대로 읽는다. 기록 10만 건에서 GROUP BY가 병목이라 바꿨다 (결정 로그 70항).
  * only가 있으면 그 사용자들 안에서만 센다 (친구 랭킹 RNK-004: 나 + 친구). null이면 모두.
  */
 @Repository
@@ -28,13 +29,28 @@ public class RankingJdbcRepository {
     }
 
     public List<Row> page(long courseId, Window w, List<Long> only, int offset, int limit) {
+        if (w.allTime()) {
+            List<Object> args = new ArrayList<>(List.of(courseId));
+            String in = only(only, args);
+            args.add(limit);
+            args.add(offset);
+            return jdbc.query("""
+                    SELECT b.user_id, u.nickname, b.best_seconds
+                    FROM tbl_course_user_best b
+                    JOIN tbl_user u ON u.id = b.user_id
+                    WHERE b.course_id = ?%s
+                    ORDER BY b.best_seconds ASC, b.user_id ASC
+                    LIMIT ? OFFSET ?""".formatted(in),
+                    (rs, i) -> new Row(rs.getLong("user_id"), rs.getString("nickname"), rs.getInt("best_seconds"), rs.getInt("best_seconds")),
+                    args.toArray());
+        }
         List<Object> args = new ArrayList<>(List.of(courseId, courseId, ts(w.from()), ts(w.to())));
         String in = only(only, args);
         args.add(limit);
         args.add(offset);
         return jdbc.query("""
                 SELECT b.user_id, u.nickname, b.best,
-                       (SELECT MIN(a.duration_seconds) FROM tbl_course_record a WHERE a.course_id = ? AND a.user_id = b.user_id) AS all_best
+                       (SELECT a.best_seconds FROM tbl_course_user_best a WHERE a.course_id = ? AND a.user_id = b.user_id) AS all_best
                 FROM (SELECT user_id, MIN(duration_seconds) AS best FROM tbl_course_record
                       WHERE course_id = ? AND created_at >= ? AND created_at < ?%s
                       GROUP BY user_id) b
@@ -46,6 +62,12 @@ public class RankingJdbcRepository {
     }
 
     public int total(long courseId, Window w, List<Long> only) {
+        if (w.allTime()) {
+            List<Object> args = new ArrayList<>(List.of(courseId));
+            String in = only(only, args);
+            Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course_user_best WHERE course_id = ?" + in, Integer.class, args.toArray());
+            return n == null ? 0 : n;
+        }
         List<Object> args = new ArrayList<>(List.of(courseId, ts(w.from()), ts(w.to())));
         String in = only(only, args);
         Integer n = jdbc.queryForObject("SELECT COUNT(DISTINCT user_id) FROM tbl_course_record WHERE course_id = ? AND created_at >= ? AND created_at < ?" + in,
@@ -55,6 +77,10 @@ public class RankingJdbcRepository {
 
     /** 기간 안 내 최고 기록. excludeRecordId가 있으면 그 기록은 빼고 (기록 전 순위 계산용) */
     public Integer best(long courseId, long userId, Window w, Long excludeRecordId) {
+        if (w.allTime() && excludeRecordId == null) {
+            return jdbc.queryForList("SELECT best_seconds FROM tbl_course_user_best WHERE course_id = ? AND user_id = ?", Integer.class, courseId, userId)
+                    .stream().findFirst().orElse(null);
+        }
         return jdbc.queryForObject("""
                 SELECT MIN(duration_seconds) FROM tbl_course_record
                 WHERE course_id = ? AND user_id = ? AND created_at >= ? AND created_at < ? AND (? IS NULL OR id <> ?)""",
@@ -70,6 +96,16 @@ public class RankingJdbcRepository {
 
     /** bestSec 기록을 가진 userId의 순위 = 나보다 앞선 다른 사용자 수 + 1 */
     public int rank(long courseId, long userId, int bestSec, Window w, List<Long> only) {
+        if (w.allTime()) {
+            List<Object> args = new ArrayList<>(List.of(courseId, userId));
+            String in = only(only, args);
+            args.addAll(List.of(bestSec, bestSec, userId));
+            Integer ahead = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM tbl_course_user_best
+                    WHERE course_id = ? AND user_id <> ?%s AND (best_seconds < ? OR (best_seconds = ? AND user_id < ?))""".formatted(in),
+                    Integer.class, args.toArray());
+            return (ahead == null ? 0 : ahead) + 1;
+        }
         List<Object> args = new ArrayList<>(List.of(courseId, ts(w.from()), ts(w.to()), userId));
         String in = only(only, args);
         args.addAll(List.of(bestSec, bestSec, userId));

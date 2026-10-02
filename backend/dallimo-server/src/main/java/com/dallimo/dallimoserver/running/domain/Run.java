@@ -62,6 +62,10 @@ public class Run {
     @Column(name = "verification_status", nullable = false, length = 20)
     private String verificationStatus;
 
+    // 1부터 빠짐없이 받은 마지막 GPS seq (결정 로그 70항). 다음 Batch는 여기부터 센다. point는 지우지 않아서 줄지 않는다
+    @Column(name = "contiguous_seq", nullable = false)
+    private int contiguousSeq;
+
     // 123.3장: 인터벌 달리기면 달린 인터벌과 그때 버전 (추천 인터벌처럼 저장하지 않은 것이면 id · 버전 없이 이름만)
     @Column(name = "workout_template_id")
     private Long workoutTemplateId;
@@ -253,6 +257,14 @@ public class Run {
 
     public String getVerificationStatus() {
         return verificationStatus;
+    }
+
+    public int getContiguousSeq() {
+        return contiguousSeq;
+    }
+
+    public void advanceContiguousSeq(int seq) {
+        if (seq > contiguousSeq) contiguousSeq = seq;
     }
 
     public RunSource getSource() {
