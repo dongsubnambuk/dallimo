@@ -61,6 +61,19 @@ npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 - 휴대폰이 들어오는 방식도 장면마다 다르다(`src/Scenes.tsx`의 `ScenePhone` `enter`): 탐색 올라오기, 코스 상세 확대, 달리는 중 3D로 기울며 올라오기, 결과 위에서 떨어져 튕기기, 랭킹 오른쪽에서, 함께 달리기 양옆에서.
 - Chrome이 없거나 headless shell을 써야 하면 `REMOTION_BROWSER=/path/to/headless_shell`을 붙인다.
 
+## App Store 스크린샷
+
+```bash
+npm run store      # out/store/01.png ~ 08.png (6.9형 1320×2868)
+```
+
+- 영상과 같은 휴대폰 틀 · 색 · 글꼴로 정지 화면을 만든다(`src/Store.tsx`). 1장 서비스 소개는 `StoreBrand`, 2~8장 문구 · 바탕 · 아이콘 · 크게 띄울 영역은 `STORE_SHOTS`. 올리는 순서와 글은 `docs/store/APP-STORE.md`.
+- 화면은 원본 크기(1179×2556) 캡처에 상태 표시줄을 그린 `assets/store-screens/*.webp`다. 다시 찍으면 `landing/README.md` "화면 다시 찍기"의 캡처 뒤 아래처럼 만든다.
+
+```bash
+python3 ../landing/scripts/statusbar.py --full assets/store-screens <캡처 폴더> explore:explore course:course courserun:run result:result ranking:ranking live:live activity:activity
+```
+
 ## 고칠 곳
 
 | 무엇 | 어디 |
