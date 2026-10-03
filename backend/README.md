@@ -70,6 +70,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
 | `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
 | `METRICS_TOKEN` · `GRAFANA_ADMIN_PASSWORD` | 아니오 | 성능 지표 (아래 "성능 지표"). 토큰이 없으면 `/actuator/prometheus`가 닫힌다 |
+| `APP_MIN_VERSION_IOS` · `APP_STORE_URL_IOS` | 아니오 | 강제 업데이트 (아래 "앱 버전"). 비어 있으면 막지 않는다 |
 
 ### 프록시 (nginx · 로드밸런서 뒤)
 
@@ -477,6 +478,14 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 
 - 지표로 두지 않은 것: GPS rejected point 비율(튄 point는 앱이 거른다), DB slow query · lock(MySQL slow log · performance_schema로 본다, `docs/perf/README.md`).
 - 로컬에서 보기: `METRICS_TOKEN=local ./gradlew bootTestRun` → `curl -H "Authorization: Bearer local" localhost:8080/actuator/prometheus`.
+
+## 앱 버전 · 강제 업데이트 (사용자 결정, 결정 로그 79항)
+
+`GET /api/v1/app/version?platform=ios` (로그인 없이) → `{ platform, minVersion, storeUrl }`. 앱은 켤 때 한 번 부르고, 설치된 앱 버전이 `minVersion`보다 낮으면 "업데이트가 필요해요" 화면으로 모든 화면을 가린다.
+
+- 값은 배포 환경변수 `APP_MIN_VERSION_IOS`(예: `1.0.1`) · `APP_STORE_URL_IOS`(`https://apps.apple.com/app/id{App Store Connect의 Apple ID}`). 바꾸고 서버를 다시 띄우면 바로 적용된다.
+- 비어 있으면 `minVersion`이 null이라 막지 않는다. 서버에 닿지 못해도 앱은 막지 않는다.
+- 이전 버전에서 서버 API가 깨지는 변경(필드 삭제 · 의미 변경)을 내보낼 때만 올린다. 화면 · JS 수정은 OTA(`frontend/docs/deploy/APP-RELEASE-SETUP.md` 2.6)로 충분하다.
 
 ## 공통 규칙
 
