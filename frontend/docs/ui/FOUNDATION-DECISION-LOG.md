@@ -1450,3 +1450,13 @@ SCR-E02 지역 검색의 주요 요소 "최근 검색"을 넣는다. 탐색 화�
 | 추천을 눌렀을 때 | 목록에 있는 코스면 지금처럼 지도 · 목록에서 고른다. 목록 범위 밖이면 코스 상세로 바로 간다 | 목록에 없는 코스는 지도에서 고를 수 없다 |
 | 점수 | 그대로 둔다(41항). "가깝다" 점수는 3km 안에서만 붙는다 | 범위만 바꾸는 결정이다 |
 | 확인한 것 | 앱 `tsc` · `expo lint` 통과 | 실기기 확인은 개발이 끝난 뒤 한다(사용자 결정) |
+
+## 74. EAS 빌드 `npm ci` 실패 (npm 버전 차이)
+
+EAS 개발 빌드가 `npm ci`에서 `Missing: typescript@5.9.3 from lock file`로 멈췄다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 원인 | `@bacons/apple-targets` 안쪽 `@expo/require-utils`가 typescript 5를 선택 peer로 둔다. npm 10은 lock에 중첩 typescript 5.9.3을 넣고, npm 11은 `npm install` 때 이 줄을 뺀다. npm 11로 바뀐 lock을 EAS(npm 10)가 `npm ci`하면 실패한다 | npm 9 · 10 · 11로 lock을 만들고 `npm ci`를 엇갈려 돌려 같은 오류를 재현했다 |
+| 해결 | `frontend/package.json` `overrides`로 `@bacons/apple-targets` 아래 typescript를 앱 typescript(`$typescript`)로 맞춘다 | lock을 npm 10 · 11 어느 쪽으로 만들어도 npm 9 · 10 · 11 `npm ci`가 모두 통과한다. typescript는 선택 peer라 동작은 같다 |
+| 확인한 것 | 새로 `npm ci`, `npx expo config --type introspect`(워치 플러그인 포함), `tsc` 통과 | |
