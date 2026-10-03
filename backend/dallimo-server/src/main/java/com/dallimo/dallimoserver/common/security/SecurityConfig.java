@@ -49,7 +49,8 @@ public class SecurityConfig {
     // 토큰 없이 부를 수 있는 API. OpenAPI 문서(OpenApiConfig)도 이 목록으로 인증 방식을 적는다
     public static final String[] PUBLIC_API_POST = {"/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh"};
     // 43장 코스 조회는 로그인 없이도 (User/Optional, 토큰이 있으면 내 기록 · 저장 여부를 함께 준다). SHR-004 공유 링크 해석도 로그인 없이
-    public static final String[] PUBLIC_API_GET = {"/api/v1/users/nickname-availability", "/api/v1/courses/**", "/api/v1/shares/*"};
+    // 앱 버전(강제 업데이트)은 로그인 전에도 확인한다 (결정 로그 79항)
+    public static final String[] PUBLIC_API_GET = {"/api/v1/users/nickname-availability", "/api/v1/courses/**", "/api/v1/shares/*", "/api/v1/app/version"};
     public static final String ADMIN_API = "/api/v1/admin/**";
 
     // 서버와 기기 시계가 조금 어긋나도 막 만든 토큰을 거절하지 않도록
