@@ -78,6 +78,24 @@ Codex는 아래가 끝났는지 사용자에게 확인하고, 안 된 것은 사
   - 지원 URL: `https://dallimo-landing.kro.kr/support/` (문의 양식이 있어 App Store 심사 지침 1.5의 연락 수단이 된다)
   - 마케팅 URL: `https://dallimo-landing.kro.kr/`
 
+### 2.6 OTA 업데이트 (EAS Update, 결정 로그 78항)
+
+JS · 화면만 고친 것은 스토어 심사 없이 바로 내보낸다. 앱이 켜질 때(또는 1시간 넘게 뒤로 갔다가 다시 앞으로 올 때) 새 업데이트를 받아 두고, **다음에 앱을 새로 켤 때** 바뀐다.
+
+```bash
+cd frontend
+npx eas-cli@latest update --channel production --environment production --message "무엇을 고쳤는지"
+```
+
+- `expo-updates`가 들어간 빌드부터 받는다. 그 전에 올린 빌드에는 OTA가 오지 않으니 한 번은 새로 빌드해 올린다.
+- production 빌드는 `production` 채널, 개발 빌드는 `development` 채널을 본다(`eas.json`).
+- 서버 주소는 `frontend/.env.production`에서 읽는다. `eas update`는 `eas.json` build 프로필의 `env`를 읽지 않기 때문이다. 이 파일이 없으면 업데이트한 앱이 서버 없이 mock으로 돈다.
+- **OTA로 못 내는 것** — 아래가 바뀌면 `app.json`의 `version`을 올리고(예: 1.0.0 → 1.0.1) 스토어 빌드를 새로 올린다. `runtimeVersion`이 `version`을 따라가서(`policy: appVersion`) 예전 앱에는 새 JS가 가지 않는다.
+  - 새 네이티브 패키지 설치(`npx expo install`로 네이티브 코드가 있는 패키지), Expo SDK 올리기
+  - `app.json` · `app.config.ts`의 네이티브 설정(권한 문구 · 플러그인 · entitlements · 아이콘 · 스플래시)
+  - `modules/`(Swift) · `targets/watch`(워치 앱)
+- 잘못 내보냈으면 `npx eas-cli@latest update:rollback`으로 이전 업데이트로 돌린다.
+
 ## 3. 서버와 반드시 같게 맞출 값
 
 앱 값과 서버 환경변수가 다르면 공유 링크가 앱을 열지 못한다. 사용자에게 서버 쪽 값도 같이 넣도록 알린다.
