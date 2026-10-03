@@ -1486,6 +1486,19 @@ App Store Connect가 빌드를 받지 않았다: "Missing purpose string in Info
 | 개인정보 | 태그에 사용자 id · 위치 · 닉네임 없음. 값 종류가 정해진 enum만 태그로 | 34장 "개인정보와 정밀 위치정보를 관측성 데이터에 과도하게 포함하지 않는다" |
 | 확인한 것 | 토큰 401 · 404 · 통과 테스트, 러닝 흐름 뒤 지표가 쌓이는 테스트. 로컬에서 서버 + Prometheus(quay.io 이미지) + Grafana를 띄워 수집 · 대시보드 29개 패널 쿼리가 모두 오류 없이 도는 것을 확인 | |
 
+## 78. OTA 업데이트 (EAS Update)
+
+사용자 결정: 앱 자동 업데이트를 넣는다. 명세 70.1장 "eas-update: OTA 정책이 필요할 때".
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 방식 | `expo-updates` + EAS Update. `updates.url` = EAS 프로젝트, production 빌드는 `production` 채널 | 같은 EAS 프로젝트로 빌드 · 제출하고 있다 |
+| 받는 때 | 앱을 켤 때(`checkAutomatically: ON_LOAD`, 기다리지 않음 `fallbackToCacheTimeout: 0`) + 1시간 넘게 뒤로 갔다가 앞으로 올 때 미리 받기(`useOtaUpdates`) | iOS 앱은 며칠씩 메모리에 남는다. 켤 때만 보면 늦다 |
+| 적용 | 다음에 앱을 새로 켤 때. 바로 `reloadAsync` 하지 않는다 | 달리는 중 · 코스 만드는 중에 앱이 다시 시작되면 안 된다 |
+| runtimeVersion | `policy: appVersion`. 네이티브가 바뀌면 `version`을 올리고 스토어 빌드 | 규칙이 단순하고 빌드 환경과 상관없이 같은 값이 나온다. fingerprint는 로컬 · EAS 빌드 환경 차이로 어긋날 수 있다 |
+| 서버 주소 | `frontend/.env.production`(비밀 아님, 커밋)에 `EXPO_PUBLIC_API_URL` | `eas update`는 eas.json build `env`를 읽지 않는다. 없으면 업데이트한 JS가 mock으로 돈다. `npx expo export`로 production 번들에 배포 서버 주소가 들어가는 것을 확인 |
+| 확인한 것 | `tsc` · `expo lint`, `npx expo config`에 runtimeVersion · updates.url, production 번들에 서버 주소 | 실제 OTA 수신은 expo-updates가 들어간 스토어 · TestFlight 빌드에서 확인한다 |
+
 ## 79. 강제 업데이트
 
 사용자 결정: 오래된 앱을 막고 스토어로 보내는 강제 업데이트 안내를 넣는다. 명세에 없는 기능이다.
