@@ -17,73 +17,37 @@ import { whip } from './whip';
 
 loadFonts();
 
-// 15초 인스타 릴스 광고. 기능을 늘어놓지 않고 이야기 하나로 (결정 로그 76항):
-// 친구가 내 기록을 넘었다는 알림 → 다시 달린다 → 되찾는다 → 이번엔 친구 차례 → 다음엔 같이 → 달리모
-// 주인공은 휴대폰 앱이다. 워치는 달리는 장면에서 옆에 작게만 (사용자 결정)
-// 알림 문구는 서버 RecordBeatenNotifier, 워치 화면은 targets/watch/RunViews.swift와 같은 모양. 숫자는 휴대폰 화면 캡처(mock)와 맞춘다
+// 15초 인스타 릴스 광고 (결정 로그 76항). 앱 흐름 그대로, 장면 글을 이어 읽으면 서비스 설명이 된다:
+// 오늘 저녁, 어디 달리지? → 내 주변 코스 찾고 → 코스를 달리고(워치 연동) → 인터벌도 정확하게(워치 연동) → 기록 깨고 순위 올리고 → 친구랑 같이 달리고 → 달리모, 코스 기반 소셜 러닝 앱
+// 주인공은 휴대폰 앱. 워치는 달리는 장면에서 손목에 작게, 옆 휴대폰과 같은 숫자 (사용자 결정)
+// 워치 화면은 targets/watch/RunViews.swift, 문구는 watchMessages.ts와 같은 모양. 숫자는 휴대폰 화면 캡처(mock)와 맞춘다
 export const DURATION_15 = 15 * FPS;
 
 const track = TRACKS.risingForest;
-const VIDEO_DROP = 2.5;
+const VIDEO_DROP = 1.5;
 const TRIM = Math.round((track.trackDrop - VIDEO_DROP) * FPS);
 const DROP = track.trackDrop - TRIM / FPS;
 const BAR = (4 * 60) / track.bpm;
 const barFrame = (n: number) => Math.round((DROP + n * BAR) * FPS);
-// 장면이 완전히 바뀌는 프레임: 드롭 · 1 · 2 · 3 · 4마디
-const CUTS = [0, 1, 2, 3, 4].map(barFrame);
-const TRANSITIONS = [6, 8, 6, 8, 12];
+// 장면이 완전히 바뀌는 프레임: 드롭 · 1 · 2 · 3 · 4 · 5마디
+const CUTS = [0, 1, 2, 3, 4, 5].map(barFrame);
+const TRANSITIONS = [6, 8, 6, 8, 6, 10];
 const STARTS = [0, ...CUTS.map((c, i) => c - TRANSITIONS[i])];
 const SCENE_FRAMES = STARTS.map((s, i) => (i < CUTS.length ? CUTS[i] : DURATION_15) - s);
 const BEATS = { drop: DROP * FPS, beat: (BAR / 4) * FPS };
-// 끝 장면 출시 안내는 5마디 첫 박에
-const END_ACCENT = barFrame(5) - STARTS[STARTS.length - 1];
+// 끝 장면 출시 안내는 6마디 첫 박에
+const END_ACCENT = barFrame(6) - STARTS[STARTS.length - 1];
 
 const PRESENTATIONS = [
-  pushCut({ flashColor: C.signal, flashOpacity: 0.6 }), // 드롭: 달리기 시작
-  whip(), // 달리는 중 → 되찾음
-  pushCut({ flashColor: C.signal, flashOpacity: 0.35 }), // 되찾음 → 친구 차례
-  whip(), // 친구 차례 → 같이
+  pushCut({ flashColor: C.signal, flashOpacity: 0.6 }), // 드롭: 코스 찾기
+  whip(), // 찾고 → 달리고
+  pushCut({ flashColor: C.signal, flashOpacity: 0.35 }), // 달리고 → 인터벌
+  whip(), // 인터벌 → 순위
+  pushCut({ flashColor: C.signal, flashOpacity: 0.35 }), // 순위 → 같이
   fade(), // 같이 → 끝
 ] as unknown as TransitionPresentation<Record<string, unknown>>[];
 
 const LEFT = 90;
-
-// iOS 알림 배너. 위에서 내려온다
-function Notice({ title, body, delay = 0, top = 300 }: { title: string; body: string; delay?: number; top?: number }) {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const p = spring({ frame: frame - delay, fps, config: { damping: 16, stiffness: 170 } });
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top,
-        left: 50,
-        right: 50,
-        padding: '34px 38px',
-        borderRadius: 48,
-        background: 'rgba(44,45,48,0.92)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: '0 40px 90px -30px rgba(0,0,0,0.9)',
-        display: 'flex',
-        gap: 30,
-        fontFamily: FONT,
-        transform: `translateY(${(1 - p) * -520}px)`,
-        opacity: Math.min(1, p * 1.4),
-      }}
-    >
-      <Img src={staticFile('icon.png')} style={{ width: 92, height: 92, borderRadius: 22, flexShrink: 0 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 34, color: C.muted, fontWeight: 500 }}>
-          <span>달리모</span>
-          <span>지금</span>
-        </div>
-        <div style={{ marginTop: 4, fontSize: 42, fontWeight: 800, color: C.text, letterSpacing: '-0.02em' }}>{title}</div>
-        <div style={{ marginTop: 6, fontSize: 38, fontWeight: 500, color: '#d6d8d7', lineHeight: 1.35, letterSpacing: '-0.02em' }}>{body}</div>
-      </div>
-    </div>
-  );
-}
 
 // Apple Watch (손목 줄 + 몸체 + 디지털 크라운). 화면은 410×502 워치 화면 그대로
 function Watch({ children, scale = 1.3, top = 640, x = 0, delay = 0 }: { children: ReactNode; scale?: number; top?: number; x?: number; delay?: number }) {
@@ -140,25 +104,68 @@ function Head({ a, b, top = 250 }: { a: string; b?: string; top?: number }) {
 
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 
-// 0~2.5초: 친구가 내 기록을 넘었다는 알림
+// 0~1.5초: 30초 영상과 같은 질문
 function Hook() {
   return (
     <AbsoluteFill>
       <Backdrop />
-      <Notice delay={3} top={330} title="내 코스 기록을 넘었어요" body="민수님이 수성못 둘레길에서 9:58로 내 기록 10:12을 넘었어요" />
-      <div style={{ position: 'absolute', top: 1000, left: LEFT, right: LEFT }}>
-        <Line delay={34} size={160}>
-          …그냥 둘 수
+      <div style={{ position: 'absolute', top: 640, left: LEFT, right: LEFT }}>
+        <Line delay={1} size={170}>
+          오늘 저녁,
         </Line>
-        <Line delay={42} size={160} color={C.signal}>
-          없지.
+        <Line delay={7} size={170} color={C.signal}>
+          어디 달리지?
         </Line>
       </div>
+      <Route d="M -60 1560 C 180 1560 240 1260 470 1280 S 760 1520 900 1330 S 1060 1080 1160 1060" from={4} to={44} />
     </AbsoluteFill>
   );
 }
 
-// 드롭: 다시 달린다. 휴대폰이 기록하고 손목의 워치에도 같은 숫자
+// 작은 알약 글 (워치 옆 설명 등)
+function Tag({ children, top, left, right, delay = 14 }: { children: ReactNode; top: number; left?: number; right?: number; delay?: number }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const at = useOnBeat(delay);
+  const p = spring({ frame: frame - at, fps, config: { damping: 14, stiffness: 180 } });
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top,
+        left,
+        right,
+        padding: '18px 30px',
+        borderRadius: 999,
+        background: C.surface,
+        border: '2px solid rgba(43,240,192,0.35)',
+        boxShadow: '0 30px 60px -20px rgba(0,0,0,0.85)',
+        fontFamily: FONT,
+        fontWeight: 800,
+        fontSize: 36,
+        color: C.text,
+        whiteSpace: 'nowrap',
+        transform: `scale(${p})`,
+        opacity: Math.min(1, p * 1.5),
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// 지도에서 내 주변 코스를 찾는다
+function Find() {
+  return (
+    <AbsoluteFill>
+      <Backdrop />
+      <Head a="내 주변 코스" b="찾고" />
+      <HeroPhone screen="explore" />
+    </AbsoluteFill>
+  );
+}
+
+// 코스를 달린다. 휴대폰이 기록하고 손목의 워치에도 같은 숫자
 function Run() {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -167,69 +174,87 @@ function Run() {
     <AbsoluteFill>
       <Backdrop />
       <Route d="M -80 1700 C 200 1640 260 1420 520 1460 S 900 1660 1180 1380" from={0} to={50} />
-      <Head a="다시," b="수성못으로." />
-      <HeroPhone screen="run" x={-70} top={640} />
-      <Watch delay={10} top={1320} x={350} scale={0.6}>
+      <Head a="코스를" b="달리고" />
+      <HeroPhone screen="run" x={-70} top={730} />
+      <Watch delay={8} top={1400} x={350} scale={0.6}>
         <Metrics status="기록 중" statusColor="#2BF0C0" time={clock(sec)} km="0.50" pace={`5'24"`} bpm={168} stripLabel="구간 1 도전 · 1/2" stripValue="0:15 빨라요" stripColor="#2BF0C0" />
       </Watch>
+      <Tag top={632} right={40} delay={16}>
+        Apple Watch에도 그대로
+      </Tag>
     </AbsoluteFill>
   );
 }
 
-// 되찾았다: 9:58을 긋고 9:51
-function Win() {
+// 인터벌 달리기 (1분 빠르게 · 1분 천천히). 워치에 구간 · 남은 시간
+function Interval() {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  const sec = 319 + interpolate(frame, [0, durationInFrames], [0, 2]);
+  return (
+    <AbsoluteFill>
+      <Backdrop />
+      <Head a="인터벌도" b="정확하게" />
+      <HeroPhone screen="interval" x={-70} top={730} />
+      <Watch delay={8} top={1400} x={350} scale={0.6}>
+        <Metrics status="기록 중" statusColor="#2BF0C0" time={clock(sec)} km="1.01" pace={`5'16"`} bpm={174} stripLabel="빠르게 1/8 · 2/18" stripValue="0:41 남음" stripColor="#2BF0C0" />
+      </Watch>
+      <Tag top={632} right={40} delay={16}>
+        구간이 바뀌면 소리 · 진동
+      </Tag>
+    </AbsoluteFill>
+  );
+}
+
+// 기록을 깨면 코스 순위가 오른다 (PB 갱신 18위 → 14위, 결과 화면과 같은 숫자)
+function Rank() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const at = useOnBeat(8);
-  const slam = spring({ frame: frame - at, fps, config: { damping: 10, stiffness: 220, mass: 0.7 } });
-  const strike = interpolate(frame, [2, 8], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const at = useOnBeat(10);
+  const pop = spring({ frame: frame - at, fps, config: { damping: 12, stiffness: 190 } });
+  const rank = Math.round(interpolate(frame, [at + 4, at + 24], [18, 14], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }));
   return (
     <AbsoluteFill>
       <Backdrop />
-      <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', fontFamily: FONT }}>
-        <div style={{ fontSize: 52, fontWeight: 700, color: C.muted }}>수성못 둘레길 · 공식 기록</div>
-        <div style={{ position: 'relative', marginTop: 30 }}>
-          <Metric size={150} color={C.muted}>
-            민수 9:58
-          </Metric>
-          <span style={{ position: 'absolute', left: -8, right: -8, top: '52%', height: 10, background: C.muted, transform: `scaleX(${strike})`, transformOrigin: 'left' }} />
-        </div>
-        <div style={{ marginTop: 10, transform: `scale(${0.6 + 0.4 * slam})`, opacity: Math.min(1, slam * 2) }}>
-          <Metric size={330} color={C.signal}>
-            9:51
-          </Metric>
-        </div>
-        <div style={{ marginTop: 20, opacity: Math.min(1, slam * 2) }}>
-          <Line delay={at + 4} size={110}>
-            되찾았다.
-          </Line>
-        </div>
-      </AbsoluteFill>
+      <Head a="기록 깨고" b="순위 올리고" />
+      <HeroPhone screen="ranking" />
+      <div
+        style={{
+          position: 'absolute',
+          top: 1120,
+          right: 50,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 16,
+          padding: '24px 44px',
+          borderRadius: 999,
+          background: C.surface,
+          border: '2px solid rgba(43,240,192,0.4)',
+          boxShadow: '0 30px 60px -20px rgba(0,0,0,0.85)',
+          fontFamily: FONT,
+          transform: `scale(${pop})`,
+          opacity: Math.min(1, pop * 1.5),
+        }}
+      >
+        <span style={{ fontSize: 40, fontWeight: 800, color: C.muted }}>이번 주</span>
+        <Metric size={120} color={C.signal}>
+          {rank}위
+        </Metric>
+      </div>
     </AbsoluteFill>
   );
 }
 
-// 이번엔 민수 차례: 같은 알림이 민수에게 간다
-function Turn() {
-  return (
-    <AbsoluteFill>
-      <Backdrop />
-      <Head a="이번엔" b="민수 차례." />
-      <Notice delay={8} top={760} title="내 코스 기록을 넘었어요" body="수성러너님이 수성못 둘레길에서 9:51로 내 기록 9:58을 넘었어요" />
-    </AbsoluteFill>
-  );
-}
-
-// 다음엔 같이: 장소가 달라도 같은 시간에 출발하는 레이스
+// 장소가 달라도 친구와 같은 시간에 출발
 function Together() {
   return (
     <AbsoluteFill>
       <Backdrop />
-      <Head a="다음엔" b="같이 붙자." />
-      <HeroPhone screen="live" x={-70} top={640} />
-      <Watch delay={10} top={1320} x={350} scale={0.6}>
-        <Metrics status="기록 중" statusColor="#2BF0C0" time="0:40" km="0.12" pace={`5'37"`} bpm={171} stripLabel="3명 중 3위" stripValue="선두와 5초 차이" stripColor="rgba(235,235,245,0.6)" />
-      </Watch>
+      <Head a="친구랑" b="같이 달리고" />
+      <HeroPhone screen="live" />
+      <Tag top={1120} left={40} delay={12}>
+        장소가 달라도 같은 시간에 출발
+      </Tag>
     </AbsoluteFill>
   );
 }
@@ -248,11 +273,8 @@ function End() {
         <Line delay={10} size={170} style={{ display: 'flex', justifyContent: 'center', marginTop: 46 }}>
           달리모
         </Line>
-        <Line delay={18} size={60} weight={800} style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-          코스를 찾고, 같이 달리고,
-        </Line>
-        <Line delay={24} size={60} weight={800} color={C.signal} style={{ display: 'flex', justifyContent: 'center' }}>
-          기록을 깨다.
+        <Line delay={18} size={66} weight={800} color={C.signal} style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+          코스 기반 소셜 러닝 앱
         </Line>
         <div
           style={{
@@ -275,7 +297,7 @@ function End() {
   );
 }
 
-const SCENES = [Hook, Run, Win, Turn, Together, End];
+const SCENES = [Hook, Find, Run, Interval, Rank, Together, End];
 
 export function Promo15() {
   return (
