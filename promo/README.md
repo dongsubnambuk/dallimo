@@ -38,6 +38,7 @@ npm install
 npm run studio     # 브라우저에서 미리 보기 · 수정
 npm run render     # out/dallimo-promo.mp4 (Rising Forest)
 npm run render:shiny-tech  # out/dallimo-promo-shiny-tech.mp4 (Shiny Tech)
+npm run render:15s # out/dallimo-promo-15s.mp4 (15초 광고, Rising Forest)
 npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 ```
 
@@ -59,6 +60,11 @@ npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
   | 함께 달리기 → 끝 | `fade` | 16프레임 |
 
 - 휴대폰이 들어오는 방식도 장면마다 다르다(`src/Scenes.tsx`의 `ScenePhone` `enter`): 탐색 올라오기, 코스 상세 확대, 달리는 중 3D로 기울며 올라오기, 결과 위에서 떨어져 튕기기, 랭킹 오른쪽에서, 함께 달리기 양옆에서.
+- 15초 광고(`src/Promo15.tsx`)는 기능 설명 없이 핵심만 보여 준다.
+  - 0~1.5초: "오늘도 그냥 뛰었어?"
+  - 1.5초(드롭)부터 한 마디(1.936초)마다 "코스를 찾고" → "기록을 깨고"(PB 10:12 → 10:08) → "순위를 올려"(18위 → 14위) → "친구랑 같이"
+  - 9.2초부터 끝: 앱 아이콘 · 달리모 · 부제, 6마디 첫 박에 "곧 App Store 출시"
+  - 음악은 30초 영상과 같은 Rising Forest. 드롭을 1.5초에 두고 마지막 1.2초 동안 줄인다.
 - Chrome이 없거나 headless shell을 써야 하면 `REMOTION_BROWSER=/path/to/headless_shell`을 붙인다.
 
 ## App Store 스크린샷
