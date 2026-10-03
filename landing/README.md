@@ -72,7 +72,7 @@ cd frontend && EXPO_PUBLIC_API_URL= npx expo start --web
 # 2. 찍는다 (playwright가 있는 환경)
 cd landing && node scripts/capture-screens.mjs /tmp/raw
 # 3. 상태 표시줄을 그리고 public/screens에 저장한다
-python3 scripts/statusbar.py /tmp/raw explore:explore course:course ranking:ranking together:together room:room live:live result:result activity:activity run:run
+python3 scripts/statusbar.py /tmp/raw explore:explore course:course ranking:ranking together:together room:room live:live result:result activity:activity run:run interval:interval
 ```
 
 실기기에서 찍은 화면으로 바꿀 때는 같은 비율(1179×2556)인지 확인하고 같은 이름으로 780px · 480px(`-480`) webp 두 개를 넣는다. 실기기 화면에는 상태 표시줄이 이미 있어 `statusbar.py`는 쓰지 않는다.
