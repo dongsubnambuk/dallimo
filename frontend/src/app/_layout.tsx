@@ -3,11 +3,14 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { BrandSplash } from '@/components/Brand/BrandSplash';
 import { darkTheme, lightTheme, ThemeProvider } from '@/design/theme';
 import { fontAssets, fontFamily } from '@/design/tokens';
 import { restoreSession, useAuthStatus } from '@/features/auth/session';
+import { ForceUpdateScreen } from '@/features/force-update/ForceUpdateScreen';
+import { useForceUpdate } from '@/features/force-update/forceUpdate';
 import { useOnboarding } from '@/features/onboarding/onboardingState';
 import { usePendingShareLink } from '@/features/share/usePendingShareLink';
 import { useOtaUpdates } from '@/shared/updates/useOtaUpdates';
@@ -27,6 +30,8 @@ export default function RootLayout() {
   const ready = (fontsLoaded || !!fontError) && auth !== 'restoring';
   // 네이티브 스플래시 뒤를 이어 받는 앱 안 스플래시 (한 번만)
   const [splashDone, setSplashDone] = useState(false);
+  // 강제 업데이트: 서버 최소 버전보다 낮으면 모든 화면을 가린다 (결정 로그 79항)
+  const forceUpdate = useForceUpdate();
 
   // AUTH-003: 앱을 켜면 저장된 세션부터 확인한다
   useEffect(() => {
@@ -126,8 +131,18 @@ export default function RootLayout() {
           {/* 약관 · 개인정보 처리방침은 로그인 전에도 본다 */}
           <Stack.Screen name="legal/[kind]" options={{ headerShown: false }} />
         </Stack>
+        {forceUpdate.required ? (
+          <View style={styles.cover}>
+            <ForceUpdateScreen storeUrl={forceUpdate.storeUrl} />
+          </View>
+        ) : null}
         {splashDone ? null : <BrandSplash onShown={() => SplashScreen.hideAsync()} onDone={() => setSplashDone(true)} />}
       </ThemeProvider>
     </QueryClientProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  // 화면 전환 위에 그린다 (스플래시보다는 아래)
+  cover: { ...StyleSheet.absoluteFill, zIndex: 10, elevation: 10 },
+});

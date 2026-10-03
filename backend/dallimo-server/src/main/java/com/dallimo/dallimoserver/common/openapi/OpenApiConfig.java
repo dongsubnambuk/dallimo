@@ -63,6 +63,7 @@ public class OpenApiConfig {
             Map.entry("course-title-controller", "코스 크라운 · 레전드 (124장)"),
             Map.entry("segment-controller", "구간 도전 (124장)"),
             Map.entry("ghost-controller", "고스트 (124장)"),
+            Map.entry("app-version-controller", "앱 버전 (강제 업데이트)"),
             Map.entry("external-course-admin-controller", "관리 · 외부 추천 코스"),
             Map.entry("course-admin-controller", "관리 · 코스 신고 검토"));
 

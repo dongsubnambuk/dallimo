@@ -268,6 +268,29 @@ paths:
       - adminKey: []
       tags:
       - 관리 · 외부 추천 코스
+  /api/v1/app/version:
+    get:
+      operationId: version
+      parameters:
+      - in: query
+        name: platform
+        required: false
+        schema:
+          type: string
+          default: ios
+          pattern: ios|android
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseAppVersionResponse"
+          description: OK
+      security:
+      - {}
+      - bearerAuth: []
+      tags:
+      - 앱 버전 (강제 업데이트)
   /api/v1/auth/login:
     post:
       operationId: login
@@ -1955,6 +1978,18 @@ components:
         details: {}
         message:
           type: string
+    ApiResponseAppVersionResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/AppVersionResponse"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseAuthResponse:
       type: object
       properties:
@@ -2551,6 +2586,15 @@ components:
         timestamp:
           type: string
           format: date-time
+    AppVersionResponse:
+      type: object
+      properties:
+        minVersion:
+          type: string
+        platform:
+          type: string
+        storeUrl:
+          type: string
     AuthResponse:
       type: object
       properties:

@@ -69,6 +69,14 @@ management:
 
 # 14.1장 인증. 유효 시간은 명세에 없어 정한 값 (backend/README 결정 사항)
 dallimo:
+  # 강제 업데이트: 이 버전보다 낮은 앱은 스토어로 보낸다. 비어 있으면 막지 않는다 (결정 로그 79항)
+  app-version:
+    ios:
+      min-version: ${APP_MIN_VERSION_IOS:}
+      store-url: ${APP_STORE_URL_IOS:}
+    android:
+      min-version: ${APP_MIN_VERSION_ANDROID:}
+      store-url: ${APP_STORE_URL_ANDROID:}
   auth:
     jwt-secret: ${JWT_SECRET:}
     issuer: dallimo

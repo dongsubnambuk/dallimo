@@ -69,6 +69,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `ADMIN_API_KEY` | 아니오 | 관리 API 키. 없으면 관리 API가 닫힌다 (예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) |
 | `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
 | `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
+| `APP_MIN_VERSION_IOS` · `APP_STORE_URL_IOS` | 아니오 | 강제 업데이트 (아래 "앱 버전"). 비어 있으면 막지 않는다 |
 
 ### 프록시 (nginx · 로드밸런서 뒤)
 
@@ -453,6 +454,14 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **관리자 검토**: `HIDE` → `HIDDEN`, `BLOCK` → `BLOCKED`, `RESTORE` → 숨기기 전 상태(기록이 없으면 `NEW`, 공개 중이면 그대로). 어느 쪽이든 검토 시각을 남겨 그때까지의 신고를 닫는다(근거 없는 신고는 `RESTORE`로 공개 유지). 모든 변경은 `tbl_course_moderation`(V16)에 남는다.
 - **알림**: 만든 사람에게 알림은 보내지 않는다(명세 NTF 종류에 없음). 앱 내 코스에 "신고로 숨김 · 검토 중" · "공개 중지"로 보인다.
 - **테스트**: `CourseModerationApiContractTest`를 MySQL · MariaDB에서(만든 사람 신고 제외 · 같은 사람 한 건 · 세 번째 신고에 숨김 · 목록 · 상세 403 · 내 코스 상태 · 관리 키 · 대기 목록 · 사유별 수 · 신고 · 처리 기록 · 다시 공개 · 검토 뒤 새 신고 · 차단 · 차단 뒤 다시 공개 · 잘못된 요청).
+
+## 앱 버전 · 강제 업데이트 (사용자 결정, 결정 로그 79항)
+
+`GET /api/v1/app/version?platform=ios` (로그인 없이) → `{ platform, minVersion, storeUrl }`. 앱은 켤 때 한 번 부르고, 설치된 앱 버전이 `minVersion`보다 낮으면 "업데이트가 필요해요" 화면으로 모든 화면을 가린다.
+
+- 값은 배포 환경변수 `APP_MIN_VERSION_IOS`(예: `1.0.1`) · `APP_STORE_URL_IOS`(`https://apps.apple.com/app/id{App Store Connect의 Apple ID}`). 바꾸고 서버를 다시 띄우면 바로 적용된다.
+- 비어 있으면 `minVersion`이 null이라 막지 않는다. 서버에 닿지 못해도 앱은 막지 않는다.
+- 이전 버전에서 서버 API가 깨지는 변경(필드 삭제 · 의미 변경)을 내보낼 때만 올린다. 화면 · JS 수정은 OTA(`frontend/docs/deploy/APP-RELEASE-SETUP.md` 2.6)로 충분하다.
 
 ## 공통 규칙
 

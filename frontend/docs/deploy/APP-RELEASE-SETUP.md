@@ -96,6 +96,17 @@ npx eas-cli@latest update --channel production --environment production --messag
   - `modules/`(Swift) · `targets/watch`(워치 앱)
 - 잘못 내보냈으면 `npx eas-cli@latest update:rollback`으로 이전 업데이트로 돌린다.
 
+### 2.7 강제 업데이트 (결정 로그 79항)
+
+설치된 앱 버전이 서버의 최소 버전보다 낮으면 앱을 켤 때 "업데이트가 필요해요" 화면이 모든 화면을 가리고 App Store로 보낸다.
+
+1. 새 스토어 빌드(`app.json` `version`을 올린 것)가 App Store에 출시된 뒤에
+2. 서버 환경변수 `APP_MIN_VERSION_IOS`를 그 버전으로, `APP_STORE_URL_IOS`를 `https://apps.apple.com/app/id{Apple ID}`로 넣고 서버를 다시 띄운다 (`backend/README.md` "앱 버전").
+
+- 앱 버전은 설치된 스토어 빌드의 버전(`expo-application`)이다. OTA로는 바뀌지 않는다.
+- `expo-application`이 들어간 빌드부터 동작한다.
+- 앱을 새로 켤 때만 확인한다. 달리는 중에 화면이 가려지지 않게 하려는 것이다.
+
 ## 3. 서버와 반드시 같게 맞출 값
 
 앱 값과 서버 환경변수가 다르면 공유 링크가 앱을 열지 못한다. 사용자에게 서버 쪽 값도 같이 넣도록 알린다.

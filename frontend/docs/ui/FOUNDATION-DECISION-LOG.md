@@ -1485,3 +1485,15 @@ App Store Connect가 빌드를 받지 않았다: "Missing purpose string in Info
 | 서버 주소 | `frontend/.env.production`(비밀 아님, 커밋)에 `EXPO_PUBLIC_API_URL` | `eas update`는 eas.json build `env`를 읽지 않는다. 없으면 업데이트한 JS가 mock으로 돈다. `npx expo export`로 production 번들에 배포 서버 주소가 들어가는 것을 확인 |
 | 확인한 것 | `tsc` · `expo lint`, `npx expo config`에 runtimeVersion · updates.url, production 번들에 서버 주소 | 실제 OTA 수신은 expo-updates가 들어간 스토어 · TestFlight 빌드에서 확인한다 |
 
+## 79. 강제 업데이트
+
+사용자 결정: 오래된 앱을 막고 스토어로 보내는 강제 업데이트 안내를 넣는다. 명세에 없는 기능이다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 기준 | 서버 `GET /api/v1/app/version?platform=ios`의 `minVersion` (환경변수 `APP_MIN_VERSION_IOS`). 앱의 비교 대상은 설치된 스토어 빌드 버전(`expo-application` `nativeApplicationVersion`) | OTA는 네이티브 버전을 바꾸지 않는다. 서버 값만 바꾸면 앱 배포 없이 적용된다 |
+| 화면 | "업데이트가 필요해요 · 지금 버전으로는 달리모를 쓸 수 없어요. App Store에서 업데이트한 뒤 다시 열어 주세요." + "App Store에서 업데이트"(검정 채움 보조 버튼). 모든 화면 위를 가리고 닫을 수 없다 | 강제라서 다른 행동을 두지 않는다. 핵심 행동 색(signal)은 달리기 버튼에만 쓴다(95장) |
+| 확인 때 | 앱을 새로 켤 때 한 번 | 앞으로 올 때마다 보면 달리는 중 러닝 화면을 가릴 수 있다 |
+| 실패하면 | 서버에 닿지 못하거나 값이 없으면 막지 않는다 | 연결 문제로 달리기 기록을 못 하게 되는 쪽이 더 나쁘다 |
+| 확인한 것 | 서버 API 테스트(설정 · 미설정 · 잘못된 platform), OpenAPI 계약 갱신, 앱 `tsc` · `expo lint`, 웹에서 화면을 강제로 띄워 모양 확인 | 실제 차단은 `expo-application`이 들어간 스토어 빌드에서 확인한다 |
+
