@@ -30,9 +30,11 @@ export type Preferences = {
   heartRateSave: boolean;
   // 잠금 화면 · 다이내믹 아일랜드에 러닝 보여주기 (라이브 액티비티, 결정 로그 83항)
   liveActivity: boolean;
+  // 블루투스 심박 센서 (심박 벨트 · 심박수 브로드캐스트를 켠 워치, 결정 로그 80항). 달리기를 시작하면 이 센서에 연결한다
+  heartSensor: { id: string; name: string } | null;
 };
 
-const DEFAULTS: Preferences = { healthImport: false, watchMirror: true, autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true, heartRateSave: false, liveActivity: true };
+const DEFAULTS: Preferences = { healthImport: false, watchMirror: true, autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true, heartRateSave: false, liveActivity: true, heartSensor: null };
 const KEY = 'dallimo.preferences';
 
 let current: Preferences = DEFAULTS;

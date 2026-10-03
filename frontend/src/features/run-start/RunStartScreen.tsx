@@ -13,7 +13,9 @@ import { fontFamily, motion, spacing } from '@/design/tokens';
 import { getCourseRepository } from '@/entities/course/api';
 import { flattenBlocks } from '@/entities/workout/flatten';
 import { ActiveRunScreen } from '@/features/active-run/ActiveRunScreen';
+import { useHeartSensorDuringRun } from '@/features/heart-sensor/useHeartSensorDuringRun';
 import { beginActiveRun, endActiveRun, type ActiveRunOptions } from '@/features/run/engine/activeRunSession';
+import { resetHeartRate } from '@/features/run/heartRateLive';
 import { MODE_TITLE, parseRunPlan, type RunPlanParams } from '@/features/run-ready/runPlanParams';
 import { launchWatchApp, sendWatchIdle, useWatchCountdown } from '@/features/watch/useWatchLink';
 import { formatDuration } from '@/shared/format';
@@ -125,6 +127,9 @@ function RunStart({ params, options, recovering }: Props) {
 
   // WATCH-001: 출발 카운트다운과 함께 워치 앱을 켜고 같은 숫자를 보여 준다
   useWatchCountdown(summary, count, !recovering);
+  // 블루투스 심박 센서: 카운트다운 동안 연결해 출발부터 심박을 받는다 (결정 로그 80항)
+  useEffect(resetHeartRate, []);
+  useHeartSensorDuringRun();
 
   if (count < 0) {
     return (

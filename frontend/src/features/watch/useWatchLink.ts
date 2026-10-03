@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { ActiveRunSnapshot, RunningEngine } from '@/features/run/engine/runningEngine';
-import { recordHeartRate } from '@/features/run/heartRateLog';
+import { pushHeartRate, resetHeartRate } from '@/features/run/heartRateLive';
 import { setHapticsMirror } from '@/shared/haptics';
 import { getPreferences, usePreferences } from '@/shared/preferences';
 import { watchTransport, type WatchCommand } from '@/shared/watch/watchTransport';
@@ -12,35 +12,6 @@ import { countdownMessage, cueMessage, endMessage, idleMessage, runMessage, type
 // 달리는 동안 1초마다 지금 상태를 워치로 보내고, 워치에서 온 일시정지 · 끝내기 · 다음 구간 · 심박을 받는다.
 
 const SEND_MS = 1000;
-// 이보다 오래된 심박은 보여 주지 않는다 (워치를 벗었거나 연결이 끊김)
-const HEART_STALE_MS = 15_000;
-
-// ── 심박 (워치 → 휴대폰) ──
-let heart: { bpm: number; at: number } | null = null;
-const heartListeners = new Set<() => void>();
-
-function setHeart(bpm: number, at: number) {
-  heart = { bpm, at };
-  heartListeners.forEach((fn) => fn());
-}
-
-/** 워치에서 받은 최근 심박(bpm). 15초 넘게 새 값이 없으면 null */
-export function useWatchHeartRate(): number | null {
-  const value = useSyncExternalStore(
-    (fn) => {
-      heartListeners.add(fn);
-      return () => heartListeners.delete(fn);
-    },
-    () => heart,
-  );
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!value) return;
-    const t = setInterval(() => setNow(Date.now()), 5000);
-    return () => clearInterval(t);
-  }, [value]);
-  return value && Math.max(now, value.at) - value.at < HEART_STALE_MS ? value.bpm : null;
-}
 
 function linkOn(): boolean {
   return getPreferences().watchMirror && watchTransport.state().installed;
@@ -52,7 +23,7 @@ export function useWatchCountdown(title: string, count: number, active: boolean)
   useEffect(() => {
     if (!active || launched.current || !linkOn()) return;
     launched.current = true;
-    heart = null;
+    resetHeartRate();
     void watchTransport.launch();
   }, [active]);
   useEffect(() => {
@@ -120,10 +91,7 @@ export function useWatchLink(engine: RunningEngine, options: WatchLinkOptions) {
     });
     const timer = setInterval(push, SEND_MS);
     const offMessage = watchTransport.onMessage((m) => {
-      if (m.t === 'hr') {
-        setHeart(m.bpm, m.at);
-        recordHeartRate(m.bpm, m.at);
-      }
+      if (m.t === 'hr') pushHeartRate(m.bpm, m.at, 'watch');
       else if (m.t === 'hello') {
         lastStatus = null;
         push();
