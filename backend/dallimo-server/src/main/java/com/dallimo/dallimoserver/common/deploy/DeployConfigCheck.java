@@ -47,6 +47,7 @@ public class DeployConfigCheck {
         }
         if (blank(env, "dallimo.admin.api-key")) m.add("ADMIN_API_KEY: 관리 API(외부 코스 가져오기 · 신고 코스 검토)가 닫혀 있어요");
         if (blank(env, "dallimo.external-courses.durunubi.service-key")) m.add("DATA_GO_KR_SERVICE_KEY: 두루누비 코스를 가져오지 않아요");
+        if (blank(env, "dallimo.metrics.token")) m.add("METRICS_TOKEN: 성능 지표(/actuator/prometheus)가 닫혀 있어 Prometheus가 가져가지 못해요");
         return m;
     }
 

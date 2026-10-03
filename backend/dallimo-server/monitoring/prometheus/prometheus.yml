@@ -1,0 +1,14 @@
+# 18장 관측성: 서버 지표를 15초마다 가져온다 (backend/README.md "성능 지표")
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: dallimo-server
+    metrics_path: /actuator/prometheus
+    # METRICS_TOKEN (컨테이너가 시작할 때 파일로 쓴다, compose.yaml)
+    authorization:
+      type: Bearer
+      credentials_file: /prometheus/metrics_token
+    static_configs:
+      - targets: ["dallimo-server:8080"]

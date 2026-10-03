@@ -69,6 +69,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `ADMIN_API_KEY` | 아니오 | 관리 API 키. 없으면 관리 API가 닫힌다 (예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) |
 | `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
 | `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
+| `METRICS_TOKEN` · `GRAFANA_ADMIN_PASSWORD` | 아니오 | 성능 지표 (아래 "성능 지표"). 토큰이 없으면 `/actuator/prometheus`가 닫힌다 |
 
 ### 프록시 (nginx · 로드밸런서 뒤)
 
@@ -453,6 +454,29 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **관리자 검토**: `HIDE` → `HIDDEN`, `BLOCK` → `BLOCKED`, `RESTORE` → 숨기기 전 상태(기록이 없으면 `NEW`, 공개 중이면 그대로). 어느 쪽이든 검토 시각을 남겨 그때까지의 신고를 닫는다(근거 없는 신고는 `RESTORE`로 공개 유지). 모든 변경은 `tbl_course_moderation`(V16)에 남는다.
 - **알림**: 만든 사람에게 알림은 보내지 않는다(명세 NTF 종류에 없음). 앱 내 코스에 "신고로 숨김 · 검토 중" · "공개 중지"로 보인다.
 - **테스트**: `CourseModerationApiContractTest`를 MySQL · MariaDB에서(만든 사람 신고 제외 · 같은 사람 한 건 · 세 번째 신고에 숨김 · 목록 · 상세 403 · 내 코스 상태 · 관리 키 · 대기 목록 · 사유별 수 · 신고 · 처리 기록 · 다시 공개 · 검토 뒤 새 신고 · 차단 · 차단 뒤 다시 공개 · 잘못된 요청).
+
+## 성능 지표 (명세 18장 관측성 · 34장, ADR "Actuator + 운영 metric exporter")
+
+서버가 `/actuator/prometheus`로 지표를 내고, gamjabox compose의 Prometheus가 15초마다 가져가 30일 보관한다. Grafana 대시보드 "달리모 > 달리모 서버"로 본다 (결정 로그 77항).
+
+- **열기**: `METRICS_TOKEN`(Bearer)으로만 열린다. 사용자 Access Token으로는 열리지 않고, 토큰이 비어 있으면 404 (`MetricsSecurityConfig`). Prometheus는 compose 안에서만 서버를 부르고 바깥 포트를 열지 않는다.
+- **Grafana**: `http://{서버}:3000`, `admin` / `GRAFANA_ADMIN_PASSWORD`. Prometheus 연결과 대시보드는 이미지에 들어 있다(`monitoring/grafana`). 도메인으로 열려면 gamjabox에서 3000 포트를 연결한다.
+- 태그에는 사용자 id · 위치 · 닉네임을 넣지 않는다 (34장).
+
+| 18장 항목 | 지표 | 대시보드 |
+| --- | --- | --- |
+| API 응답시간 · 4xx/5xx · endpoint별 오류율 | `http_server_requests_seconds` (endpoint별 histogram, Spring Boot 자동) | p95 응답시간 · 요청 수 · 상태 코드 · 오류율 |
+| Run 시작/완료율 · 비정상 종료 | `dallimo_run_started_total{mode}` · `dallimo_run_finished_total{mode,status}` | 시작 · 완료, 24시간 완료율 (시작보다 완료가 크게 적으면 비정상 종료) |
+| sync 실패 | `dallimo_run_batch_total{result}` (ACCEPTED · DUPLICATE · CONFLICT · REJECTED) | GPS Batch 결과 |
+| GPS 평균 accuracy | `dallimo_gps_accuracy_meters` · `dallimo_gps_points_total` | p50 · p90 정확도 |
+| Verification 비율 · 사유 | `dallimo_verification_total{outcome,reason,policy}` | 판정 결과 · 실패 사유 |
+| WebSocket 연결 · 끊김 · 메시지 지연 | `dallimo_live_connections` · `dallimo_live_connects_total` · `dallimo_live_disconnects_total{code}` · `dallimo_live_state_lag_seconds` | 연결 · 끊김, 상태 메시지 지연 (앱 sentAt → 서버, 기기 시계 차이가 섞인다) |
+| DB connection pool | `hikaricp_connections_*` (자동) | 연결 풀 · 연결 얻는 시간 · 시간 초과 |
+| Redis latency | `lettuce_seconds{db_operation}` (자동) | Redis 명령 지연. 메모리 · key 수는 `redis-cli INFO` |
+| Push ticket 성공/실패 · invalid token | `dallimo_push_total{type,result}` (OK · FAILED · DEVICE_GONE) | Push 결과 · 알림 종류별 |
+
+- 지표로 두지 않은 것: GPS rejected point 비율(튄 point는 앱이 거른다), DB slow query · lock(MySQL slow log · performance_schema로 본다, `docs/perf/README.md`).
+- 로컬에서 보기: `METRICS_TOKEN=local ./gradlew bootTestRun` → `curl -H "Authorization: Bearer local" localhost:8080/actuator/prometheus`.
 
 ## 공통 규칙
 

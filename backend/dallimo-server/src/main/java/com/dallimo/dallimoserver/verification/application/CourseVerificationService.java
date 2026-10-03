@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.verification.application;
 
+import com.dallimo.dallimoserver.common.observability.DallimoMetrics;
 import com.dallimo.dallimoserver.activity.application.ActivityService;
 import com.dallimo.dallimoserver.gamification.application.CourseTitleService;
 import com.dallimo.dallimoserver.gamification.application.SegmentService;
@@ -47,10 +48,12 @@ public class CourseVerificationService {
     private final CourseTitleService titles;
     private final SegmentService segments;
     private final Clock clock;
+    private final DallimoMetrics metrics;
 
     public CourseVerificationService(RunJpaRepository runs, RunPointJdbcRepository points, CourseJdbcRepository courses,
                                      VerificationJdbcRepository store, ChallengeService challenges, RecordBeatenNotifier recordBeaten, Clock clock, RankingService ranking, ActivityService activities,
-                                     CourseTitleService titles, SegmentService segments) {
+                                     CourseTitleService titles, SegmentService segments, DallimoMetrics metrics) {
+        this.metrics = metrics;
         this.runs = runs;
         this.points = points;
         this.courses = courses;
@@ -96,6 +99,7 @@ public class CourseVerificationService {
         // 34장 Verification: runId · policyVersion · matchRate · failureReason
         log.info("run.verification runId={} courseId={} outcome={} policyVersion={} matchRate={} failureReason={} recordSec={}", runId, courseId,
                 result.outcome(), policy.version(), result.matchRate(), result.failureReason(), result.recordSeconds());
+        metrics.verification(result.outcome().name(), result.failureReason() == null ? null : result.failureReason().name(), policy.version());
         // 이 Run으로 진행 중인 도전 판정 (CHL-003)
         challenges.judge(runId, result.outcome() == VerificationOutcome.VERIFIED ? result.recordSeconds() : null, now);
         return Optional.of(result);
