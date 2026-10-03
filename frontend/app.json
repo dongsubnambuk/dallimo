@@ -64,7 +64,7 @@
           "locationWhenInUsePermission": "달린 경로와 거리를 기록하고 내 주변 코스를 찾는 데 위치를 사용해요.",
           "locationAlwaysAndWhenInUsePermission": "화면을 끄거나 다른 앱을 써도 달리기 기록이 이어지도록 위치를 사용해요. 달리지 않을 때는 위치를 모으지 않아요.",
           "locationAlwaysPermission": "화면을 끄거나 다른 앱을 써도 달리기 기록이 이어지도록 위치를 사용해요. 달리지 않을 때는 위치를 모으지 않아요.",
-          "motionUsagePermission": false,
+          "motionUsagePermission": "달리는 중과 멈춘 때를 구분해 기록을 정확하게 남기는 데 동작 정보를 사용해요. 지금은 이 권한을 요청하지 않아요.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": true
