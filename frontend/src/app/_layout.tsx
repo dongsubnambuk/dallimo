@@ -107,6 +107,7 @@ export default function RootLayout() {
             <Stack.Screen name="settings/profile" options={{ headerShown: false }} />
             <Stack.Screen name="settings/password" options={{ headerShown: false }} />
             <Stack.Screen name="settings/runner" options={{ headerShown: false }} />
+            <Stack.Screen name="settings/heart-sensor" options={{ headerShown: false }} />
             {/* 122.3장 외부 기록 가져오기 */}
             <Stack.Screen name="import/index" options={{ headerShown: false }} />
             {/* SCR-R05 공유 카드, SHR-004 공유 링크 열기 */}

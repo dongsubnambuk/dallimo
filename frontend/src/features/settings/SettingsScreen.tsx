@@ -19,6 +19,7 @@ import { useMe } from '@/features/my/useMy';
 import { runnerSummary } from '@/features/onboarding/runnerOptions';
 import { getRunStore } from '@/features/run/engine/runStore';
 import { API_BASE_URL } from '@/shared/api/config';
+import { heartSensor } from '@/shared/heart/heartSensorTransport';
 import { getPreferences, setPreference, usePreferences, type Preferences } from '@/shared/preferences';
 import { useWatchState, type WatchState } from '@/shared/watch/watchTransport';
 
@@ -64,7 +65,7 @@ function watchFooter(w: WatchState): string {
 const HEART_CONSENT = [
   '심박은 건강정보라 따로 동의를 받아요. 동의하지 않아도 다른 기능은 그대로 쓸 수 있어요.',
   '',
-  '· 저장하는 정보: 달리는 동안 Apple Watch로 5초마다 잰 심박수',
+  '· 저장하는 정보: 달리는 동안 Apple Watch나 블루투스 심박 센서로 5초마다 잰 심박수',
   '· 쓰는 곳: 내 러닝 결과와 기록 상세의 평균 · 최고 심박 (다른 사람에게는 보이지 않아요)',
   '· 보관 기간: 동의를 끄거나 탈퇴할 때까지. 끄면 저장된 심박을 모두 지워요',
 ].join('\n');
@@ -179,10 +180,25 @@ export function SettingsScreen() {
               value={prefs.watchMirror}
               onChange={(v) => setPreference('watchMirror', v)}
             />
+          </SettingSection>
+        ) : null}
+
+        {/* 심박: Apple Watch · 블루투스 심박 센서 (결정 로그 65 · 80항) */}
+        {watch.supported || heartSensor.supported ? (
+          <SettingSection title="심박">
+            {heartSensor.supported ? (
+              <SettingRow
+                kind="link"
+                label="심박 센서"
+                caption="심박 벨트 · 심박수 브로드캐스트를 켠 워치"
+                value={prefs.heartSensor?.name ?? '없음'}
+                onPress={() => router.push('/settings/heart-sensor')}
+              />
+            ) : null}
             <SettingRow
               kind="toggle"
               label="심박을 기록에 저장"
-              caption="달리는 동안 워치로 잰 심박을 저장해 결과와 기록 상세에 평균 · 최고 심박을 보여 줘요"
+              caption="달리는 동안 잰 심박을 저장해 결과와 기록 상세에 평균 · 최고 심박을 보여 줘요"
               value={prefs.heartRateSave}
               onChange={(v) => {
                 setError(null);

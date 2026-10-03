@@ -1,7 +1,7 @@
 import { EFFECTIVE_DATE, LEGAL_CONTACT, type LegalDocument } from './types';
 
 // 개인정보 처리방침 (「개인정보 보호법」 제30조). 사용자가 준 참고 양식처럼 항목만 간단히 적는다 (결정 로그 67항).
-// 실제로 모으고 지우는 것과 같아야 한다. 바뀌는 곳: 가입(41장) · 러닝 기록(42장) · 러너 정보(64항) · 심박(65항) · Push 토큰(14.2장)
+// 실제로 모으고 지우는 것과 같아야 한다. 바뀌는 곳: 가입(41장) · 러닝 기록(42장) · 러너 정보(64항) · 심박(65 · 80항) · Push 토큰(14.2장)
 // · 외부 기록 가져오기(122장) · 탈퇴(AUTH-004) · 지도(react-native-maps: iOS Apple 지도, Android Google 지도)
 export const PRIVACY_POLICY: LegalDocument = {
   title: '개인정보 처리방침',
@@ -55,7 +55,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         '· 러너 정보(평소 달리는 거리, 러닝 경험 등)',
         '· 알림 수신용 기기 토큰',
         '· Apple 건강에서 가져온 운동 기록',
-        '· Apple Watch로 측정한 심박수',
+        '· Apple Watch 또는 블루투스 심박 센서로 측정한 심박수',
         '심박수는 건강정보이므로 이용자가 설정에서 별도로 동의한 경우에만 수집합니다. 선택 항목은 동의하지 않아도 서비스를 이용할 수 있습니다.',
         '바. 문의 시 수집 항목',
         '· 답변 받을 이메일, 문의 종류, 문의 내용',

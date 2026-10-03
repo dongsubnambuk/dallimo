@@ -21,10 +21,11 @@ import { endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSes
 import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { useGapLine, useGapVoice } from '@/features/run/voice/useCompetitionVoice';
 import { useIntervalCues } from '@/features/run/voice/useIntervalCues';
+import { useLiveHeartRate } from '@/features/run/heartRateLive';
 import { segmentLine } from '@/features/run/segment/segmentLine';
 import { useSegmentAttack, type SegmentAttack } from '@/features/run/segment/useSegmentAttack';
 import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine } from '@/features/run/engine/runningEngine';
-import { sendWatchEnd, useWatchHeartRate, useWatchLink } from '@/features/watch/useWatchLink';
+import { sendWatchEnd, useWatchLink } from '@/features/watch/useWatchLink';
 import { isManualStep, soloStrip } from '@/features/watch/watchMessages';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import { pointAt, type GeoPoint } from '@/shared/geo';
@@ -254,10 +255,10 @@ function TopBar({ engine, view, onToggleView }: { engine: RunningEngine; view: '
   );
 }
 
-// 워치에서 받은 심박. 워치가 없거나 15초 넘게 새 값이 없으면 보이지 않는다
+// 워치 · 심박 센서에서 받은 심박. 둘 다 없거나 15초 넘게 새 값이 없으면 보이지 않는다
 function HeartRate() {
   const { colors } = useTheme();
-  const bpm = useWatchHeartRate();
+  const bpm = useLiveHeartRate();
   if (bpm == null) return null;
   return (
     <View style={styles.heart} accessible accessibilityLabel={`심박 ${bpm}`}>

@@ -56,6 +56,12 @@
           "displayName": "달리모"
         }
       ],
+      [
+        "./plugins/with-heart-sensor",
+        {
+          "bluetoothPermission": "심박 벨트나 심박수 브로드캐스트를 켠 워치에서 달리는 동안 심박을 받으려고 블루투스를 사용해요."
+        }
+      ],
       "expo-secure-store",
       "expo-sharing",
       [
