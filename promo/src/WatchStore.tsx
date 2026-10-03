@@ -65,7 +65,7 @@ function Heart({ bpm }: { bpm: number }) {
 }
 
 // RunMetricsView: 상태 · 시간 · 거리 · 페이스 · 심박 · 모드별 한 줄
-function Metrics(p: { status: string; statusColor: string; time: string; km: string; pace: string; bpm: number; stripLabel: string; stripValue: string; stripColor: string }) {
+export function Metrics(p: { status: string; statusColor: string; time: string; km: string; pace: string; bpm: number; stripLabel: string; stripValue: string; stripColor: string }) {
   return (
     <Screen dots={1}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: pt(2) }}>
