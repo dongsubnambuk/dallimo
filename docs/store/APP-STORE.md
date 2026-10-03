@@ -98,12 +98,20 @@ App Store Connect에 그대로 옮겨 넣는 글 · 이미지 · 답안이다. A
 - 6.9형만 올리면 더 작은 iPhone에는 App Store가 줄여서 보여 준다.
 - iPad는 지원하지 않는다(`supportsTablet` 없음). iPad 스크린샷은 필요 없다.
 
-### Apple Watch (직접 찍어야 한다)
+### Apple Watch (410×502, 5장)
 
-앱에 워치 앱이 들어 있어서 Apple Watch 스크린샷도 필요하다. 워치 화면은 SwiftUI라 여기서는 찍을 수 없다. Xcode 워치 시뮬레이터나 실제 워치에서 찍는다.
+`cd promo && npm run store` → `promo/out/store/watch/01.png` ~ `05.png` (Apple Watch Ultra 크기. 한 크기만 올리면 다른 워치에는 App Store가 맞춰 보여 준다)
 
-- 크기는 App Store Connect가 받는 Apple Watch 크기 중 하나로 맞춘다(예: Ultra 계열 422×514). 올리는 화면에 맞는 크기가 안내된다.
-- 달리는 중 화면(거리 · 시간 · 페이스)과 심박이 보이는 화면을 1~2장 올린다.
+| 순서 | 화면 |
+| --- | --- |
+| 1 | 달리는 중 (PB 어택): 기록 중 · 시간 · 거리 · 페이스 · 심박 · "목표 0:05 빨라요" |
+| 2 | 함께 달리기 레이스: "3명 중 2위 · 선두와 5초 차이" |
+| 3 | 조작 페이지: 일시정지 · 끝내기 |
+| 4 | 출발 카운트다운 |
+| 5 | 저장 요약 |
+
+- 워치 앱 화면(`frontend/targets/watch/RunViews.swift`)의 배치 · 글자 크기 · 색 · 문구를 그대로 옮겨 그렸다(`promo/src/WatchStore.tsx`). 데이터는 아이폰 스크린샷과 같은 mock이다.
+- 글꼴은 워치의 SF 대신 앱과 같은 Pretendard다. 실제 워치에서 찍은 화면이 생기면 그것으로 바꾸는 편이 더 정확하다(Xcode 워치 시뮬레이터 또는 워치 › 측면 버튼 + Digital Crown).
 
 ## 4. 심사 정보
 

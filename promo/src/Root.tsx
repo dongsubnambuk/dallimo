@@ -4,6 +4,7 @@ import { Cover } from './Cover';
 import { Promo } from './Promo';
 import { STORE_SHOTS, STORE_SIZE, StoreBrand, StoreShot } from './Store';
 import { DURATION, FPS } from './timeline';
+import { WATCH_SHOTS, WATCH_SIZE } from './WatchStore';
 
 // 인스타그램 릴스 세로 영상 1080×1920
 // Promo는 "Rising Forest", PromoShinyTech는 처음 버전 음악 "Shiny Tech"로 같은 영상을 만든다
@@ -17,6 +18,10 @@ export function Root() {
       <Composition id="Store1" component={StoreBrand} durationInFrames={1} fps={FPS} {...STORE_SIZE} />
       {STORE_SHOTS.map(({ id, ...props }) => (
         <Composition key={id} id={id} component={StoreShot} defaultProps={props} durationInFrames={1} fps={FPS} {...STORE_SIZE} />
+      ))}
+      {/* App Store Apple Watch 스크린샷 (npm run store) */}
+      {WATCH_SHOTS.map(({ id, component }) => (
+        <Composition key={id} id={id} component={component} durationInFrames={1} fps={FPS} {...WATCH_SIZE} />
       ))}
     </>
   );
