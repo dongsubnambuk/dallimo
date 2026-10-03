@@ -64,7 +64,7 @@ npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 ## App Store 스크린샷
 
 ```bash
-npm run store      # out/store/01.png ~ 08.png (6.9형 1320×2868)
+npm run store      # out/store/01.png ~ 08.png (6.9형 1320×2868), out/store/watch/01.png ~ 05.png (Apple Watch 410×502)
 ```
 
 - 영상과 같은 휴대폰 틀 · 색 · 글꼴로 정지 화면을 만든다(`src/Store.tsx`). 1장 서비스 소개는 `StoreBrand`, 2~8장 문구 · 바탕 · 아이콘 · 크게 띄울 영역은 `STORE_SHOTS`. 올리는 순서와 글은 `docs/store/APP-STORE.md`.
