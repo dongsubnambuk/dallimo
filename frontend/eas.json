@@ -21,5 +21,8 @@
         "APP_LINK_DOMAIN": "dallimo.gamjabox.cloud"
       }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }
