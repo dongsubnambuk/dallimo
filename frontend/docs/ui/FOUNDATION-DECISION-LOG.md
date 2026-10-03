@@ -1460,3 +1460,14 @@ EAS 개발 빌드가 `npm ci`에서 `Missing: typescript@5.9.3 from lock file`�
 | 원인 | `@bacons/apple-targets` 안쪽 `@expo/require-utils`가 typescript 5를 선택 peer로 둔다. npm 10은 lock에 중첩 typescript 5.9.3을 넣고, npm 11은 `npm install` 때 이 줄을 뺀다. npm 11로 바뀐 lock을 EAS(npm 10)가 `npm ci`하면 실패한다 | npm 9 · 10 · 11로 lock을 만들고 `npm ci`를 엇갈려 돌려 같은 오류를 재현했다 |
 | 해결 | `frontend/package.json` `overrides`로 `@bacons/apple-targets` 아래 typescript를 앱 typescript(`$typescript`)로 맞춘다 | lock을 npm 10 · 11 어느 쪽으로 만들어도 npm 9 · 10 · 11 `npm ci`가 모두 통과한다. typescript는 선택 peer라 동작은 같다 |
 | 확인한 것 | 새로 `npm ci`, `npx expo config --type introspect`(워치 플러그인 포함), `tsc` 통과 | |
+
+## 75. iOS `NSMotionUsageDescription` (App Store 업로드 거절 90683)
+
+App Store Connect가 빌드를 받지 않았다: "Missing purpose string in Info.plist … NSMotionUsageDescription".
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 원인 | `expo-location`에 동작 감지 코드(`CMMotionActivityManager`)가 들어 있다. 앱은 이 권한을 요청하지 않지만 Apple은 코드에 API가 있으면 설명 문구를 요구한다. `app.json`의 `motionUsagePermission: false`가 문구를 지우고 있었다 | 거절 메일 "While your app might not use these APIs, a purpose string is still required" |
+| 해결 | `motionUsagePermission`에 문구를 넣는다: "달리는 중과 멈춘 때를 구분해 기록을 정확하게 남기는 데 동작 정보를 사용해요. 지금은 이 권한을 요청하지 않아요." | 실제로 묻지 않는 권한이라 그 사실을 함께 적는다 |
+| 다른 문구 | 사진 보관함(`expo-file-system` · `expo-image`)은 권한 상태만 읽고 요청하지 않는다. 거절 메일에도 동작 하나만 나와 더 넣지 않는다 | Apple은 빠진 문구를 한 번에 모두 알려 준다 |
+| 확인한 것 | `npx expo config --type introspect`의 `ios.infoPlist`에 `NSMotionUsageDescription`이 들어간다 | |
