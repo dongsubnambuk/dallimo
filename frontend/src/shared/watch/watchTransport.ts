@@ -17,8 +17,11 @@ export type WatchState = {
 
 export type WatchCommand = 'pause' | 'resume' | 'finish' | 'next';
 
-// 워치 → 휴대폰
-export type WatchIncoming = { t: 'cmd'; cmd: WatchCommand } | { t: 'hr'; bpm: number; at: number } | { t: 'hello' };
+// 워치 → 휴대폰. watchRun: 워치 단독 기록 파일이 도착했다 (받은 편지함에 있다, 결정 로그 81항)
+export type WatchIncoming = { t: 'cmd'; cmd: WatchCommand } | { t: 'hr'; bpm: number; at: number } | { t: 'hello' } | { t: 'watchRun' };
+
+// 워치가 혼자 기록해 보낸 러닝 파일 (id = 러닝 uuid)
+export type WatchRunFile = { id: string; json: string };
 
 export type WatchPayload = Record<string, unknown>;
 
@@ -32,6 +35,10 @@ export interface WatchTransport {
   setContext(context: WatchPayload): void;
   onMessage(fn: (m: WatchIncoming) => void): () => void;
   onState(fn: (s: WatchState) => void): () => void;
+  // 받아 두고 아직 넣지 않은 워치 단독 기록
+  pendingRuns(): Promise<WatchRunFile[]>;
+  // 기기 저장소에 넣었다: 받은 편지함에서 지운다
+  ackRun(id: string): void;
 }
 
 type Subscription = { remove(): void };
@@ -40,6 +47,8 @@ type DallimoWatchModule = {
   startWatchApp(): Promise<boolean>;
   sendMessage(message: WatchPayload): void;
   updateContext(context: WatchPayload): void;
+  pendingRuns(): WatchRunFile[];
+  ackRun(id: string): void;
   addListener(event: 'onMessage', fn: (m: WatchPayload) => void): Subscription;
   addListener(event: 'onState', fn: (s: WatchState) => void): Subscription;
 };
@@ -60,6 +69,7 @@ function parseIncoming(m: WatchPayload): WatchIncoming | null {
   if (m.t === 'cmd' && (m.cmd === 'pause' || m.cmd === 'resume' || m.cmd === 'finish' || m.cmd === 'next')) return { t: 'cmd', cmd: m.cmd };
   if (m.t === 'hr' && typeof m.bpm === 'number' && m.bpm > 0) return { t: 'hr', bpm: Math.round(m.bpm), at: typeof m.at === 'number' ? m.at : Date.now() };
   if (m.t === 'hello') return { t: 'hello' };
+  if (m.t === 'watchRun') return { t: 'watchRun' };
   return null;
 }
 
@@ -92,6 +102,20 @@ function nativeTransport(mod: DallimoWatchModule): WatchTransport {
       const sub = mod.addListener('onState', fn);
       return () => sub.remove();
     },
+    pendingRuns: async () => {
+      try {
+        return mod.pendingRuns();
+      } catch {
+        return [];
+      }
+    },
+    ackRun: (id) => {
+      try {
+        mod.ackRun(id);
+      } catch {
+        // 다음에 다시 넣으려 해도 이미 있어서 건너뛴다
+      }
+    },
   };
 }
 
@@ -107,6 +131,9 @@ type MockWatchDebug = {
   command(cmd: WatchCommand): void;
   heartRate(bpm: number): void;
   hello(): void;
+  // 워치 단독 기록 파일이 도착한 것처럼 (JSON 문자열, watchRunImport 파일 모양)
+  sendRun(json: string): void;
+  inbox: WatchRunFile[];
   setScenario(s: MockWatchScenario): void;
 };
 
@@ -127,6 +154,18 @@ function mockTransport(): WatchTransport {
     command: (cmd) => emit({ t: 'cmd', cmd }),
     heartRate: (bpm) => emit({ t: 'hr', bpm, at: Date.now() }),
     hello: () => emit({ t: 'hello' }),
+    inbox: [],
+    sendRun: (json) => {
+      let id = `watch-run-${debug.inbox.length + 1}`;
+      try {
+        const parsed = JSON.parse(json) as { runUuid?: unknown };
+        if (typeof parsed.runUuid === 'string') id = parsed.runUuid;
+      } catch {
+        // 읽을 수 없는 파일도 그대로 받는다 (넣을 때 버린다)
+      }
+      debug.inbox = [...debug.inbox.filter((f) => f.id !== id), { id, json }];
+      emit({ t: 'watchRun' });
+    },
     setScenario: (s) => {
       if (s === scenario) return;
       scenario = s;
@@ -157,6 +196,10 @@ function mockTransport(): WatchTransport {
       stateListeners.add(fn);
       return () => stateListeners.delete(fn);
     },
+    pendingRuns: async () => [...debug.inbox],
+    ackRun: (id) => {
+      debug.inbox = debug.inbox.filter((f) => f.id !== id);
+    },
   };
 }
 
@@ -168,6 +211,8 @@ const noTransport: WatchTransport = {
   setContext: () => undefined,
   onMessage: () => () => undefined,
   onState: () => () => undefined,
+  pendingRuns: async () => [],
+  ackRun: () => undefined,
 };
 
 /** 아이폰 개발 빌드면 WatchConnectivity, 개발 중 웹이면 가짜 워치, 그 밖(안드로이드 · 배포 웹)은 없음 */

@@ -127,7 +127,7 @@ export function useWatchLink(engine: RunningEngine, options: WatchLinkOptions) {
       else if (m.t === 'hello') {
         lastStatus = null;
         push();
-      } else latest.current.onCommand(m.cmd);
+      } else if (m.t === 'cmd') latest.current.onCommand(m.cmd);
     });
     // WATCH-004: 휴대폰과 같은 햅틱을 워치에서도
     setHapticsMirror((kind) => watchTransport.send(cueMessage(kind)));

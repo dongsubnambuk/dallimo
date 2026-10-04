@@ -1,5 +1,6 @@
 // WATCH-001~004 Apple Watch 달리모 앱 (@bacons/apple-targets). `npx expo prebuild`가 Xcode 워치 타깃을 만든다.
-// 휴대폰이 기록하고 워치는 보여 주기 · 조작 · 심박을 맡는다 (결정 로그 48항). 휴대폰 쪽은 modules/dallimo-watch
+// 휴대폰에서 시작하면 휴대폰이 기록하고 워치는 보여 주기 · 조작 · 심박을 맡는다 (결정 로그 48항). 휴대폰 쪽은 modules/dallimo-watch
+// 워치에서 시작하면 워치 GPS로 혼자 기록하고 끝나면 휴대폰으로 보낸다 (결정 로그 81항)
 /** @type {import('@bacons/apple-targets/app.plugin').Config} */
 module.exports = {
   type: 'watch',
@@ -12,7 +13,7 @@ module.exports = {
   colors: {
     $accent: '#2BF0C0',
   },
-  frameworks: ['HealthKit', 'WatchConnectivity'],
+  frameworks: ['HealthKit', 'WatchConnectivity', 'CoreLocation'],
   entitlements: {
     'com.apple.developer.healthkit': true,
   },

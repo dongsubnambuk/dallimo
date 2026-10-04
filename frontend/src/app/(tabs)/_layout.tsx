@@ -7,6 +7,7 @@ import { fontFamily } from '@/design/tokens';
 import { useNotificationSetup } from '@/features/notifications/useNotificationSetup';
 import { useRunRecovery } from '@/features/run/useRunRecovery';
 import { useOpenPendingShareLink } from '@/features/share/usePendingShareLink';
+import { useWatchRunImport } from '@/features/watch/useWatchRunImport';
 
 // 65장 정보 구조 최종안: 하단 탭 4개 (Explore / Run / Together / My). 탭 구조는 임의로 바꾸지 않는다 (115.1장).
 const TABS: { name: string; title: string; icon: IconName }[] = [
@@ -24,6 +25,8 @@ export default function TabsLayout() {
   useOpenPendingShareLink();
   // 알림 채널 · Push 토큰 · 알림을 눌렀을 때 이동
   useNotificationSetup();
+  // 휴대폰 없이 워치로 달린 기록을 받아 올린다
+  useWatchRunImport();
   return (
     <Tabs
       screenOptions={{

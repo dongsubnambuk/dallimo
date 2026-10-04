@@ -5,6 +5,7 @@ import WatchKit
 // 휴대폰과 주고받기 (WatchConnectivity). 메시지 모양은 휴대폰 src/features/watch/watchMessages.ts와 같다 (v1).
 // 휴대폰 → 워치: run(1초마다) · countdown · cue(햅틱) · end(저장 요약) · idle(러닝 없음)
 // 워치 → 휴대폰: hello(켜짐, 지금 상태를 달라) · cmd(pause · resume · finish · next) · hr(심박)
+//               · 워치 단독 기록 파일(transferFile, metadata t=watchRun, 결정 로그 81항)
 
 struct RunState {
   let status: String
@@ -112,6 +113,17 @@ final class PhoneLink: NSObject, ObservableObject {
     session.sendMessage(["t": "hr", "bpm": bpm, "at": Date().timeIntervalSince1970 * 1000], replyHandler: nil, errorHandler: nil)
   }
 
+  /// 워치 단독 기록을 휴대폰으로 보낸다. 휴대폰이 멀리 있어도 iOS가 쥐고 있다가 연결되면 보낸다 (이미 보내는 중인 파일은 건너뛴다)
+  func sendPendingRuns() {
+    guard WCSession.isSupported() else { return }
+    let session = WCSession.default
+    guard session.activationState == .activated else { return }
+    let sending = Set(session.outstandingFileTransfers.compactMap { $0.file.metadata?["runUuid"] as? String })
+    for run in WatchRecorder.shared.finishedRuns() where !sending.contains(run.id) {
+      session.transferFile(run.url, metadata: ["t": "watchRun", "runUuid": run.id])
+    }
+  }
+
   private func hello() {
     let session = WCSession.default
     guard session.activationState == .activated, session.isReachable else { return }
@@ -132,6 +144,8 @@ final class PhoneLink: NSObject, ObservableObject {
 
   private func handle(_ m: [String: Any], fromContext: Bool) {
     guard let type = m["t"] as? String else { return }
+    // 워치에서 시작해 혼자 기록하는 중이면 휴대폰 러닝 화면 · 운동 조작을 받지 않는다
+    if WatchRecorder.shared.active { return }
     switch type {
     case "run":
       guard let state = RunState(m) else { return }
@@ -189,13 +203,29 @@ extension PhoneLink: WCSessionDelegate {
       self.reachable = session.isReachable
       if !context.isEmpty { self.handle(context, fromContext: true) }
       self.hello()
+      self.sendPendingRuns()
+    }
+  }
+
+  // 휴대폰이 워치 단독 기록 파일을 받았다: 워치에서 지운다. 실패하면 다음에 다시 보낸다
+  func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+    guard let id = fileTransfer.file.metadata?["runUuid"] as? String else { return }
+    DispatchQueue.main.async {
+      if error == nil {
+        WatchRecorder.shared.remove(id)
+      } else {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { self.sendPendingRuns() }
+      }
     }
   }
 
   func sessionReachabilityDidChange(_ session: WCSession) {
     DispatchQueue.main.async {
       self.reachable = session.isReachable
-      if session.isReachable { self.hello() }
+      if session.isReachable {
+        self.hello()
+        self.sendPendingRuns()
+      }
     }
   }
 

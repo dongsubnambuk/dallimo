@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name           = 'DallimoWatch'
   s.version        = '1.0.0'
-  s.summary        = 'Apple Watch 달리모 앱과 러닝 상태 · 조작 · 심박 주고받기 (WATCH-001~004)'
+  s.summary        = 'Apple Watch 달리모 앱과 러닝 상태 · 조작 · 심박 · 워치 단독 기록 주고받기 (WATCH-001~004)'
   s.description    = s.summary
   s.author         = 'DALLIMO'
   s.homepage       = 'https://github.com/dongsubnambuk/dallimo'

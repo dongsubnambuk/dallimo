@@ -46,6 +46,19 @@ export type RunSegment = { startedAt: number; endedAt: number | null };
 // seq는 저장소가 붙인다
 export type NewRunPoint = Omit<RunPoint, 'seq'>;
 
+// 다른 기기(워치)에서 끝낸 러닝. segments는 모두 닫힌 구간, points는 시간 순 (seq는 저장소가 1부터 붙인다)
+export type ImportedRun = {
+  clientRunUuid: string;
+  mode: RunMode;
+  courseId: string | null;
+  plan: string | null;
+  startedAt: number;
+  endedAt: number;
+  segments: { startedAt: number; endedAt: number }[];
+  points: NewRunPoint[];
+  heart: HeartRateSample[];
+};
+
 // 개발용 GPS PoC 화면에서 보는 러닝별 수집 통계 (18장 GPS 지표: 평균 accuracy, rejected point 비율)
 export type LocalRunStats = LocalRun & {
   pointCount: number;
@@ -71,6 +84,9 @@ export interface LocalRunStore {
   getHeartRates(runUuid: string): Promise<HeartRateSample[]>;
   // 심박 저장 동의를 끄면 아직 올리지 않은 심박도 지운다
   clearHeartRates(): Promise<void>;
+  // 워치가 혼자 기록한 끝난 러닝을 한 트랜잭션으로 넣는다 (결정 로그 81항). 진행 중 러닝으로 잠깐이라도 보이지 않게 FINISHED로 바로 만든다.
+  // 같은 clientRunUuid가 이미 있으면 넣지 않고 false (워치가 다시 보낸 경우)
+  importFinishedRun(input: ImportedRun): Promise<boolean>;
   // 50.1장: seq > last_seq 확인 → INSERT → last_seq 갱신을 한 트랜잭션으로. 붙인 seq를 담아 돌려준다.
   appendPoints(runUuid: string, points: NewRunPoint[]): Promise<RunPoint[]>;
   getPoints(runUuid: string): Promise<RunPoint[]>;
