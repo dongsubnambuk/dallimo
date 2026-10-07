@@ -29,8 +29,8 @@ export type ScreenKey = keyof typeof SCREENS;
 
 export const NAV = [
   { href: '/#course', label: '코스' },
-  { href: '/#run', label: '달리기' },
-  { href: '/#together', label: '함께' },
+  { href: '/#compete', label: '겨루기' },
+  { href: '/#together', label: '함께 · 기기' },
   { href: '/#faq', label: '자주 묻는 질문' },
 ];
 
@@ -41,7 +41,7 @@ export const FAQ = [
   },
   {
     q: '어떤 기기에서 쓸 수 있나요?',
-    a: 'iPhone에서 쓸 수 있어요. Apple Watch는 iPhone과 함께 쓸 때 거리 · 시간 · 페이스를 손목에서 보여 줘요. Android 휴대폰은 아직 지원하지 않아요.',
+    a: 'iPhone에서 쓸 수 있어요. Apple Watch는 손목에서 거리 · 시간 · 페이스를 보여 주고, 휴대폰 없이 워치만 차고 달려도 기록해요. 블루투스 심박 밴드도 연결할 수 있어요. Android 휴대폰은 아직 지원하지 않아요.',
   },
   {
     q: '우리 동네에 코스가 없으면요?',
@@ -53,7 +53,7 @@ export const FAQ = [
   },
   {
     q: '내 위치는 언제 쓰나요?',
-    a: '달리기를 기록하는 동안과 주변 코스를 찾을 때만 써요. 함께 달리기에서도 다른 사람에게 위치를 보내지 않고 거리와 페이스만 보여 줘요.',
+    a: '달리기를 기록하는 동안과 주변 코스를 찾을 때만 써요. 함께 달리기에서도 다른 사람에게 위치를 보내지 않고 거리와 순위만 보여 줘요. 기록을 공유하면 출발 · 도착 200m는 지도에서 가려요. 심박은 따로 동의한 경우에만 저장해요.',
   },
   {
     q: '탈퇴하면 기록은 어떻게 되나요?',

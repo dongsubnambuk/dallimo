@@ -1,69 +1,45 @@
-import { EyeOff, Flag, Swords, Timer, Users } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { EyeOff, Flag, HeartPulse, Lock, Watch } from 'lucide-react';
 
 import { DeviceFrame } from '../components/DeviceFrame';
-import { Reveal } from '../components/Reveal';
-import { SectionHead } from '../components/Section';
+import { LockScreenMock } from '../components/LockScreenMock';
+import { StorySection } from '../components/StorySection';
+import { WatchMock } from '../components/WatchMock';
 
-const MODES: { icon: ReactNode; title: string; body: string }[] = [
-  { icon: <Flag size={20} />, title: '레이스', body: '정한 거리를 먼저 달린 사람이 이겨요.' },
-  { icon: <Timer size={20} />, title: '타임 어택', body: '정한 시간 안에 더 멀리 달린 사람이 이겨요.' },
-  { icon: <Users size={20} />, title: '함께 달리기', body: '순위 없이 같이 완주하는 게 목표예요.' },
-  { icon: <Swords size={20} />, title: '친구 도전', body: '친구의 코스 기록에 도전장을 보내요.' },
-];
-
+// ③ 함께 · 기기 (앱 첫 실행 소개 3장)
 export function TogetherSection() {
   return (
-    <section id="together" aria-labelledby="together-title" className="relative overflow-hidden bg-surface/40 py-24 md:py-36">
-      <div className="wrap grid items-center gap-16 lg:grid-cols-2 lg:gap-12">
-        <div>
-          <Reveal>
-            <SectionHead
-              id="together-title"
-              eyebrow="함께 달리기"
-              title={
-                <>
-                  장소가 달라도
-                  <br />
-                  같은 시간에 출발
-                </>
-              }
-              lead="방을 만들고 친구를 부르면 각자 있는 곳에서 동시에 출발해요. 누가 앞서는지 실시간으로 보여요."
-            />
-          </Reveal>
-          <Reveal delay={0.1}>
-            <ul className="mt-10 divide-y divide-white/8 border-y border-white/8">
-              {MODES.map((m) => (
-                <li key={m.title} className="flex items-center gap-4 py-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-signal" aria-hidden>
-                    {m.icon}
-                  </span>
-                  <span className="flex flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-                    <span className="text-[17px] font-bold whitespace-nowrap">{m.title}</span>
-                    <span className="text-[15px] text-muted sm:text-right">{m.body}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Reveal>
-          <Reveal delay={0.15}>
-            <p className="mt-7 flex items-start gap-3 rounded-[var(--radius-control)] border border-signal/25 bg-signal/8 px-4 py-3.5 text-[15px] leading-[1.6]">
-              <EyeOff size={20} className="mt-0.5 shrink-0 text-signal" aria-hidden />
-              <span>
-                <b className="font-bold">서로의 위치는 보내지 않아요.</b> 다른 참가자에게는 거리와 페이스만 보여요.
-              </span>
-            </p>
-          </Reveal>
+    <StorySection
+      id="together"
+      step="03"
+      eyebrow="함께 · 기기"
+      tone="surface"
+      title={
+        <>
+          친구와 같이 달리고
+          <br />
+          손목에서 바로 봐요
+        </>
+      }
+      lead="장소가 달라도 같은 시간에 출발해요. 휴대폰을 꺼내지 않아도 손목과 잠금 화면에서 기록이 보여요."
+      points={[
+        { icon: <Flag size={20} />, title: '레이스 · 타임 어택 · 친구 도전', body: '방을 만들고 친구를 부르면 각자 있는 곳에서 동시에 출발해요.' },
+        { icon: <EyeOff size={20} />, title: '위치는 숨기고 거리 · 순위만', body: '다른 참가자에게 지금 어디를 달리는지는 보내지 않아요.' },
+        { icon: <Watch size={20} />, title: 'Apple Watch만 차고 달려도', body: '휴대폰을 두고 나가도 기록하고, 돌아오면 휴대폰으로 옮겨요.' },
+        { icon: <Lock size={20} />, title: '잠금 화면 · 다이내믹 아일랜드', body: '거리 · 시간 · 순위를 실시간으로 보여 줘요.' },
+        { icon: <HeartPulse size={20} />, title: '심박 센서 · Apple 건강', body: '심박 밴드를 연결하고, 다른 기기로 달린 기록도 가져와요.' },
+      ]}
+      visual={
+        <div className="relative mx-auto grid w-full max-w-[480px] grid-cols-[1fr_1fr] items-center gap-4 sm:gap-6">
+          <div className="-rotate-[3deg]">
+            <DeviceFrame screen="live" sizes="(min-width: 1024px) 230px, 44vw" />
+          </div>
+          <div className="flex flex-col gap-6">
+            <WatchMock className="mx-auto w-[82%]" />
+            <LockScreenMock className="hidden sm:flex" />
+          </div>
+          <LockScreenMock className="col-span-2 sm:hidden" />
         </div>
-        <Reveal className="relative mx-auto h-[min(640px,150vw)] w-full max-w-[520px]">
-          <div className="absolute top-[6%] left-[2%] w-[52%] -rotate-[5deg]">
-            <DeviceFrame screen="room" sizes="(min-width: 1024px) 270px, 48vw" />
-          </div>
-          <div className="absolute top-0 right-[2%] w-[56%] rotate-[3deg]">
-            <DeviceFrame screen="live" sizes="(min-width: 1024px) 290px, 52vw" />
-          </div>
-        </Reveal>
-      </div>
-    </section>
+      }
+    />
   );
 }

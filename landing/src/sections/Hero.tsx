@@ -34,7 +34,7 @@ export function Hero() {
         <div>
           <p className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-surface px-3.5 py-1.5 text-[13px] font-semibold text-muted">
             <span className="h-2 w-2 rounded-full bg-signal" aria-hidden />
-            코스 기반 소셜 러닝 앱 · 출시 준비 중
+            코스를 달리고 기록으로 겨루는 러닝 앱
           </p>
           <h1 id="hero-title" className="mt-7 text-[clamp(52px,9vw,104px)] leading-[1.02] font-black tracking-[-0.05em]">
             코스를 찾고,
@@ -44,12 +44,12 @@ export function Hero() {
             <span className="text-signal italic">기록을 깨다.</span>
           </h1>
           <p className="mt-7 max-w-[30em] text-[17px] leading-[1.7] text-muted md:text-[19px]">
-            오늘 달릴 코스를 내 주변에서 찾고, 코스마다 기록을 겨루고, 장소가 달라도 친구와 같은 시간에 달려요.
+            내 주변 코스를 골라 달리면 공식 기록이 돼요. 같은 코스 러너와 순위로 겨루고, 멀리 있는 친구와도 같은 시간에 달려요.
           </p>
           <div>
             <StoreBadges className="mt-9" />
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-[14px] text-muted">
-              {['모든 기능 무료', 'Apple Watch 지원', '함께 달려도 위치는 비공개'].map((t) => (
+              {['모든 기능 무료', 'Apple Watch만 차고 달려도 기록', '함께 달려도 위치는 비공개'].map((t) => (
                 <li key={t} className="flex items-center gap-1.5">
                   <Check size={16} strokeWidth={2.5} className="text-signal" aria-hidden />
                   {t}
