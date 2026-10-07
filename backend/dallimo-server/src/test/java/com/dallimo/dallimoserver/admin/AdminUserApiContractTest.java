@@ -22,13 +22,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 관리 웹 (FOUNDATION-DECISION-LOG 85항): 관리자 계정 로그인 · 회원 조회 · 정지 · 해제 · 조치 기록, 신고 검토 화면 정보.
  * MySQL(개발)과 MariaDB(운영) 양쪽에서 같은 결과여야 한다.
  */
-@TestPropertySource(properties = {
-        "dallimo.admin.api-key=" + AdminUserApiContractTest.KEY,
-        "dallimo.admin.emails=Boss@Dallimo.test, second@dallimo.test"})
+@TestPropertySource(properties = "dallimo.admin.api-key=" + AdminUserApiContractTest.KEY)
 abstract class AdminUserApiContractTest {
 
     static final String KEY = "admin-web-key";
-    static final String BOSS = "boss@dallimo.test";
+    // 서버가 켜질 때 만드는 관리자 계정 (AdminAccountService, FOUNDATION-DECISION-LOG 86항)
+    static final String BOSS = "admin@naver.com";
+    static final String BOSS_PASSWORD = "admin2026x";
     static final Instant T0 = Instant.parse("2026-10-07T00:00:00Z");
 
     @Autowired
@@ -53,6 +53,11 @@ abstract class AdminUserApiContractTest {
         assertThat((String) JsonPath.read(me, "$.data.nickname")).isEqualTo(boss.nickname);
         assertThat((Object) JsonPath.read(body(key("GET", "/api/v1/admin/me", null)), "$.data.userId")).isNull();
         assertThat(get(runner.token, "/api/v1/admin/users")).hasStatus(403);
+        // 같은 이메일로 앱에 가입해도 관리자가 아니다
+        MvcTestResult same = post(null, "/api/v1/auth/signup", """
+                {"email":"%s","password":"run12345","nickname":"사칭%s","deviceId":"d"}""".formatted(BOSS, UUID.randomUUID().toString().substring(0, 6)));
+        if (same.getResponse().getStatus() == 409) same = login(BOSS, "run12345");
+        assertThat(get(JsonPath.read(body(same), "$.data.accessToken"), "/api/v1/admin/me")).hasStatus(403);
 
         // 검색: 닉네임 일부 · 이메일 · 회원 id
         assertThat(searchIds(boss, "q=" + runner.nickname.substring(3))).contains(runner.id).doesNotContain(reporter.id);
@@ -77,7 +82,6 @@ abstract class AdminUserApiContractTest {
         // 상세: 계정 · 통계 · 기기 · 달리기 · 만든 코스 · 받은 신고
         String detail = body(get(boss.token, "/api/v1/admin/users/" + runner.id));
         assertThat((String) JsonPath.read(detail, "$.data.account.email")).isEqualTo(runner.email);
-        assertThat((Boolean) JsonPath.read(detail, "$.data.admin")).isFalse();
         assertThat(((Number) JsonPath.read(detail, "$.data.stats.finishedRuns")).intValue()).isEqualTo(1);
         assertThat(((Number) JsonPath.read(detail, "$.data.stats.createdCourses")).intValue()).isEqualTo(1);
         assertThat((List<?>) JsonPath.read(detail, "$.data.devices")).hasSize(1);
@@ -88,8 +92,10 @@ abstract class AdminUserApiContractTest {
         assertThat((String) JsonPath.read(detail, "$.data.reportsReceived[0].content")).isEqualTo("공사 중");
         String reporterDetail = body(get(boss.token, "/api/v1/admin/users/" + reporter.id));
         assertThat(((Number) JsonPath.read(reporterDetail, "$.data.reportsMade[0].courseId")).longValue()).isEqualTo(course);
-        assertThat((Boolean) JsonPath.read(body(get(boss.token, "/api/v1/admin/users/" + boss.id)), "$.data.admin")).isTrue();
         assertThat(get(boss.token, "/api/v1/admin/users/999999999")).hasStatus(404);
+        // 관리자 계정은 회원 목록 · 상세에 없다
+        assertThat(searchIds(boss, "q=" + boss.id)).doesNotContain(boss.id);
+        assertThat(get(boss.token, "/api/v1/admin/users/" + boss.id)).hasStatus(404);
 
         // 정지: 사유 필수. 바로 로그아웃, 다시 로그인하면 정지 안내 (비밀번호가 틀리면 그대로 로그인 실패)
         assertThat(post(boss.token, "/api/v1/admin/users/" + runner.id + "/suspend", "{\"reason\":\" \"}")).hasStatus(400);
@@ -99,7 +105,7 @@ abstract class AdminUserApiContractTest {
         assertThat(login(runner.email, "run12345")).hasStatus(403).bodyJson().extractingPath("$.error.code").isEqualTo("ACCOUNT_SUSPENDED");
         assertThat(login(runner.email, "wrong-pass")).hasStatus(401).bodyJson().extractingPath("$.error.code").isEqualTo("INVALID_CREDENTIALS");
         assertThat(post(boss.token, "/api/v1/admin/users/" + runner.id + "/suspend", "{\"reason\":\"again\"}")).hasStatus(409);
-        assertThat(post(boss.token, "/api/v1/admin/users/" + boss.id + "/suspend", "{\"reason\":\"self\"}")).hasStatus(409);
+        assertThat(post(boss.token, "/api/v1/admin/users/" + boss.id + "/suspend", "{\"reason\":\"self\"}")).hasStatus(404);
         assertThat(post(boss.token, "/api/v1/admin/users/" + reporter.id + "/unsuspend", "{\"reason\":\"x\"}")).hasStatus(409);
         assertThat(searchIds(boss, "status=SUSPENDED&size=100")).contains(runner.id).doesNotContain(reporter.id);
         // 정지해도 코스는 남는다
@@ -139,11 +145,27 @@ abstract class AdminUserApiContractTest {
         return ids.stream().map(Number::longValue).toList();
     }
 
-    /** 관리자 계정. 같은 DB를 쓰는 다른 실행에서 이미 가입했으면 로그인 */
+    /** 관리자 계정. 처음이면 비밀번호를 정하고, 같은 DB를 쓰는 다른 테스트가 이미 정했으면 로그인 */
     private User bossLogin() {
-        MvcTestResult r = post(null, "/api/v1/auth/signup", """
-                {"email":"%s","password":"run12345","nickname":"관리자%s","deviceId":"admin-web"}""".formatted(BOSS, UUID.randomUUID().toString().substring(0, 6)));
-        if (r.getResponse().getStatus() == 409) r = login(BOSS, "run12345");
+        String setup = body(get(null, "/api/v1/admin/setup"));
+        assertThat((String) JsonPath.read(setup, "$.data.email")).isEqualTo(BOSS);
+        MvcTestResult r;
+        if ((Boolean) JsonPath.read(setup, "$.data.needed")) {
+            // 비밀번호 규칙 (앱과 같다)
+            assertThat(post(null, "/api/v1/admin/setup", "{\"password\":\"short\",\"deviceId\":\"admin-web\"}")).hasStatus(400);
+            r = post(null, "/api/v1/admin/setup", "{\"password\":\"%s\",\"deviceId\":\"admin-web\"}".formatted(BOSS_PASSWORD));
+            assertThat((Boolean) JsonPath.read(body(get(null, "/api/v1/admin/setup")), "$.data.needed")).isFalse();
+        } else {
+            r = adminLogin(BOSS, BOSS_PASSWORD);
+        }
+        assertThat(r).hasStatusOk();
+        // 한 번 정하면 다시 정할 수 없다. 틀린 비밀번호 · 앱 로그인으로는 들어오지 못한다
+        assertThat(post(null, "/api/v1/admin/setup", "{\"password\":\"other2026x\",\"deviceId\":\"x\"}")).hasStatus(409);
+        assertThat(adminLogin(BOSS, "wrong2026x")).hasStatus(401);
+        assertThat(login(BOSS, BOSS_PASSWORD)).hasStatus(401);
+        // 이메일은 대소문자 · 앞뒤 공백 무시. 같은 기기로 다시 로그인하면 이전 세션은 끊기므로 이 토큰을 쓴다
+        r = adminLogin("Admin@Naver.com ", BOSS_PASSWORD);
+        assertThat(r).hasStatusOk();
         String b = body(r);
         return new User(JsonPath.read(b, "$.data.accessToken"), ((Number) JsonPath.read(b, "$.data.user.userId")).longValue(), BOSS,
                 JsonPath.read(b, "$.data.user.nickname"));
@@ -158,6 +180,11 @@ abstract class AdminUserApiContractTest {
         assertThat(r).hasStatus(201);
         String b = body(r);
         return new User(JsonPath.read(b, "$.data.accessToken"), ((Number) JsonPath.read(b, "$.data.user.userId")).longValue(), email, nickname);
+    }
+
+    private MvcTestResult adminLogin(String email, String password) {
+        return post(null, "/api/v1/admin/login", """
+                {"email":"%s","password":"%s","deviceId":"admin-web"}""".formatted(email, password));
     }
 
     private MvcTestResult login(String email, String password) {

@@ -125,8 +125,9 @@ public class AuthService {
         sessions.revokeAllOfUser(userId, clock.instant());
     }
 
-    /** 이 기기에 새 세션을 연다. 같은 기기의 이전 세션은 지운다 (그 세션의 Access Token도 바로 막힌다) */
-    private Session open(User user, String deviceId) {
+    /** 이 기기에 새 세션을 연다. 같은 기기의 이전 세션은 지운다 (그 세션의 Access Token도 바로 막힌다). 관리자 로그인(AdminAccountService)도 쓴다 */
+    @Transactional
+    public Session open(User user, String deviceId) {
         Instant now = clock.instant();
         sessions.deleteByUserIdAndDeviceId(user.getId(), deviceId);
         String secret = tokens.newSecret();

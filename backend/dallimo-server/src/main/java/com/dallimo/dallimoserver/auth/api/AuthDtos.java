@@ -62,7 +62,7 @@ public final class AuthDtos {
             Instant refreshTokenExpiresAt,
             UserResponse user) {
 
-        static AuthResponse from(AuthService.Session s) {
+        public static AuthResponse from(AuthService.Session s) {
             return new AuthResponse(s.accessToken(), s.accessTokenExpiresAt(), s.refreshToken(), s.refreshTokenExpiresAt(), UserResponse.from(s.user()));
         }
     }

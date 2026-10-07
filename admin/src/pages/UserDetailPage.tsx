@@ -45,7 +45,7 @@ export function UserDetailPage({ id }: { id: number }) {
       <header className="page-head">
         <div>
           <h1>
-            {a.nickname} {data.admin ? <Badge tone="accent">관리자</Badge> : null}
+            {a.nickname}
           </h1>
           <p className="sub">
             <span className="mono">#{a.id}</span>
@@ -53,7 +53,7 @@ export function UserDetailPage({ id }: { id: number }) {
             <UserStatusBadge status={a.status} />
           </p>
         </div>
-        {a.status === 'ACTIVE' && !data.admin ? (
+        {a.status === 'ACTIVE' ? (
           <button type="button" className="btn btn-danger" onClick={() => setDialog('suspend')}>
             이용 정지
           </button>

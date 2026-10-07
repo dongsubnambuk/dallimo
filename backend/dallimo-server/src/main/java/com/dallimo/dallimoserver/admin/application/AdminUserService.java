@@ -36,7 +36,7 @@ public class AdminUserService {
     public static final String ACTION_SUSPEND = "USER_SUSPEND";
     public static final String ACTION_UNSUSPEND = "USER_UNSUSPEND";
 
-    public record Detail(Account account, boolean admin, Stats stats, List<Device> devices, List<RunRow> runs, List<CourseRow> courses,
+    public record Detail(Account account, Stats stats, List<Device> devices, List<RunRow> runs, List<CourseRow> courses,
                          List<ReportRow> reportsMade, List<ReportRow> reportsReceived, List<Entry> actions) {
     }
 
@@ -47,17 +47,15 @@ public class AdminUserService {
     private final RefreshSessionRepository sessions;
     private final NotificationService notifications;
     private final AdminAuditJdbcRepository audits;
-    private final AdminKeyGuard guard;
     private final Clock clock;
 
     public AdminUserService(AdminUserJdbcRepository store, UserJpaRepository users, RefreshSessionRepository sessions,
-                            NotificationService notifications, AdminAuditJdbcRepository audits, AdminKeyGuard guard, Clock clock) {
+                            NotificationService notifications, AdminAuditJdbcRepository audits, Clock clock) {
         this.store = store;
         this.users = users;
         this.sessions = sessions;
         this.notifications = notifications;
         this.audits = audits;
-        this.guard = guard;
         this.clock = clock;
     }
 
@@ -80,7 +78,7 @@ public class AdminUserService {
     @Transactional(readOnly = true)
     public Detail detail(long userId) {
         Account a = store.account(userId).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "회원을 찾을 수 없어요."));
-        return new Detail(a, guard.isAdminEmail(a.email()), store.stats(userId), store.devices(userId), store.runs(userId, LIST),
+        return new Detail(a, store.stats(userId), store.devices(userId), store.runs(userId, LIST),
                 store.courses(userId, LIST), store.reportsMade(userId, LIST), store.reportsReceived(userId, LIST),
                 audits.of(AdminAuditJdbcRepository.TARGET_USER, userId, LIST));
     }
@@ -90,7 +88,6 @@ public class AdminUserService {
         User u = find(userId);
         if (u.isSuspended()) throw new ApiException(ErrorCode.USER_INVALID_STATE, "이미 정지된 회원이에요.");
         if (!u.isActive()) throw new ApiException(ErrorCode.USER_INVALID_STATE, "탈퇴한 회원은 정지할 수 없어요.");
-        if (guard.isAdminEmail(u.getEmail())) throw new ApiException(ErrorCode.USER_INVALID_STATE, "관리자 계정은 정지할 수 없어요.");
         Instant now = clock.instant();
         u.suspend(now);
         sessions.revokeAllOfUser(userId, now);

@@ -274,6 +274,26 @@ paths:
       - bearerAuth: []
       tags:
       - 관리 · 외부 추천 코스
+  /api/v1/admin/login:
+    post:
+      operationId: login_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseAuthResponse"
+          description: OK
+      security:
+      - {}
+      tags:
+      - 관리 · 관리자 로그인
   /api/v1/admin/me:
     get:
       operationId: me_2
@@ -295,6 +315,39 @@ paths:
       - bearerAuth: []
       tags:
       - 관리 · 회원
+  /api/v1/admin/setup:
+    get:
+      operationId: setup
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSetup"
+          description: OK
+      security:
+      - {}
+      tags:
+      - 관리 · 관리자 로그인
+    post:
+      operationId: setUp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseAuthResponse"
+          description: OK
+      security:
+      - {}
+      tags:
+      - 관리 · 관리자 로그인
   /api/v1/admin/users:
     get:
       operationId: users
@@ -2761,6 +2814,18 @@ components:
         timestamp:
           type: string
           format: date-time
+    ApiResponseSetup:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Setup"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseShareLinkResponse:
       type: object
       properties:
@@ -3445,8 +3510,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Entry"
-        admin:
-          type: boolean
         courses:
           type: array
           items:
@@ -4880,6 +4943,27 @@ components:
       - friend
       - live
       - record
+    Setup:
+      type: object
+      properties:
+        email:
+          type: string
+        needed:
+          type: boolean
+    SetupRequest:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          maxLength: 100
+          minLength: 0
+        password:
+          type: string
+          minLength: 1
+          pattern: "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,64}$"
+      required:
+      - deviceId
+      - password
     ShareLinkResponse:
       type: object
       properties:

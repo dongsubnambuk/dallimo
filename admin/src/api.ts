@@ -1,4 +1,4 @@
-// 관리 웹 API (결정 로그 85항). 달리모 계정으로 로그인하고, 관리자 계정(서버 ADMIN_EMAILS)만 /api/v1/admin을 부를 수 있다.
+// 관리 웹 API (결정 로그 85 · 86항). 서버가 만든 관리자 계정(admin@naver.com)으로 로그인한다. 비밀번호는 처음 한 번 관리 웹에서 정한다.
 // 토큰은 sessionStorage에 둔다: 탭을 닫으면 로그아웃된다. Access Token이 만료되면 Refresh Token으로 한 번 다시 받는다.
 
 const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
@@ -127,19 +127,24 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
-export async function logIn(email: string, password: string) {
-  const r = await raw<AuthResponse>('/api/v1/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password, deviceId: deviceId() }),
-  });
-  // 관리자 계정인지 확인한 뒤에만 로그인 상태로 둔다
-  try {
-    await raw('/api/v1/admin/me', { token: r.accessToken });
-  } catch (e) {
-    await raw('/api/v1/auth/logout', { method: 'POST', token: r.accessToken }).catch(() => undefined);
-    throw e instanceof ApiError && (e.status === 403 || e.status === 404) ? new ApiError(403, 'NOT_ADMIN', '관리자 계정이 아니에요.') : e;
-  }
+export type AdminSetup = { email: string; needed: boolean };
+
+/** 관리자 이메일과, 비밀번호를 아직 정하지 않았는지 */
+export function adminSetup() {
+  return raw<AdminSetup>('/api/v1/admin/setup');
+}
+
+function start(r: AuthResponse) {
   writeSession({ accessToken: r.accessToken, refreshToken: r.refreshToken, nickname: r.user.nickname });
+}
+
+/** 처음 한 번 관리자 비밀번호를 정하고 로그인한다 */
+export async function setUp(password: string) {
+  start(await raw<AuthResponse>('/api/v1/admin/setup', { method: 'POST', body: JSON.stringify({ password, deviceId: deviceId() }) }));
+}
+
+export async function logIn(email: string, password: string) {
+  start(await raw<AuthResponse>('/api/v1/admin/login', { method: 'POST', body: JSON.stringify({ email, password, deviceId: deviceId() }) }));
 }
 
 export async function logOut() {
