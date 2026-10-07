@@ -32,7 +32,11 @@ export const AUDIT_ACTION: Record<string, string> = {
   COURSE_HIDE: '코스 숨김',
   COURSE_BLOCK: '코스 차단',
   COURSE_RESTORE: '코스 다시 공개',
+  NOTICE_SEND: '공지 보냄',
 };
+
+export const NOTICE_TARGET: Record<string, string> = { ALL: '전체', IOS: 'iOS', ANDROID: 'Android' };
+export const NOTICE_STATUS: Record<string, string> = { SENDING: '보내는 중', SENT: '보냄', FAILED: '실패' };
 
 export const RUN_MODE: Record<string, string> = {
   FREE: '자유',

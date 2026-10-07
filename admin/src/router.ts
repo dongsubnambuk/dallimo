@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from 'react';
 
-// 해시 주소 (#/users?q=…, #/users/12, #/reports, #/reports/34). 정적 호스팅에서 새로 고침해도 그대로 열린다
+// 해시 주소 (#/monitoring, #/users?q=…, #/users/12, #/reports, #/reports/34, #/notices). 정적 호스팅에서 새로 고침해도 그대로 열린다
 
 export type Route =
+  | { name: 'monitoring' }
+  | { name: 'notices' }
   | { name: 'users'; params: URLSearchParams }
   | { name: 'user'; id: number }
   | { name: 'reports'; params: URLSearchParams }
@@ -16,7 +18,9 @@ function parse(hash: string): Route {
   if (parts[0] === 'users' && parts[1] && Number.isInteger(id)) return { name: 'user', id };
   if (parts[0] === 'reports' && parts[1] && Number.isInteger(id)) return { name: 'report', id };
   if (parts[0] === 'reports') return { name: 'reports', params };
-  return { name: 'users', params };
+  if (parts[0] === 'users') return { name: 'users', params };
+  if (parts[0] === 'notices') return { name: 'notices' };
+  return { name: 'monitoring' };
 }
 
 const subscribe = (l: () => void) => {

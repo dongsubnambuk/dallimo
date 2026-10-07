@@ -480,6 +480,24 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **요청 제한**: `POST /admin/login` · `/admin/setup`은 앱 로그인과 같은 제한(IP당).
 - **테스트**: `AdminUserApiContractTest`를 MySQL · MariaDB에서(관리자 비밀번호 정하기 · 규칙 · 다시 정하기 409 · 틀린 비밀번호 · 앱 로그인 불가 · 이메일 대소문자 · 같은 이메일 앱 가입은 관리자 아님 · 관리자 확인 · 일반 회원 403 · 검색(닉네임 · 이메일 · id · `%`) · 페이지 · 상세 · 정지(세션 끊김 · 로그인 403 · 틀린 비밀번호 401 · 중복 · 관리자 · 해제 대상 아님) · 해제 · 조치 기록 · 관리 키 조치 · 신고 검토 정보 · 관리자 계정으로 처리).
 
+### 관리 웹 모니터링 · 공지 푸시 (결정 로그 87항)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/admin/monitoring` | `{ at, server{ startedAt, uptimeSec, javaVersion, heapUsedMb, heapMaxMb, threads, db{ ok, ms, error }, redis{…} }, api{ since, total{ requests, errors, p95Ms }, minutes[60], keyApis[GPS 업로드 · 코스 랭킹 · 주변 코스] }, today{ signups, finishedRuns, activeUsers, pendingReports, serverErrors } }` |
+| `GET /api/v1/admin/errors?days=7` | `{ last24h, groups[{ exception, location, count, lastAt, lastMessage, lastPath }], recent[50]{ id, createdAt, exception, message, location, method, path, requestId, userId } }` |
+| `GET /api/v1/admin/notices/audience?target=ALL\|IOS\|ANDROID` | `{ users, devices, quietHours }` 받을 회원 · 기기 수, 지금 밤이라 못 보내는지 |
+| `POST /api/v1/admin/notices/test` | `{ userId, title, body, link? }` → `{ devices, ok, failed }`. 회원 한 명의 기기로만 (알림함에 남기지 않는다). 기기가 없으면 409 |
+| `POST /api/v1/admin/notices` | `{ target, title(100), body(500), link?, expectedUsers }` → 공지. 대상 수가 `expectedUsers`와 다르면 409. 받는 회원 알림함(type `NOTICE`)에 넣고 커밋 뒤 비동기로 Push |
+| `GET /api/v1/admin/notices` · `/{id}` | 보낸 공지 (최근 30) · 결과 `{ status(SENDING · SENT · FAILED), targetUsers, pushTokens, pushOk, pushFailed, tokensRemoved, actorName, … }` |
+
+- **최근 60분 API**: `RequestStats`(서블릿 필터)가 `/api/` 요청(관리 API 제외)을 1분 단위로 서버 메모리에 둔다. 응답 시간 구간(10ms~10s)으로 p95를 계산한다. 서버를 다시 켜면 비어서 다시 모은다. 긴 기간은 아래 "성능 지표"(Prometheus · Grafana).
+- **서버 오류**: `GlobalExceptionHandler`가 처리하지 못한 예외를 `tbl_server_error`(V26)에 남긴다(`ServerErrorRecorder`). 예외 · 메시지(500자) · 달리모 코드 첫 위치 · 경로 패턴 · 요청 id · 회원 id. 요청 본문 · 위치는 남기지 않는다. 1분에 60건까지, 30일 보관(매일 4시 17분 정리). 요청 id로 서버 로그를 찾는다.
+- **오늘 수치**: 한국 시간 0시부터 가입 · 완료한 달리기 · 앱을 쓴 회원(토큰 발급 · 갱신) · 처리 대기 신고 코스 · 서버 오류.
+- **공지**: 서비스 공지만(광고성 정보는 별도 수신 동의가 필요해 보내지 않는다). 받는 회원은 이용 중인 앱 회원 전체, 또는 그 플랫폼 기기를 등록한 회원. 앱 알림 설정(친구 · 함께 · 기록)과 관계없이 보낸다. 밤 10시~아침 8시(한국 시간, `dallimo.push.quiet-hours`)에는 테스트 · 보내기 모두 409. 500대씩 보내고 진행 수를 남긴다. `DeviceNotRegistered` 토큰은 지운다. 조치 기록 `NOTICE_SEND`.
+- **앱**: 알림함 `NOTICE` 종류(종 아이콘). 모르는 종류가 와도 종 아이콘으로 보인다. 이 앱 수정이 OTA로 나간 뒤에 처음 공지를 보낸다(그 전 앱은 알림함에서 모르는 종류를 그리지 못한다).
+- **테스트**: `AdminOpsApiContractTest`를 MySQL · MariaDB에서(일반 회원 403 · DB · Redis 상태 · 60분 · 주요 API 집계 · 오늘 수치 · 오류 기록 · 종류별 · 대상 수 · 테스트 발송(기기 없음 409 · 없는 회원 404) · 잘못된 링크 400 · 대상 수 불일치 409 · 비동기 발송 결과 · 받는 회원 알림함에만 남음).
+
 ## 성능 지표 (명세 18장 관측성 · 34장, ADR "Actuator + 운영 metric exporter")
 
 서버가 `/actuator/prometheus`로 지표를 내고, gamjabox compose의 Prometheus가 15초마다 가져가 30일 보관한다. Grafana 대시보드 "달리모 > 달리모 서버"로 본다 (결정 로그 77항).

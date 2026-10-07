@@ -19,6 +19,7 @@ const ICON: Record<NotificationType, IconName> = {
   LIVE_CANCELED: 'rejected',
   RECORD_BEATEN: 'rankDown',
   CHALLENGE_DEFENDED: 'trophy',
+  NOTICE: 'notification',
 };
 
 // 알림함 (NTF, 14.2장). 사용자 결정: Push는 친구 요청 · 함께 달리기 초대 · 예약 방 취소 · 친구가 내 기록을 넘음 네 가지,
@@ -76,7 +77,7 @@ export function NotificationsScreen() {
               style={[styles.row, !n.read && { backgroundColor: colors.action.tint }]}
             >
               <View style={[styles.icon, { backgroundColor: colors.bg.surface }]}>
-                <AppIcon name={ICON[n.type]} size={20} color={colors.text.primary} />
+                <AppIcon name={ICON[n.type] ?? 'notification'} size={20} color={colors.text.primary} />
               </View>
               <View style={styles.flex}>
                 <AppText role="body" style={styles.bold} numberOfLines={1}>

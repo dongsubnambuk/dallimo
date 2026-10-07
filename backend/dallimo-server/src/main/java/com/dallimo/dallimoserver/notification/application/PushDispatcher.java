@@ -83,6 +83,7 @@ public class PushDispatcher {
             case FRIEND -> s.friend();
             case LIVE -> s.live();
             case RECORD -> s.record();
+            case NOTICE -> true;
         };
     }
 }

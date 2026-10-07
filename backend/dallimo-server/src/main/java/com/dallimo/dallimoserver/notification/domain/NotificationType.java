@@ -10,9 +10,11 @@ public enum NotificationType {
     LIVE_CANCELED(true, Category.LIVE),
     RECORD_BEATEN(true, Category.RECORD),
     // 친구의 도전을 막아냈다 (알림함에만)
-    CHALLENGE_DEFENDED(false, Category.RECORD);
+    CHALLENGE_DEFENDED(false, Category.RECORD),
+    // 관리 웹 공지 (FOUNDATION-DECISION-LOG 87항). 서비스 공지라 종류별 설정으로 끄지 않는다. 보내기는 NoticeService가 한 번에
+    NOTICE(true, Category.NOTICE);
 
-    public enum Category {FRIEND, LIVE, RECORD}
+    public enum Category {FRIEND, LIVE, RECORD, NOTICE}
 
     private final boolean push;
     private final Category category;

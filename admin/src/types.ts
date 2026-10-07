@@ -78,6 +78,61 @@ export type UserDetail = {
   actions: AuditEntry[];
 };
 
+// 모니터링 (결정 로그 87항)
+export type Check = { ok: boolean; ms: number | null; error: string | null };
+
+export type Monitoring = {
+  at: string;
+  server: { startedAt: string; uptimeSec: number; javaVersion: string; heapUsedMb: number; heapMaxMb: number; threads: number; db: Check; redis: Check };
+  api: {
+    since: string;
+    total: { requests: number; errors: number; p95Ms: number | null };
+    minutes: { at: string; requests: number; errors: number; p95Ms: number | null }[];
+    keyApis: { name: string; method: string; pattern: string; requests: number; errors: number; p95Ms: number | null }[];
+  };
+  today: { signups: number; finishedRuns: number; activeUsers: number; pendingReports: number; serverErrors: number };
+};
+
+export type ServerError = {
+  id: number;
+  createdAt: string;
+  exception: string;
+  message: string | null;
+  location: string | null;
+  method: string | null;
+  path: string | null;
+  requestId: string | null;
+  userId: number | null;
+};
+
+export type ErrorGroup = { exception: string; location: string | null; count: number; lastAt: string; lastMessage: string | null; lastPath: string | null };
+
+export type Errors = { last24h: number; groups: ErrorGroup[]; recent: ServerError[] };
+
+// 공지 푸시
+export type NoticeTarget = 'ALL' | 'IOS' | 'ANDROID';
+
+export type Notice = {
+  id: number;
+  title: string;
+  body: string;
+  link: string | null;
+  target: NoticeTarget;
+  status: 'SENDING' | 'SENT' | 'FAILED';
+  actor: string;
+  actorName: string | null;
+  targetUsers: number;
+  pushTokens: number;
+  pushOk: number;
+  pushFailed: number;
+  tokensRemoved: number;
+  createdAt: string;
+  finishedAt: string | null;
+};
+
+// quietHours: 지금 밤(10시~8시, 한국 시간)이라 보낼 수 없다
+export type Audience = { users: number; devices: number; quietHours: boolean };
+
 export type CourseStatus = 'NEW' | 'VERIFIED' | 'POPULAR' | 'HIDDEN' | 'BLOCKED';
 
 export type ReportedCourse = {

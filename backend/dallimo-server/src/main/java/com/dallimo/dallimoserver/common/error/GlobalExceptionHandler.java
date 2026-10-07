@@ -1,6 +1,8 @@
 package com.dallimo.dallimoserver.common.error;
 
 import com.dallimo.dallimoserver.common.web.ApiResponse;
+import com.dallimo.dallimoserver.common.observability.ServerErrorRecorder;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
@@ -24,6 +26,13 @@ import java.util.List;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // 처리하지 못한 오류를 관리 웹 모니터링에 남긴다 (FOUNDATION-DECISION-LOG 87항)
+    private final ServerErrorRecorder errors;
+
+    public GlobalExceptionHandler(ServerErrorRecorder errors) {
+        this.errors = errors;
+    }
 
     /** 요청 본문 필드 검증 실패. details에 어떤 필드가 왜 틀렸는지 담는다 */
     public record FieldViolation(String field, String reason) {
@@ -75,7 +84,7 @@ public class GlobalExceptionHandler {
      * 404는 RESOURCE_NOT_FOUND, 나머지 4xx는 VALIDATION_ERROR로 알린다. 그 밖은 INTERNAL_ERROR.
      */
     @ExceptionHandler(Exception.class)
-    ResponseEntity<ApiResponse<Void>> handleOther(Exception e) {
+    ResponseEntity<ApiResponse<Void>> handleOther(Exception e, HttpServletRequest request) {
         if (e instanceof ErrorResponse er) {
             HttpStatusCode status = er.getStatusCode();
             if (status.value() == 404) {
@@ -86,6 +95,7 @@ public class GlobalExceptionHandler {
             }
         }
         log.error("Unhandled exception", e);
+        errors.record(e, request);
         return respond(ErrorCode.INTERNAL_ERROR.status(), ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage(), null);
     }
 

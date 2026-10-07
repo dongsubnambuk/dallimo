@@ -820,3 +820,176 @@ code,
 .hint-bad {
   color: var(--bad);
 }
+
+/* ── 모니터링 · 공지 (결정 로그 87항) ── */
+
+.stat-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.text-bad {
+  color: var(--bad);
+}
+
+.text-warn {
+  color: var(--warn);
+}
+
+.stats.flat {
+  border-radius: 8px;
+}
+
+.h3 {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.chart {
+  margin: 0;
+}
+
+.chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart-bar {
+  fill: var(--accent);
+  opacity: 0.75;
+}
+
+.chart-err {
+  fill: var(--bad);
+}
+
+.chart-axis {
+  stroke: var(--line);
+}
+
+.chart-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: var(--font);
+}
+
+.row-button {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.row-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.error-detail {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.search.narrow {
+  flex: 0 1 160px;
+}
+
+.field select {
+  font: inherit;
+  font-weight: 400;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-height: 44px;
+}
+
+.chips button.chip {
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.push-preview {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 380px;
+}
+
+.push-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.push-head .muted {
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.push-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--nav-bg) url('/favicon.svg') center / cover;
+}
+
+.push-title {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.push-body {
+  margin: 0;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.error-box.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.chart svg {
+  height: 96px;
+}
+
+.chart-top,
+.chart-axis-labels {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-top {
+  margin-bottom: 6px;
+}
+
+.chart-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+/* 섹션 가운데 표는 아래 내용과 붙지 않게 */
+.section .table-wrap:not(:last-child) {
+  margin-bottom: 4px;
+}
