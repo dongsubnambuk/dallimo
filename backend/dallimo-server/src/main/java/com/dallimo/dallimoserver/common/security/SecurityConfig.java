@@ -53,6 +53,10 @@ public class SecurityConfig {
     public static final String[] PUBLIC_API_GET = {"/api/v1/users/nickname-availability", "/api/v1/courses/**", "/api/v1/shares/*", "/api/v1/app/version"};
     public static final String ADMIN_API = "/api/v1/admin/**";
 
+    // 관리 웹(admin/) 주소. 개발 서버와 Netlify 배포 주소 (FOUNDATION-DECISION-LOG 86항).
+    // 토큰은 쿠키가 아니라 Authorization 헤더로 오가서, 다른 사이트가 이 허용으로 관리자 토큰을 얻지는 못한다
+    static final List<String> ADMIN_WEB_ORIGINS = List.of("http://localhost:5174", "https://*.netlify.app");
+
     // 서버와 기기 시계가 조금 어긋나도 막 만든 토큰을 거절하지 않도록
     private static final Duration CLOCK_SKEW = Duration.ofSeconds(30);
 
@@ -139,7 +143,10 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource(AuthProperties props) {
         CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOrigins(props.corsAllowedOrigins());
+        // 환경별 주소(앱 웹 확인용, dallimo.auth.cors-allowed-origins) + 관리 웹
+        List<String> origins = new java.util.ArrayList<>(props.corsAllowedOrigins());
+        origins.addAll(ADMIN_WEB_ORIGINS);
+        cors.setAllowedOriginPatterns(origins);
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", Correlation.HEADER));
         cors.setExposedHeaders(List.of(Correlation.HEADER));

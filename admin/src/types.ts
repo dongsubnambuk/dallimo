@@ -69,7 +69,6 @@ export type AuditEntry = { id: number; actor: string; actorName: string | null; 
 
 export type UserDetail = {
   account: Account;
-  admin: boolean;
   stats: { finishedRuns: number; totalDistanceM: number; verifiedRuns: number; createdCourses: number; reviews: number };
   devices: Device[];
   runs: RunRow[];

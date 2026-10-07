@@ -6,7 +6,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
-  # 운영 서버. 서버 CORS_ALLOWED_ORIGINS에 이 사이트 주소를 더해야 부를 수 있다
+  # 운영 서버. *.netlify.app 주소는 서버 CORS(SecurityConfig.ADMIN_WEB_ORIGINS)에 들어 있다
   VITE_API_URL = "https://dallimo.gamjabox.cloud"
 
 [[headers]]

@@ -66,7 +66,8 @@ public class OpenApiConfig {
             Map.entry("app-version-controller", "앱 버전 (강제 업데이트)"),
             Map.entry("external-course-admin-controller", "관리 · 외부 추천 코스"),
             Map.entry("course-admin-controller", "관리 · 코스 신고 검토"),
-            Map.entry("admin-user-controller", "관리 · 회원"));
+            Map.entry("admin-user-controller", "관리 · 회원"),
+            Map.entry("admin-auth-controller", "관리 · 관리자 로그인"));
 
     @Bean
     OpenApiCustomizer securityAndTags() {
@@ -77,6 +78,8 @@ public class OpenApiConfig {
     }
 
     static List<SecurityRequirement> security(String path, PathItem.HttpMethod method) {
+        // 관리자 로그인 · 처음 비밀번호 정하기는 토큰 없이 (FOUNDATION-DECISION-LOG 86항)
+        if (path.equals("/api/v1/admin/login") || path.equals("/api/v1/admin/setup")) return List.of(new SecurityRequirement());
         // 관리 API: 관리 키 또는 관리자 계정 토큰 (AdminKeyGuard, FOUNDATION-DECISION-LOG 85항)
         if (PATHS.match(SecurityConfig.ADMIN_API, path)) return List.of(new SecurityRequirement().addList(ADMIN_KEY), new SecurityRequirement().addList(BEARER));
         String[] open = switch (method) {

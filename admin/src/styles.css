@@ -810,3 +810,13 @@ code,
     transition: background-color 0.12s ease, color 0.12s ease;
   }
 }
+
+.hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.hint-bad {
+  color: var(--bad);
+}

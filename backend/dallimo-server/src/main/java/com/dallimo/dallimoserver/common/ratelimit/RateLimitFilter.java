@@ -48,6 +48,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     static Rule ruleOf(String method, String path) {
         if ("POST".equals(method) && (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/signup"))) return Rule.LOGIN;
+        // 관리자 로그인 · 처음 비밀번호 정하기 (FOUNDATION-DECISION-LOG 86항)
+        if ("POST".equals(method) && (path.equals("/api/v1/admin/login") || path.equals("/api/v1/admin/setup"))) return Rule.LOGIN;
         // 비밀번호 변경은 사람마다 (지금 비밀번호 맞히기 방지)
         if ("POST".equals(method) && path.equals("/api/v1/auth/password/change")) return Rule.PROFILE_UPDATE;
         if ("GET".equals(method) && (path.equals("/api/v1/users/search") || path.equals("/api/v1/courses/search"))) return Rule.SEARCH;

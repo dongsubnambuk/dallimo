@@ -5,11 +5,13 @@
 
 ## 로그인
 
-앱과 같은 달리모 계정으로 로그인한다. 서버 환경변수 `ADMIN_EMAILS`에 그 이메일이 있어야 들어온다.
+관리자 계정은 `admin@naver.com` 하나이고, 서버가 켜질 때 만든다 (결정 로그 86항). 환경변수 설정은 필요 없다.
 
-1. 앱에서 관리자로 쓸 이메일로 가입한다.
-2. 서버 `.env`에 `ADMIN_EMAILS=그 이메일`을 넣고 서버를 다시 띄운다.
-3. 관리 웹에서 그 계정으로 로그인한다.
+1. 서버를 배포하면 **바로** 관리 웹을 연다. "관리자 비밀번호 정하기" 화면이 나온다.
+2. 비밀번호(8~64자, 영문 + 숫자)를 정하면 그대로 로그인된다. 그 뒤에는 이 비밀번호로 로그인한다.
+
+비밀번호는 저장소가 공개라 코드에 넣지 않았다. 처음 정하기 전에는 아무나 먼저 정할 수 있으니 배포 직후 바로 정한다. 한 번 정하면 관리 웹에서는 다시 정할 수 없다.
+앱 계정과 따로라서 앱으로는 로그인할 수 없고, 같은 이메일로 앱에 가입해도 관리자가 되지 않는다.
 
 토큰은 브라우저 탭에만 남는다(`sessionStorage`). 탭을 닫으면 로그아웃된다.
 
@@ -22,15 +24,13 @@ cp .env.example .env.local   # VITE_API_URL=http://localhost:8080
 npm run dev                  # http://localhost:5174
 ```
 
-개발 서버(`application-dev.yaml`)는 `admin@dallimo.dev`가 관리자이고 CORS에 `http://localhost:5174`가 들어 있다. 앱이나 `POST /api/v1/auth/signup`으로 이 이메일을 가입하면 된다.
+개발 서버도 처음 열면 관리자 비밀번호를 정한다. 서버 CORS에 `http://localhost:5174`가 들어 있다.
 
 ## 배포 (Netlify)
 
 1. Netlify에서 새 사이트를 만들고 이 저장소를 고른다.
 2. **Base directory**를 `admin`으로 둔다. 빌드 명령 · 배포 폴더 · 서버 주소는 `admin/netlify.toml`에 있다.
-3. 서버 `.env`에 아래를 넣고 서버를 다시 띄운다.
-   - `ADMIN_EMAILS=관리자 이메일`
-   - `CORS_ALLOWED_ORIGINS=http://localhost:8081,https://{관리 웹 주소}`
+3. 서버 설정은 따로 없다. `*.netlify.app` 주소는 서버 CORS(`SecurityConfig`)에 들어 있다. 직접 도메인을 붙이면 그 주소를 `SecurityConfig.ADMIN_WEB_ORIGINS`에 더한다.
 
 검색 엔진에 나오지 않게 `noindex` 헤더와 `robots.txt`를 둔다. 주소는 해시(`#/users`)라 새로 고침해도 그대로 열린다.
 

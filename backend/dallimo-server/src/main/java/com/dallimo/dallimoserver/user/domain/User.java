@@ -17,6 +17,8 @@ import java.time.Instant;
 public class User {
 
     public static final String PROVIDER_EMAIL = "EMAIL";
+    // 관리 웹 관리자 계정 (FOUNDATION-DECISION-LOG 86항). 앱 가입 계정(EMAIL)과 따로 두어 같은 이메일로 앱에 가입해도 관리자가 되지 않는다
+    public static final String PROVIDER_ADMIN = "ADMIN";
     public static final String STATUS_ACTIVE = "ACTIVE";
 
     @Id
@@ -76,6 +78,13 @@ public class User {
         u.status = STATUS_ACTIVE;
         u.createdAt = now;
         u.updatedAt = now;
+        return u;
+    }
+
+    /** 관리자 계정. 비밀번호는 관리 웹에서 처음 한 번 정한다 (그 전에는 null) */
+    public static User adminUser(String email, String nickname, String friendCode, Instant now) {
+        User u = emailUser(email, null, nickname, friendCode, now);
+        u.provider = PROVIDER_ADMIN;
         return u;
     }
 

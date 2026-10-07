@@ -83,12 +83,10 @@ dallimo:
     access-token-ttl: 30m
     refresh-token-ttl: 30d
     refresh-reuse-grace: 7d
-  # 관리 API (AdminKeyGuard). 둘 다 비어 있으면 관리 API를 모두 닫는다
+  # 관리 API 키 (X-Admin-Key, AdminKeyGuard). curl · 스크립트용. 관리 웹은 관리자 계정으로 부른다 (FOUNDATION-DECISION-LOG 86항).
+  # EXTERNAL_COURSE_ADMIN_KEY는 예전 이름
   admin:
-    # X-Admin-Key (curl · 스크립트). EXTERNAL_COURSE_ADMIN_KEY는 예전 이름
     api-key: ${ADMIN_API_KEY:${EXTERNAL_COURSE_ADMIN_KEY:}}
-    # 관리 웹에 로그인할 수 있는 달리모 계정 이메일. 쉼표로 여러 개 (FOUNDATION-DECISION-LOG 85항)
-    emails: ${ADMIN_EMAILS:}
   # 코스 신고 처리 (CourseModerationProperties, FOUNDATION-DECISION-LOG 53항): 서로 다른 사람의 신고가 이만큼 쌓이면 자동으로 숨긴다
   moderation:
     auto-hide-reports: ${COURSE_AUTO_HIDE_REPORTS:3}
