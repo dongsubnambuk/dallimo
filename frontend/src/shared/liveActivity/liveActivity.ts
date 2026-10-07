@@ -15,7 +15,9 @@ export type LiveActivityPerson = {
 export type LiveActivityState = {
   status: 'running' | 'paused' | 'finished';
   distanceKm: string;
+  // 평균 페이스 · 현재 페이스(최근 구간)
   pace: string;
+  currentPace: string;
   elapsedSec: number;
   // 달리는 중이면 "시간 0"인 시각(epoch 초). 위젯이 여기서부터 센다
   timerStart: number | null;

@@ -9,7 +9,9 @@ struct DallimoRunAttributes: ActivityAttributes {
     // running · paused · finished
     var status: String
     var distanceKm: String
+    // 평균 페이스 · 현재 페이스(최근 구간). 예: 5'22"
     var pace: String
+    var currentPace: String
     // 지금까지 달린 시간(초). 달리는 중이면 timerStart부터 위젯이 스스로 센다
     var elapsedSec: Double
     // 달리는 중일 때 "시간 0"이 되는 시각(epoch 초). 일시정지 · 끝이면 nil

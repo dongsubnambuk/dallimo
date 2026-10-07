@@ -125,9 +125,14 @@ struct LockScreenView: View {
         }
         RunTime(state: state)
           .font(.system(size: 22, weight: .semibold, design: .rounded))
-        Text("\(state.pace)/km")
-          .font(.system(size: 17, weight: .medium, design: .rounded).monospacedDigit())
-          .foregroundStyle(.white.opacity(0.85))
+        VStack(alignment: .leading, spacing: 0) {
+          Text("\(state.pace)/km")
+            .font(.system(size: 17, weight: .medium, design: .rounded).monospacedDigit())
+            .foregroundStyle(.white.opacity(0.85))
+          Text("현재 \(state.currentPace)")
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.white.opacity(0.6))
+        }
       }
       if !state.people.isEmpty {
         PeopleBars(people: state.people)
@@ -165,7 +170,7 @@ struct DallimoRunLiveActivity: Widget {
           VStack(alignment: .trailing, spacing: 0) {
             RunTime(state: state)
               .font(.system(size: 22, weight: .semibold, design: .rounded))
-            Text("\(state.pace)/km").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            Text("현재 \(state.currentPace)/km").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
           }
         }
         DynamicIslandExpandedRegion(.center) {
