@@ -6,11 +6,9 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Wordmark } from '@/components/Brand';
-import { CourseCard } from '@/components/CourseCard';
 import { CourseMapPreview } from '@/components/CourseMapPreview';
 import { GapIndicator } from '@/components/GapIndicator';
 import { ParticipantChip } from '@/components/ParticipantChip';
-import { PlayModeCard } from '@/components/PlayModeCard';
 import { RankingRow } from '@/components/RankingRow';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { VerificationBadge } from '@/components/VerificationBadge';
@@ -22,8 +20,8 @@ import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { markIntroSeen, useOnboarding } from './onboardingState';
 
 // 첫 실행 소개 (결정 로그 64 · 84항). 로그인 전에 한 번만.
-// 서비스 전체를 6장으로 보여 준다. 첫 장은 한 장만 봐도 어떤 앱인지 알 수 있게 핵심 흐름(코스 → 달리기 → 인증 → 랭킹)을,
-// 다음 장들은 그 흐름의 각 단계와 함께 달리기 · 기기 연동을 실제 화면 컴포넌트와 기능 세 줄로 보여 준다 (CLAUDE.md 2항 central loop).
+// 서비스 전체를 3장으로 줄여 보여 준다: ① 코스 · 인증(어떤 앱인지) ② 경쟁(고스트 · 랭킹 · 타이틀) ③ 함께 달리기 · 워치 · 잠금 화면.
+// 장마다 실제 화면 컴포넌트와 기능 세 줄 (CLAUDE.md 2항 central loop).
 // 길게 느껴지면 어느 장에서든 건너뛰기 · 로그인. 끝나면 가입 → 러너 정보 → 권한 → 탐색.
 // 로그인 화면과 같은 dark 바탕. 건너뛰거나 끝까지 보면 다시 보이지 않는다.
 
@@ -60,9 +58,9 @@ function Intro() {
     {
       title: '코스를 달리고\n기록으로 겨루는 러닝 앱',
       points: [
-        { icon: 'modeCourse', text: '내 주변 코스를 골라 달리고' },
+        { icon: 'map', text: '내 주변 추천 코스 · 평점 · 야간 조명 확인' },
         { icon: 'verified', text: '끝까지 달린 기록은 공식 기록으로 인증돼요' },
-        { icon: 'trophy', text: '같은 코스 러너들과 순위로 겨뤄요' },
+        { icon: 'add', text: '내가 달린 길도 코스로 올려 공유' },
       ],
       label: '수성못 둘레길 코스 지도 1.9km, 공식 기록 인증됨',
       visual: (
@@ -75,92 +73,42 @@ function Intro() {
       ),
     },
     {
-      title: '달릴 코스가\n이미 동네에 있어요',
-      points: [
-        { icon: 'map', text: '내 주변 · 나에게 맞는 추천 코스' },
-        { icon: 'star', text: '평점 · 야간 조명 · 화장실까지 미리 확인' },
-        { icon: 'add', text: '내가 달린 길을 코스로 올려 공유' },
-      ],
-      label: '주변 코스 목록: 수성못 둘레길 1.9km, 신천 강변 왕복 4.7km',
-      visual: (
-        <View style={[styles.panel, styles.stack, { height: visualHeight }]}>
-          <CourseCard title="수성못 둘레길" distanceM={1900} tags={['평지', '야간 밝음']} route={ROUTE} socialContext="★ 4.3 · 이번 주 128명" variant="compact" />
-          <CourseCard title="신천 강변 왕복" distanceM={4700} tags={['강변']} route={route('c-sincheon')} socialContext="★ 5.0 · 이번 주 215명" variant="compact" />
-        </View>
-      ),
-    },
-    {
-      title: '목표를 고르고\n달리는 동안 겨뤄요',
+      title: '지난 나와 친구를\n코스 위에서 이겨요',
       points: [
         { icon: 'modePB', text: '내 PB · 친구 기록을 고스트로 띄워 비교' },
-        { icon: 'notification', text: '앞섬 · 뒤처짐 · 구간 기록을 소리로 안내' },
-        { icon: 'modeInterval', text: '인터벌 훈련도 구간마다 소리 · 진동으로' },
-      ],
-      label: '플레이 방식: 완주, PB 어택, 라이벌, 함께. 내 최고 기록보다 12초 빠름',
-      visual: (
-        <View style={[styles.panel, { height: visualHeight }]}>
-          <View style={styles.modes}>
-            <PlayModeCard icon="modeCourse" title="완주" caption="끝까지" style={styles.mode} />
-            <PlayModeCard icon="modePB" title="PB 어택" caption="내 기록 깨기" state="selected" style={styles.mode} />
-            <PlayModeCard icon="modeRival" title="라이벌" caption="친구 기록" style={styles.mode} />
-          </View>
-          <GapIndicator direction="ahead" delta={12} label="내 최고 기록" />
-        </View>
-      ),
-    },
-    {
-      title: '인증된 기록만\n랭킹에 올라가요',
-      points: [
-        { icon: 'verified', text: '코스를 벗어나거나 끊긴 기록은 걸러내요' },
-        { icon: 'metrics', text: '코스 · 주간 · 친구 랭킹과 구간 기록' },
+        { icon: 'trophy', text: '코스 · 주간 · 친구 랭킹과 구간 기록' },
         { icon: 'crown', text: '가장 빠르면 크라운, 가장 자주면 로컬 레전드' },
       ],
-      label: '수성못 둘레길 랭킹: 1위 지수 코스 크라운, 2위 러너 박 로컬 레전드, 18위 나 개인 최고 기록',
+      label: '내 최고 기록보다 12초 빠름. 수성못 둘레길 랭킹: 1위 지수 코스 크라운, 18위 나 개인 최고 기록',
       visual: (
         <View style={[styles.panel, styles.stack, { height: visualHeight }]}>
+          <GapIndicator direction="ahead" delta={12} label="내 최고 기록" />
           <RankingRow rank={1} name="지수" timeSec={468} titles={['crown']} />
-          <RankingRow rank={2} name="러너 박" timeSec={489} titles={['legend']} relation="friend" />
           <RankingRow rank={18} name="나" timeSec={612} relation="self" isPB rankChange={3} />
         </View>
       ),
     },
     {
-      title: '떨어져 있어도\n친구와 같이 달려요',
+      title: '친구와 같이 달리고\n손목에서 바로 봐요',
       points: [
-        { icon: 'modeTogether', text: '같은 시간에 출발해 레이스 · 타임 어택' },
-        { icon: 'modeRival', text: '친구 기록에 도전하고 결과를 알려 줘요' },
-        { icon: 'gpsUnavailable', text: '위치는 숨기고 거리 · 순위만 보여요' },
+        { icon: 'modeTogether', text: '떨어져 있어도 같이 출발해 레이스' },
+        { icon: 'watch', text: 'Apple Watch만 차고 달려도 기록' },
+        { icon: 'lock', text: '잠금 화면 · 다이내믹 아일랜드에 실시간 기록' },
       ],
-      label: '함께 달리기 진행 상황: 나 62%, 지수 70%, 민수 완주',
+      label: '함께 달리기 진행 상황: 나 62%, 지수 70%. Apple Watch, 잠금 화면에서도 보기',
       visual: (
         <View style={[styles.panel, styles.stack, { height: visualHeight }]}>
           <ParticipantChip name="나" status="running" progress={0.62} trailing="3.1km" />
           <ParticipantChip name="지수" status="running" progress={0.7} trailing="+72m" />
-          <ParticipantChip name="민수" status="finished" progress={1} />
-        </View>
-      ),
-    },
-    {
-      title: '손목과 잠금 화면에서\n바로 봐요',
-      points: [
-        { icon: 'watch', text: 'Apple Watch로 조작 · 휴대폰 없이 기록' },
-        { icon: 'lock', text: '잠금 화면 · 다이내믹 아일랜드에 실시간 기록' },
-        { icon: 'health', text: '심박 센서 연결 · Apple 건강 기록 가져오기' },
-      ],
-      label: 'Apple Watch, 잠금 화면, 다이내믹 아일랜드, 심박 센서, Apple 건강',
-      visual: (
-        <View style={[styles.panel, { height: visualHeight }]}>
           <View style={styles.devices}>
             {(
               [
                 ['watch', 'Apple Watch'],
                 ['lock', '잠금 화면'],
-                ['notification', '다이내믹 아일랜드'],
-                ['health', '심박 · 건강'],
               ] as const
             ).map(([icon, text]) => (
               <View key={text} style={[styles.device, tile]}>
-                <AppIcon name={icon} size={22} color={colors.text.accent} />
+                <AppIcon name={icon} size={18} color={colors.text.accent} />
                 <AppText role="caption" numberOfLines={1}>
                   {text}
                 </AppText>
@@ -305,26 +253,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
   },
-  modes: {
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  mode: {
-    flex: 1,
-  },
   devices: {
-    alignSelf: 'stretch',
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   device: {
-    flexBasis: '47%',
-    flexGrow: 1,
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radius.control,
   },
   copy: {
