@@ -1,6 +1,7 @@
 // 알림함 (NTF, 14.2장). 서버 NotificationResponse의 앱 쪽 모델.
 
-export type NotificationType = 'FRIEND_REQUEST' | 'LIVE_INVITE' | 'LIVE_CANCELED' | 'RECORD_BEATEN' | 'CHALLENGE_DEFENDED';
+// NOTICE: 관리 웹에서 보낸 서비스 공지 (결정 로그 87항)
+export type NotificationType = 'FRIEND_REQUEST' | 'LIVE_INVITE' | 'LIVE_CANCELED' | 'RECORD_BEATEN' | 'CHALLENGE_DEFENDED' | 'NOTICE';
 
 export type AppNotification = {
   id: string;

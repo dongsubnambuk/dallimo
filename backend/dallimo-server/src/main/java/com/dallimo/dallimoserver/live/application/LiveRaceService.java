@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.live.application;
 
+import com.dallimo.dallimoserver.common.observability.DallimoMetrics;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.live.domain.LiveMemberStatus;
@@ -64,9 +65,12 @@ public class LiveRaceService {
     private final Clock clock;
     // 이벤트 · 주기 확인은 자기 자신을 부르므로 트랜잭션을 직접 연다 (커밋 뒤 이벤트는 새 트랜잭션)
     private final TransactionTemplate tx;
+    private final DallimoMetrics metrics;
 
     public LiveRaceService(LiveRoomJpaRepository rooms, LiveMemberJdbcRepository members, LiveStateStore state, LiveRoomService roomService,
-                           SimpMessagingTemplate ws, LiveProperties props, Clock clock, PlatformTransactionManager txManager) {
+                           SimpMessagingTemplate ws, LiveProperties props, Clock clock, PlatformTransactionManager txManager,
+                           DallimoMetrics metrics) {
+        this.metrics = metrics;
         this.rooms = rooms;
         this.members = members;
         this.state = state;
@@ -80,6 +84,16 @@ public class LiveRaceService {
 
     /** 8.2장 RUN_STATE (C→S) */
     public record StateMessage(Long seq, Integer distanceM, Integer elapsedSeconds, Integer currentPaceSecPerKm, String status, String sentAt) {
+    }
+
+    /** 34장 Live: 앱이 보낸 시각(sentAt)부터 받은 시각까지. 시각이 없거나 읽을 수 없으면 재지 않는다 */
+    private void lag(StateMessage m, Instant now) {
+        if (m == null || m.sentAt() == null) return;
+        try {
+            metrics.liveStateLag(Duration.between(Instant.parse(m.sentAt()), now));
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // 형식이 다르면 지표만 건너뛴다
+        }
     }
 
     /** 응원 (SCREEN-SPECS Together 보조 정보 "응원"). toUserId가 없으면 방 전체에 */
@@ -98,6 +112,7 @@ public class LiveRaceService {
         }
         if (me.status() != LiveMemberStatus.RUNNING) return;
         Instant now = clock.instant();
+        lag(m, now);
         if (m == null || m.seq() == null || m.seq() < 1 || m.distanceM() == null || m.elapsedSeconds() == null || m.distanceM() < 0 || m.elapsedSeconds() < 0) {
             error(userId, "VALIDATION_ERROR", "상태 값을 확인해 주세요.", true);
             return;

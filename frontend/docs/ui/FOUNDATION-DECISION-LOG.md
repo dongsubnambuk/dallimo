@@ -1472,6 +1472,20 @@ App Store Connect가 빌드를 받지 않았다: "Missing purpose string in Info
 | 다른 문구 | 사진 보관함(`expo-file-system` · `expo-image`)은 권한 상태만 읽고 요청하지 않는다. 거절 메일에도 동작 하나만 나와 더 넣지 않는다 | Apple은 빠진 문구를 한 번에 모두 알려 준다 |
 | 확인한 것 | `npx expo config --type introspect`의 `ios.infoPlist`에 `NSMotionUsageDescription`이 들어간다 | |
 
+## 77. 서버 성능 지표 (Prometheus · Grafana)
+
+사용자 결정: 성능 모니터링을 넣는다. 명세 18장(관측 항목) · 34장(관측성 상세) · ADR "Observability: Actuator + 운영 metric exporter"를 따른다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 내보내기 | Micrometer Prometheus(`/actuator/prometheus`). gamjabox compose에 Prometheus(15초, 30일) · Grafana(대시보드 미리 넣음) | ADR의 "운영 metric exporter". 서버 한 대 · 같은 compose라 따로 둘 인프라가 없다 |
+| 접근 | `METRICS_TOKEN` Bearer로만 연다. 비면 404. 사용자 JWT 체인보다 먼저 보는 별도 보안 체인 | 지표에 endpoint · 처리량이 드러난다. 사용자 체인은 Bearer를 JWT로 읽어서 같이 쓸 수 없다 |
+| 서비스 지표 | Run 시작 · 완료(mode, status), GPS Batch 결과, GPS 정확도, 완주 판정(outcome · reason · policy), 실시간 연결 · 끊김 · 메시지 지연, Push 결과(type · result) | 18장 표 항목을 서버가 아는 지점에서 센다 |
+| 자동 지표 | API 응답시간(endpoint별 histogram), Hikari 풀, Lettuce(Redis), JVM | Spring Boot가 잰다. API는 p95를 Prometheus에서 계산하려고 histogram을 켰다 |
+| 하지 않은 것 | 끝나지 않은 Run 수 gauge(인덱스가 없어 주기적 전체 조회가 된다 → 시작 대비 완료로 본다), GPS rejected point 비율(앱이 거른다), slow query(MySQL slow log) | 운영 DB에 부담을 주지 않는다 |
+| 개인정보 | 태그에 사용자 id · 위치 · 닉네임 없음. 값 종류가 정해진 enum만 태그로 | 34장 "개인정보와 정밀 위치정보를 관측성 데이터에 과도하게 포함하지 않는다" |
+| 확인한 것 | 토큰 401 · 404 · 통과 테스트, 러닝 흐름 뒤 지표가 쌓이는 테스트. 로컬에서 서버 + Prometheus(quay.io 이미지) + Grafana를 띄워 수집 · 대시보드 29개 패널 쿼리가 모두 오류 없이 도는 것을 확인 | |
+
 ## 79. 강제 업데이트
 
 사용자 결정: 오래된 앱을 막고 스토어로 보내는 강제 업데이트 안내를 넣는다. 명세에 없는 기능이다.
@@ -1590,3 +1604,18 @@ App Store Connect가 빌드를 받지 않았다: "Missing purpose string in Info
 | 관리 웹 로그인 | `GET · POST /api/v1/admin/setup`, `POST /api/v1/admin/login` (토큰 없이, 앱 로그인과 같은 요청 제한). 응답 · 갱신 · 로그아웃은 앱과 같다 | |
 | CORS | `SecurityConfig.ADMIN_WEB_ORIGINS`: `http://localhost:5174` · `https://*.netlify.app`. 앱 웹 확인용 주소(환경변수)는 그대로 | 관리 웹 주소가 아직 없어 Netlify 주소 전체를 연다. 토큰은 쿠키가 아니라 헤더라 다른 사이트가 토큰을 얻지 못한다. 직접 도메인을 붙이면 그 주소를 더한다 |
 | 확인한 것 | `AdminUserApiContractTest`(MySQL · MariaDB): 비밀번호 정하기 · 규칙 · 다시 정하기 409 · 틀린 비밀번호 · 앱 로그인 불가 · 이메일 대소문자 · 같은 이메일 앱 가입은 관리자 아님. OpenAPI 문서. 관리 웹 빌드 · 로컬 서버에서 처음 정하기 → 로그인 | |
+
+## 87. 관리 웹 2단계 (성능 모니터링 · 서버 오류 · 공지 푸시)
+
+사용자 결정: 85항 구상의 두 번째 단계. DB를 직접 보지 않고 서버 상태와 오류를 확인하고, 전체 공지를 Push로 보낸다. 서버 지표(77항, `feat/server-metrics`)를 이 브랜치에서 함께 머지했다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 모니터링 화면 | 관리 웹 첫 화면. 서버 상태(DB · Redis 응답 · 켜진 시간 · 메모리), 오늘 수치(가입 · 앱을 쓴 회원 · 완료한 달리기 · 처리 대기 신고 · 서버 오류), 최근 60분 API(요청 · p95 · 5xx · 분당 그래프), 주요 API 3개(GPS 업로드 · 코스 랭킹 · 주변 코스). 30초마다 새로 고침 | 문제가 났는지 한 화면에서. 주요 API는 성능 개선 때 잰 곳(docs/perf) |
+| 60분 통계 | 서버 메모리에 1분 단위로 60분만(`RequestStats`). 다시 켜면 비어서 다시 모은다. 긴 기간 그래프는 Grafana(77항) | 관리 웹에서 Prometheus를 부르지 않아도 되게. 혼자 운영이라 서버 한 대 |
+| 서버 오류 | 처리 못 한 예외를 V26 `tbl_server_error`에 남긴다(예외 · 메시지 · 달리모 코드 첫 위치 · 경로 패턴 · 요청 id · 회원 id). 종류별(7일) · 최근 50건, 회원 화면 연결. 1분 60건까지, 30일 보관 | "오류 확인을 DB 조회 대신". 요청 본문 · 위치는 남기지 않는다(21.1장). 오류가 몰려도 DB를 막지 않게 |
+| 공지 푸시 | 쓰기 · 미리보기 → 테스트 발송(회원 한 명, 알림함에 남기지 않음) → 받는 회원 수를 입력해야 보내기. 대상: 전체 · iOS · Android 기기 회원. 누르면 열 화면(탐색 · 달리기 · 함께 · 마이 · 알림함 · 설정). 받는 회원 알림함(`NOTICE`)에 남기고 커밋 뒤 비동기로 Push, 결과(기기 · 성공 · 실패 · 정리된 기기) | 실수로 전체에 잘못 보내지 않게. 85항 v2 구상 그대로 |
+| 보내지 않는 것 | 광고성 정보(이벤트 · 홍보), 예약 발송, 세부 대상 | 광고는 별도 수신 동의가 필요하다(정보통신망법). 범위 축소(85항) |
+| 밤 시간 | 밤 10시~아침 8시(한국 시간)에는 테스트 · 보내기 모두 막고, 관리 웹이 미리 알린다 | 14.2장 사용자 결정(QuietHours)과 같게 |
+| 앱 | 알림함에 `NOTICE` 종류(종 아이콘). 모르는 종류도 종 아이콘으로 | 이 수정이 OTA로 나간 뒤 처음 공지를 보낸다 |
+| 확인한 것 | `AdminOpsApiContractTest`(MySQL · MariaDB), 서버 전체 테스트, OpenAPI 문서, 앱 `tsc` · `expo lint`, 관리 웹 `tsc` · 빌드, 로컬 서버에서 모니터링(오류 열기) · 공지 테스트 발송 · 보내기 · 밤 시간 안내 화면(데스크톱 · 휴대폰 · 다크) | |

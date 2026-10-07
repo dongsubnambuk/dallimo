@@ -67,7 +67,8 @@ public class OpenApiConfig {
             Map.entry("external-course-admin-controller", "관리 · 외부 추천 코스"),
             Map.entry("course-admin-controller", "관리 · 코스 신고 검토"),
             Map.entry("admin-user-controller", "관리 · 회원"),
-            Map.entry("admin-auth-controller", "관리 · 관리자 로그인"));
+            Map.entry("admin-auth-controller", "관리 · 관리자 로그인"),
+            Map.entry("admin-ops-controller", "관리 · 모니터링 · 공지"));
 
     @Bean
     OpenApiCustomizer securityAndTags() {

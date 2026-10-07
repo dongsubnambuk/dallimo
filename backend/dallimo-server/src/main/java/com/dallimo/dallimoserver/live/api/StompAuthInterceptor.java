@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.live.api;
 
+import com.dallimo.dallimoserver.common.observability.DallimoMetrics;
 import com.dallimo.dallimoserver.live.application.LiveRaceService;
 import com.dallimo.dallimoserver.common.ratelimit.RateLimiter;
 import org.slf4j.Logger;
@@ -37,8 +38,10 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private final JwtDecoder jwt;
     private final LiveRaceService race;
     private final RateLimiter limiter;
+    private final DallimoMetrics metrics;
 
-    public StompAuthInterceptor(JwtDecoder jwt, @org.springframework.context.annotation.Lazy LiveRaceService race, RateLimiter limiter) {
+    public StompAuthInterceptor(JwtDecoder jwt, @org.springframework.context.annotation.Lazy LiveRaceService race, RateLimiter limiter, DallimoMetrics metrics) {
+        this.metrics = metrics;
         this.jwt = jwt;
         this.race = race;
         this.limiter = limiter;
@@ -49,6 +52,8 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     public void onDisconnect(SessionDisconnectEvent e) {
         Principal user = e.getUser();
         log.info("live.disconnect user={} session={} code={}", user == null ? "-" : user.getName(), e.getSessionId(), e.getCloseStatus().getCode());
+        // 인증된 연결만 셌으니 끊김도 인증된 연결만
+        if (user != null) metrics.liveDisconnected(e.getCloseStatus().getCode());
     }
 
     @Override
@@ -67,6 +72,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
                 a.setUser(new UsernamePasswordAuthenticationToken(userId, null, List.of()));
                 // 34장 Live: connectionId(세션) · userId (위치 · 닉네임은 남기지 않는다)
                 log.info("live.connect user={} session={}", userId, a.getSessionId());
+                metrics.liveConnected();
             } catch (JwtException e) {
                 throw new MessageDeliveryException("AUTH_REQUIRED");
             }

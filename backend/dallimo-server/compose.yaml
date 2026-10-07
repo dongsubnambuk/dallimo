@@ -1,5 +1,5 @@
 # 운영 배포용 (gamjabox). 로컬 개발에는 쓰지 않는다 (결정 로그 59항)
-# 비밀 값(DB_PASSWORD · DB_ROOT_PASSWORD · JWT_SECRET · ADMIN_API_KEY)은 여기 적지 않는다. 배포 도구의 환경변수 파일(.env)로 넣는다. 키 설명은 .env.example
+# 비밀 값(DB_PASSWORD · DB_ROOT_PASSWORD · JWT_SECRET · ADMIN_API_KEY · METRICS_TOKEN · GRAFANA_ADMIN_PASSWORD)은 여기 적지 않는다. 배포 도구의 환경변수 파일(.env)로 넣는다. 키 설명은 .env.example
 # .env에 없는 값은 빈 문자열로 들어간다. 비밀 값이 비면 MySQL · 서버가 시작하지 않는다
 services:
   dallimo-server:
@@ -49,6 +49,10 @@ services:
       # ── Push ─────────────────────────────────────────────────
       EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN}
 
+      # ── 성능 지표 (아래 prometheus가 Bearer로 가져간다. 비어 있으면 지표 주소를 닫는다) ──
+      # openssl rand -hex 24
+      METRICS_TOKEN: ${METRICS_TOKEN}
+
       # ── 강제 업데이트: 이 버전보다 낮은 앱은 App Store로 보낸다 (비어 있으면 막지 않는다) ──
       APP_MIN_VERSION_IOS: ${APP_MIN_VERSION_IOS}
       APP_STORE_URL_IOS: ${APP_STORE_URL_IOS}
@@ -79,6 +83,38 @@ services:
     volumes:
       - redis-data:/data
 
+  # ── 성능 지표 (18장 관측성, backend/README.md "성능 지표") ─────────────
+  # 15초마다 dallimo-server:8080/actuator/prometheus를 가져와 30일 보관한다. 바깥으로 포트를 열지 않는다
+  prometheus:
+    build: ./monitoring/prometheus
+    restart: unless-stopped
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN}
+    # 토큰을 파일로 쓰고 시작한다 (prometheus.yml의 credentials_file)
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['printf %s "$$METRICS_TOKEN" > /prometheus/metrics_token && exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=30d']
+    volumes:
+      - prometheus-data:/prometheus
+    depends_on:
+      - dallimo-server
+
+  # 대시보드 "달리모 > 달리모 서버". http://{서버}:3000, 계정 admin / GRAFANA_ADMIN_PASSWORD
+  grafana:
+    build: ./monitoring/grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DEFAULT_TIMEZONE: Asia/Seoul
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   mysql-data:
   redis-data:
+  prometheus-data:
+  grafana-data:

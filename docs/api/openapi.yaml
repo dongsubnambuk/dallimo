@@ -138,6 +138,36 @@ paths:
       - bearerAuth: []
       tags:
       - 관리 · 코스 신고 검토
+  /api/v1/admin/errors:
+    get:
+      operationId: errors
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: days
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 7
+          maximum: 30
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseErrors"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 모니터링 · 공지
   /api/v1/admin/external-courses/durunubi:
     post:
       operationId: durunubi
@@ -315,6 +345,159 @@ paths:
       - bearerAuth: []
       tags:
       - 관리 · 회원
+  /api/v1/admin/monitoring:
+    get:
+      operationId: monitoring
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseMonitoring"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 모니터링 · 공지
+  /api/v1/admin/notices:
+    get:
+      operationId: list_3
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseListNotice"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 모니터링 · 공지
+    post:
+      operationId: send
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseNotice"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 모니터링 · 공지
+  /api/v1/admin/notices/audience:
+    get:
+      operationId: audience
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: target
+        required: false
+        schema:
+          type: string
+          default: ALL
+          enum:
+          - ALL
+          - IOS
+          - ANDROID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseAudienceView"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 모니터링 · 공지
+  /api/v1/admin/notices/test:
+    post:
+      operationId: test
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTestResult"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 모니터링 · 공지
+  /api/v1/admin/notices/{id}:
+    get:
+      operationId: get_3
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseNotice"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 모니터링 · 공지
   /api/v1/admin/setup:
     get:
       operationId: setup
@@ -1166,7 +1349,7 @@ paths:
       - 구간 도전 (124장)
   /api/v1/friends:
     get:
-      operationId: list_4
+      operationId: list_5
       responses:
         "200":
           content:
@@ -1545,7 +1728,7 @@ paths:
       - 함께 달리기 (45장)
   /api/v1/notifications:
     get:
-      operationId: list_3
+      operationId: list_4
       parameters:
       - in: query
         name: cursor
@@ -2266,6 +2449,18 @@ components:
         timestamp:
           type: string
           format: date-time
+    ApiResponseAudienceView:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/AudienceView"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseAuthResponse:
       type: object
       properties:
@@ -2434,6 +2629,18 @@ components:
         timestamp:
           type: string
           format: date-time
+    ApiResponseErrors:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Errors"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseFinishRunResponse:
       type: object
       properties:
@@ -2552,6 +2759,20 @@ components:
         timestamp:
           type: string
           format: date-time
+    ApiResponseListNotice:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notice"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseListRecentResult:
       type: object
       properties:
@@ -2646,11 +2867,35 @@ components:
         timestamp:
           type: string
           format: date-time
+    ApiResponseMonitoring:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Monitoring"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseNicknameAvailability:
       type: object
       properties:
         data:
           $ref: "#/components/schemas/NicknameAvailability"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+    ApiResponseNotice:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Notice"
         error:
           $ref: "#/components/schemas/ApiError"
         success:
@@ -2850,6 +3095,18 @@ components:
         timestamp:
           type: string
           format: date-time
+    ApiResponseTestResult:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/TestResult"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseUnreadCount:
       type: object
       properties:
@@ -2907,6 +3164,17 @@ components:
           type: string
         storeUrl:
           type: string
+    AudienceView:
+      type: object
+      properties:
+        devices:
+          type: integer
+          format: int32
+        quietHours:
+          type: boolean
+        users:
+          type: integer
+          format: int32
     AuthResponse:
       type: object
       properties:
@@ -2979,6 +3247,16 @@ components:
         targetSec:
           type: integer
           format: int32
+    Check:
+      type: object
+      properties:
+        error:
+          type: string
+        ms:
+          type: integer
+          format: int64
+        ok:
+          type: boolean
     CheckItem:
       type: object
       properties:
@@ -3586,6 +3864,20 @@ components:
           type: boolean
         water:
           type: boolean
+    Errors:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/Group"
+        last24h:
+          type: integer
+          format: int32
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entry"
     FinishRunRequest:
       type: object
       properties:
@@ -3700,6 +3992,23 @@ components:
         userId:
           type: integer
           format: int64
+    Group:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int32
+        exception:
+          type: string
+        lastAt:
+          type: string
+          format: date-time
+        lastMessage:
+          type: string
+        lastPath:
+          type: string
+        location:
+          type: string
     HeartRateDto:
       type: object
       properties:
@@ -3893,6 +4202,24 @@ components:
           type: string
           maxLength: 32
           minLength: 0
+    KeySummary:
+      type: object
+      properties:
+        errors:
+          type: integer
+          format: int64
+        method:
+          type: string
+        name:
+          type: string
+        p95Ms:
+          type: integer
+          format: int64
+        pattern:
+          type: string
+        requests:
+          type: integer
+          format: int64
     Leader:
       type: object
       properties:
@@ -4030,6 +4357,21 @@ components:
         userId:
           type: integer
           format: int64
+    Minute:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        errors:
+          type: integer
+          format: int64
+        p95Ms:
+          type: integer
+          format: int64
+        requests:
+          type: integer
+          format: int64
     ModerationRequest:
       type: object
       properties:
@@ -4063,6 +4405,18 @@ components:
           - POPULAR
           - HIDDEN
           - BLOCKED
+    Monitoring:
+      type: object
+      properties:
+        api:
+          $ref: "#/components/schemas/Snapshot"
+        at:
+          type: string
+          format: date-time
+        server:
+          $ref: "#/components/schemas/Server"
+        today:
+          $ref: "#/components/schemas/Today"
     MyRecord:
       type: object
       properties:
@@ -4080,6 +4434,51 @@ components:
       properties:
         available:
           type: boolean
+    Notice:
+      type: object
+      properties:
+        actor:
+          type: string
+        actorName:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        id:
+          type: integer
+          format: int64
+        link:
+          type: string
+        pushFailed:
+          type: integer
+          format: int32
+        pushOk:
+          type: integer
+          format: int32
+        pushTokens:
+          type: integer
+          format: int32
+        status:
+          type: string
+        target:
+          type: string
+          enum:
+          - ALL
+          - IOS
+          - ANDROID
+        targetUsers:
+          type: integer
+          format: int32
+        title:
+          type: string
+        tokensRemoved:
+          type: integer
+          format: int32
     NotificationResponse:
       type: object
       properties:
@@ -4105,6 +4504,7 @@ components:
           - LIVE_CANCELED
           - RECORD_BEATEN
           - CHALLENGE_DEFENDED
+          - NOTICE
     OsmRequest:
       type: object
       properties:
@@ -4930,6 +5330,59 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SegmentView"
+    SendRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 500
+          minLength: 0
+        expectedUsers:
+          type: integer
+          format: int32
+          minimum: 1
+        link:
+          type: string
+          pattern: "^/[A-Za-z0-9/_-]{0,199}$"
+        target:
+          type: string
+          enum:
+          - ALL
+          - IOS
+          - ANDROID
+        title:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - body
+      - expectedUsers
+      - target
+      - title
+    Server:
+      type: object
+      properties:
+        db:
+          $ref: "#/components/schemas/Check"
+        heapMaxMb:
+          type: integer
+          format: int64
+        heapUsedMb:
+          type: integer
+          format: int64
+        javaVersion:
+          type: string
+        redis:
+          $ref: "#/components/schemas/Check"
+        startedAt:
+          type: string
+          format: date-time
+        threads:
+          type: integer
+          format: int32
+        uptimeSec:
+          type: integer
+          format: int64
     SettingsBody:
       type: object
       properties:
@@ -4996,6 +5449,22 @@ components:
       - email
       - nickname
       - password
+    Snapshot:
+      type: object
+      properties:
+        keyApis:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeySummary"
+        minutes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Minute"
+        since:
+          type: string
+          format: date-time
+        total:
+          $ref: "#/components/schemas/Summary"
     SourceInfo:
       type: object
       properties:
@@ -5100,6 +5569,57 @@ components:
           type: integer
           format: int64
         timeSec:
+          type: integer
+          format: int32
+    TestRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 500
+          minLength: 0
+        link:
+          type: string
+          pattern: "^/[A-Za-z0-9/_-]{0,199}$"
+        title:
+          type: string
+          maxLength: 100
+          minLength: 0
+        userId:
+          type: integer
+          format: int64
+      required:
+      - body
+      - title
+      - userId
+    TestResult:
+      type: object
+      properties:
+        devices:
+          type: integer
+          format: int32
+        failed:
+          type: integer
+          format: int32
+        ok:
+          type: integer
+          format: int32
+    Today:
+      type: object
+      properties:
+        activeUsers:
+          type: integer
+          format: int32
+        finishedRuns:
+          type: integer
+          format: int32
+        pendingReports:
+          type: integer
+          format: int32
+        serverErrors:
+          type: integer
+          format: int32
+        signups:
           type: integer
           format: int32
     Totals:

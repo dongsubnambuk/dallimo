@@ -5,6 +5,7 @@ import com.dallimo.dallimoserver.challenge.application.ChallengeService;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.common.observability.Correlation;
+import com.dallimo.dallimoserver.common.observability.DallimoMetrics;
 import com.dallimo.dallimoserver.common.web.CursorPage;
 import com.dallimo.dallimoserver.live.infrastructure.LiveMemberJdbcRepository;
 import com.dallimo.dallimoserver.running.domain.Run;
@@ -63,11 +64,14 @@ public class RunService {
     private final RunWorkoutJdbcRepository workoutSteps;
     private final WorkoutService workouts;
     private final RunHeartRateJdbcRepository heartRates;
+    private final DallimoMetrics metrics;
 
     public RunService(RunJpaRepository runs, RunPointJdbcRepository points, RunSyncBatchRepository batches, JdbcTemplate jdbc, Clock clock,
                       ApplicationEventPublisher events, LiveMemberJdbcRepository liveMembers, ChallengeService challenges,
-                      RunWorkoutJdbcRepository workoutSteps, WorkoutService workouts, RunHeartRateJdbcRepository heartRates) {
+                      RunWorkoutJdbcRepository workoutSteps, WorkoutService workouts, RunHeartRateJdbcRepository heartRates,
+                      DallimoMetrics metrics) {
         this.heartRates = heartRates;
+        this.metrics = metrics;
         this.runs = runs;
         this.points = points;
         this.batches = batches;
@@ -133,6 +137,7 @@ public class RunService {
             if (challengeId != null) challenges.attachRun(userId, challengeId, courseId, created.getId());
             Correlation.run(created.getId());
             log.info("run.create clientRunUuid={} runId={} mode={} courseId={} status={}", clientRunUuid, created.getId(), mode, courseId, created.getStatus());
+            metrics.runStarted(mode.name());
             return new Created(created, true);
         } catch (DataIntegrityViolationException race) {
             Run r = runs.findByClientRunUuid(clientRunUuid).orElseThrow(() -> race);
@@ -153,15 +158,18 @@ public class RunService {
         if (seen.isPresent()) {
             if (!seen.get().equals(received)) {
                 log.warn("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=CONFLICT", runId, batchUuid, fromSeq, toSeq);
+                metrics.runBatch("CONFLICT");
                 throw new ApiException(ErrorCode.IDEMPOTENCY_CONFLICT);
             }
             int last = contiguous(run);
             // 응답을 못 받은 앱의 재전송
             log.info("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=DUPLICATE lastSeq={}", runId, batchUuid, fromSeq, toSeq, last);
+            metrics.runBatch("DUPLICATE");
             return new BatchResult(batchUuid, true, last);
         }
         if (!run.getStatus().acceptsPoints()) {
             log.warn("run.batch runId={} batchUuid={} fromSeq={} toSeq={} result=REJECTED status={}", runId, batchUuid, fromSeq, toSeq, run.getStatus());
+            metrics.runBatch("REJECTED");
             throw new ApiException(ErrorCode.RUN_INVALID_STATE);
         }
         validate(fromSeq, toSeq, batch);
@@ -169,6 +177,8 @@ public class RunService {
         batches.insert(runId, batchUuid, received, clock.instant());
         int last = contiguous(run);
         log.info("run.batch runId={} batchUuid={} fromSeq={} toSeq={} count={} result=ACCEPTED lastSeq={}", runId, batchUuid, fromSeq, toSeq, batch.size(), last);
+        metrics.runBatch("ACCEPTED");
+        batch.forEach(p -> metrics.gpsPoint(p.accuracyM()));
         return new BatchResult(batchUuid, true, last);
     }
 
@@ -231,6 +241,7 @@ public class RunService {
             run.markFinishing(clock.instant());
             // 빠진 Batch가 있어 확정하지 않는다 (앱이 채운 뒤 다시 요청)
             log.info("run.finish runId={} status=FINISHING lastSeq={} serverSeq={}", runId, lastSeq, serverSeq);
+            metrics.runFinished(run.getMode().name(), "FINISHING");
             return new Finished(run);
         }
         Instant end = endedAt.isBefore(run.getStartedAt()) ? run.getStartedAt() : endedAt;
@@ -251,6 +262,7 @@ public class RunService {
         if (run.awaitingVerification()) events.publishEvent(new RunFinishedEvent(runId));
         log.info("run.finish runId={} status={} lastSeq={} distanceM={} activeSec={} verification={}", runId, run.getStatus(), lastSeq, distance, elapsed,
                 run.awaitingVerification() ? "PENDING" : "NONE");
+        metrics.runFinished(run.getMode().name(), "FINISHED");
         return new Finished(run);
     }
 

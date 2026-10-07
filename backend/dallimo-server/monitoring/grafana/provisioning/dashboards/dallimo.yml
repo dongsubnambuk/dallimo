@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: dallimo
+    folder: 달리모
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards

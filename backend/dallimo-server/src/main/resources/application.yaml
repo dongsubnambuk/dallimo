@@ -65,10 +65,21 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # prometheus는 METRICS_TOKEN이 있어야 열린다 (MetricsSecurityConfig)
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: dallimo-server
+    distribution:
+      # 18장 API 응답시간: endpoint별 p50 · p95 · p99를 Prometheus에서 계산할 수 있게
+      percentiles-histogram:
+        http.server.requests: true
 
 # 14.1장 인증. 유효 시간은 명세에 없어 정한 값 (backend/README 결정 사항)
 dallimo:
+  # 18장 관측성: Prometheus가 /actuator/prometheus를 가져갈 때 쓰는 Bearer 토큰. 비어 있으면 지표 주소를 닫는다
+  metrics:
+    token: ${METRICS_TOKEN:}
   # 강제 업데이트: 이 버전보다 낮은 앱은 스토어로 보낸다. 비어 있으면 막지 않는다 (결정 로그 79항)
   app-version:
     ios:

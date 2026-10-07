@@ -69,6 +69,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `ADMIN_API_KEY` | 아니오 | 관리 API 키(curl · 스크립트). 없으면 키로는 부를 수 없다. 관리 웹은 키 없이 관리자 계정으로 (예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) |
 | `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
 | `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
+| `METRICS_TOKEN` · `GRAFANA_ADMIN_PASSWORD` | 아니오 | 성능 지표 (아래 "성능 지표"). 토큰이 없으면 `/actuator/prometheus`가 닫힌다 |
 | `APP_MIN_VERSION_IOS` · `APP_STORE_URL_IOS` | 아니오 | 강제 업데이트 (아래 "앱 버전"). 비어 있으면 막지 않는다 |
 
 ### 프록시 (nginx · 로드밸런서 뒤)
@@ -478,6 +479,47 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **CORS**: 관리 웹 주소(`http://localhost:5174` · `https://*.netlify.app`)는 `SecurityConfig.ADMIN_WEB_ORIGINS`에 있다. 토큰은 쿠키가 아니라 `Authorization` 헤더라 다른 사이트가 이 허용으로 토큰을 얻지는 못한다. 관리 웹에 직접 도메인을 붙이면 그 주소를 여기에 더한다.
 - **요청 제한**: `POST /admin/login` · `/admin/setup`은 앱 로그인과 같은 제한(IP당).
 - **테스트**: `AdminUserApiContractTest`를 MySQL · MariaDB에서(관리자 비밀번호 정하기 · 규칙 · 다시 정하기 409 · 틀린 비밀번호 · 앱 로그인 불가 · 이메일 대소문자 · 같은 이메일 앱 가입은 관리자 아님 · 관리자 확인 · 일반 회원 403 · 검색(닉네임 · 이메일 · id · `%`) · 페이지 · 상세 · 정지(세션 끊김 · 로그인 403 · 틀린 비밀번호 401 · 중복 · 관리자 · 해제 대상 아님) · 해제 · 조치 기록 · 관리 키 조치 · 신고 검토 정보 · 관리자 계정으로 처리).
+
+### 관리 웹 모니터링 · 공지 푸시 (결정 로그 87항)
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/admin/monitoring` | `{ at, server{ startedAt, uptimeSec, javaVersion, heapUsedMb, heapMaxMb, threads, db{ ok, ms, error }, redis{…} }, api{ since, total{ requests, errors, p95Ms }, minutes[60], keyApis[GPS 업로드 · 코스 랭킹 · 주변 코스] }, today{ signups, finishedRuns, activeUsers, pendingReports, serverErrors } }` |
+| `GET /api/v1/admin/errors?days=7` | `{ last24h, groups[{ exception, location, count, lastAt, lastMessage, lastPath }], recent[50]{ id, createdAt, exception, message, location, method, path, requestId, userId } }` |
+| `GET /api/v1/admin/notices/audience?target=ALL\|IOS\|ANDROID` | `{ users, devices, quietHours }` 받을 회원 · 기기 수, 지금 밤이라 못 보내는지 |
+| `POST /api/v1/admin/notices/test` | `{ userId, title, body, link? }` → `{ devices, ok, failed }`. 회원 한 명의 기기로만 (알림함에 남기지 않는다). 기기가 없으면 409 |
+| `POST /api/v1/admin/notices` | `{ target, title(100), body(500), link?, expectedUsers }` → 공지. 대상 수가 `expectedUsers`와 다르면 409. 받는 회원 알림함(type `NOTICE`)에 넣고 커밋 뒤 비동기로 Push |
+| `GET /api/v1/admin/notices` · `/{id}` | 보낸 공지 (최근 30) · 결과 `{ status(SENDING · SENT · FAILED), targetUsers, pushTokens, pushOk, pushFailed, tokensRemoved, actorName, … }` |
+
+- **최근 60분 API**: `RequestStats`(서블릿 필터)가 `/api/` 요청(관리 API 제외)을 1분 단위로 서버 메모리에 둔다. 응답 시간 구간(10ms~10s)으로 p95를 계산한다. 서버를 다시 켜면 비어서 다시 모은다. 긴 기간은 아래 "성능 지표"(Prometheus · Grafana).
+- **서버 오류**: `GlobalExceptionHandler`가 처리하지 못한 예외를 `tbl_server_error`(V26)에 남긴다(`ServerErrorRecorder`). 예외 · 메시지(500자) · 달리모 코드 첫 위치 · 경로 패턴 · 요청 id · 회원 id. 요청 본문 · 위치는 남기지 않는다. 1분에 60건까지, 30일 보관(매일 4시 17분 정리). 요청 id로 서버 로그를 찾는다.
+- **오늘 수치**: 한국 시간 0시부터 가입 · 완료한 달리기 · 앱을 쓴 회원(토큰 발급 · 갱신) · 처리 대기 신고 코스 · 서버 오류.
+- **공지**: 서비스 공지만(광고성 정보는 별도 수신 동의가 필요해 보내지 않는다). 받는 회원은 이용 중인 앱 회원 전체, 또는 그 플랫폼 기기를 등록한 회원. 앱 알림 설정(친구 · 함께 · 기록)과 관계없이 보낸다. 밤 10시~아침 8시(한국 시간, `dallimo.push.quiet-hours`)에는 테스트 · 보내기 모두 409. 500대씩 보내고 진행 수를 남긴다. `DeviceNotRegistered` 토큰은 지운다. 조치 기록 `NOTICE_SEND`.
+- **앱**: 알림함 `NOTICE` 종류(종 아이콘). 모르는 종류가 와도 종 아이콘으로 보인다. 이 앱 수정이 OTA로 나간 뒤에 처음 공지를 보낸다(그 전 앱은 알림함에서 모르는 종류를 그리지 못한다).
+- **테스트**: `AdminOpsApiContractTest`를 MySQL · MariaDB에서(일반 회원 403 · DB · Redis 상태 · 60분 · 주요 API 집계 · 오늘 수치 · 오류 기록 · 종류별 · 대상 수 · 테스트 발송(기기 없음 409 · 없는 회원 404) · 잘못된 링크 400 · 대상 수 불일치 409 · 비동기 발송 결과 · 받는 회원 알림함에만 남음).
+
+## 성능 지표 (명세 18장 관측성 · 34장, ADR "Actuator + 운영 metric exporter")
+
+서버가 `/actuator/prometheus`로 지표를 내고, gamjabox compose의 Prometheus가 15초마다 가져가 30일 보관한다. Grafana 대시보드 "달리모 > 달리모 서버"로 본다 (결정 로그 77항).
+
+- **열기**: `METRICS_TOKEN`(Bearer)으로만 열린다. 사용자 Access Token으로는 열리지 않고, 토큰이 비어 있으면 404 (`MetricsSecurityConfig`). Prometheus는 compose 안에서만 서버를 부르고 바깥 포트를 열지 않는다.
+- **Grafana**: `http://{서버}:3000`, `admin` / `GRAFANA_ADMIN_PASSWORD`. Prometheus 연결과 대시보드는 이미지에 들어 있다(`monitoring/grafana`). 도메인으로 열려면 gamjabox에서 3000 포트를 연결한다.
+- 태그에는 사용자 id · 위치 · 닉네임을 넣지 않는다 (34장).
+
+| 18장 항목 | 지표 | 대시보드 |
+| --- | --- | --- |
+| API 응답시간 · 4xx/5xx · endpoint별 오류율 | `http_server_requests_seconds` (endpoint별 histogram, Spring Boot 자동) | p95 응답시간 · 요청 수 · 상태 코드 · 오류율 |
+| Run 시작/완료율 · 비정상 종료 | `dallimo_run_started_total{mode}` · `dallimo_run_finished_total{mode,status}` | 시작 · 완료, 24시간 완료율 (시작보다 완료가 크게 적으면 비정상 종료) |
+| sync 실패 | `dallimo_run_batch_total{result}` (ACCEPTED · DUPLICATE · CONFLICT · REJECTED) | GPS Batch 결과 |
+| GPS 평균 accuracy | `dallimo_gps_accuracy_meters` · `dallimo_gps_points_total` | p50 · p90 정확도 |
+| Verification 비율 · 사유 | `dallimo_verification_total{outcome,reason,policy}` | 판정 결과 · 실패 사유 |
+| WebSocket 연결 · 끊김 · 메시지 지연 | `dallimo_live_connections` · `dallimo_live_connects_total` · `dallimo_live_disconnects_total{code}` · `dallimo_live_state_lag_seconds` | 연결 · 끊김, 상태 메시지 지연 (앱 sentAt → 서버, 기기 시계 차이가 섞인다) |
+| DB connection pool | `hikaricp_connections_*` (자동) | 연결 풀 · 연결 얻는 시간 · 시간 초과 |
+| Redis latency | `lettuce_seconds{db_operation}` (자동) | Redis 명령 지연. 메모리 · key 수는 `redis-cli INFO` |
+| Push ticket 성공/실패 · invalid token | `dallimo_push_total{type,result}` (OK · FAILED · DEVICE_GONE) | Push 결과 · 알림 종류별 |
+
+- 지표로 두지 않은 것: GPS rejected point 비율(튄 point는 앱이 거른다), DB slow query · lock(MySQL slow log · performance_schema로 본다, `docs/perf/README.md`).
+- 로컬에서 보기: `METRICS_TOKEN=local ./gradlew bootTestRun` → `curl -H "Authorization: Bearer local" localhost:8080/actuator/prometheus`.
 
 ## 앱 버전 · 강제 업데이트 (사용자 결정, 결정 로그 79항)
 
