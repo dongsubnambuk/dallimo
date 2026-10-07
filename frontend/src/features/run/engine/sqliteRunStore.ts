@@ -190,6 +190,49 @@ export function createSqliteRunStore(db: SqlDb): LocalRunStore {
         await db.runAsync('UPDATE local_run SET status = ?, ended_at = ? WHERE client_run_uuid = ?', status, at, runUuid);
       }),
 
+    importFinishedRun: (r) =>
+      tx(async () => {
+        const exists = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM local_run WHERE client_run_uuid = ?', r.clientRunUuid);
+        if (exists?.n) return false;
+        const elapsed = r.segments.reduce((a, s) => a + Math.max(0, s.endedAt - s.startedAt), 0);
+        await db.runAsync(
+          `INSERT INTO local_run (client_run_uuid, mode, course_id, status, started_at, ended_at, elapsed_ms, last_seq, sync_state, plan)
+           VALUES (?, ?, ?, 'FINISHED', ?, ?, ?, ?, 'PENDING', ?)`,
+          r.clientRunUuid,
+          r.mode,
+          r.courseId,
+          r.startedAt,
+          r.endedAt,
+          elapsed,
+          r.points.length,
+          r.plan,
+        );
+        for (const s of r.segments) {
+          await db.runAsync('INSERT OR IGNORE INTO local_run_segment (client_run_uuid, started_at, ended_at) VALUES (?, ?, ?)', r.clientRunUuid, s.startedAt, s.endedAt);
+        }
+        let seq = 0;
+        for (const p of r.points) {
+          seq += 1;
+          await db.runAsync(
+            `INSERT INTO local_run_point (client_run_uuid, seq, latitude, longitude, altitude, accuracy, speed, recorded_at, quality_flag, sync_state)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+            r.clientRunUuid,
+            seq,
+            p.latitude,
+            p.longitude,
+            p.altitude ?? null,
+            Number.isFinite(p.accuracy) ? p.accuracy : null,
+            p.speed ?? null,
+            p.recordedAt,
+            p.qualityFlag,
+          );
+        }
+        for (const h of r.heart) {
+          await db.runAsync('INSERT OR IGNORE INTO local_run_heart (client_run_uuid, recorded_at, bpm) VALUES (?, ?, ?)', r.clientRunUuid, h.recordedAt, h.bpm);
+        }
+        return true;
+      }),
+
     appendPoints: (runUuid, points) =>
       tx(async () => {
         const run = await db.getFirstAsync<{ last_seq: number }>('SELECT last_seq FROM local_run WHERE client_run_uuid = ?', runUuid);

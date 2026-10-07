@@ -69,6 +69,30 @@ export function createMemoryLocalRunStore(): LocalRunStore {
       e.run.status = status;
       e.run.endedAt = at;
     },
+    async importFinishedRun(r) {
+      if (runs.has(r.clientRunUuid)) return false;
+      const elapsedMs = r.segments.reduce((a, s) => a + Math.max(0, s.endedAt - s.startedAt), 0);
+      runs.set(r.clientRunUuid, {
+        run: {
+          clientRunUuid: r.clientRunUuid,
+          mode: r.mode,
+          courseId: r.courseId,
+          status: 'FINISHED',
+          startedAt: r.startedAt,
+          endedAt: r.endedAt,
+          elapsedMs,
+          lastSeq: r.points.length,
+          plan: r.plan,
+          serverRunId: null,
+          syncState: 'PENDING',
+          workoutProgress: null,
+        },
+        points: r.points.map((p, i) => ({ ...p, seq: i + 1, synced: false })),
+        segments: r.segments.map((s) => ({ ...s })),
+        heart: [...r.heart],
+      });
+      return true;
+    },
     async appendPoints(runUuid, points) {
       const e = runs.get(runUuid);
       if (!e) return [];
