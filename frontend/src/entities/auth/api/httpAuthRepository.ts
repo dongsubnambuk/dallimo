@@ -49,6 +49,8 @@ function toAuthError(e: unknown): never {
         throw new AuthError('invalid', e.message);
       case 'PASSWORD_MISMATCH':
         throw new AuthError('passwordMismatch', e.message);
+      case 'ACCOUNT_SUSPENDED':
+        throw new AuthError('suspended', e.message);
       default:
         if (e.status === 401) throw new AuthError('unauthorized', e.message);
         throw new AuthError('network', e.message);

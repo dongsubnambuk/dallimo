@@ -12,6 +12,8 @@ public enum ErrorCode {
     RESOURCE_FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없어요."),
     // 이메일 로그인(사용자 결정, 명세 41장 변경)에서 더한 코드
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 맞지 않아요."),
+    // 관리자가 정지한 계정 (FOUNDATION-DECISION-LOG 85항). 비밀번호가 맞을 때만 알려 준다
+    ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "이용이 정지된 계정이에요. 문의 페이지(dallimo-landing.kro.kr/support)로 연락해 주세요."),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 가입한 이메일이에요."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 쓰고 있는 닉네임이에요."),
     // 비밀번호 변경 · 재설정(사용자 결정, 결정 로그 58항). 401이 아니다: 앱이 세션이 끝난 것으로 보지 않게
@@ -21,6 +23,8 @@ public enum ErrorCode {
     RUN_NOT_FOUND(HttpStatus.NOT_FOUND, "러닝 기록을 찾을 수 없어요."),
     COURSE_NOT_FOUND(HttpStatus.NOT_FOUND, "코스를 찾을 수 없어요."),
     RUN_INVALID_STATE(HttpStatus.CONFLICT, "현재 상태에서는 처리할 수 없어요."),
+    // 관리 웹 회원 조치 (정지 · 해제)를 지금 계정 상태로는 할 수 없다
+    USER_INVALID_STATE(HttpStatus.CONFLICT, "현재 상태에서는 처리할 수 없어요."),
     IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "같은 요청 키로 다른 내용이 들어왔어요."),
     RUN_POINT_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, "처리할 수 없는 GPS 기록이에요."),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요."),

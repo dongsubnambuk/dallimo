@@ -75,6 +75,7 @@ paths:
           description: OK
       security:
       - adminKey: []
+      - bearerAuth: []
       tags:
       - 관리 · 코스 신고 검토
   /api/v1/admin/courses/{courseId}/moderation:
@@ -107,6 +108,7 @@ paths:
           description: OK
       security:
       - adminKey: []
+      - bearerAuth: []
       tags:
       - 관리 · 코스 신고 검토
   /api/v1/admin/courses/{courseId}/reports:
@@ -133,6 +135,7 @@ paths:
           description: OK
       security:
       - adminKey: []
+      - bearerAuth: []
       tags:
       - 관리 · 코스 신고 검토
   /api/v1/admin/external-courses/durunubi:
@@ -153,6 +156,7 @@ paths:
           description: OK
       security:
       - adminKey: []
+      - bearerAuth: []
       tags:
       - 관리 · 외부 추천 코스
   /api/v1/admin/external-courses/gpx:
@@ -240,6 +244,7 @@ paths:
           description: OK
       security:
       - adminKey: []
+      - bearerAuth: []
       tags:
       - 관리 · 외부 추천 코스
   /api/v1/admin/external-courses/osm:
@@ -266,8 +271,171 @@ paths:
           description: OK
       security:
       - adminKey: []
+      - bearerAuth: []
       tags:
       - 관리 · 외부 추천 코스
+  /api/v1/admin/me:
+    get:
+      operationId: me_2
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseMeResponse"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 회원
+  /api/v1/admin/users:
+    get:
+      operationId: users
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: q
+        required: false
+        schema:
+          type: string
+          maxLength: 100
+          minLength: 0
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+          pattern: ACTIVE|SUSPENDED|WITHDRAWN
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 30
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseCursorPageUserRow"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 회원
+  /api/v1/admin/users/{userId}:
+    get:
+      operationId: user
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseDetail"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 회원
+  /api/v1/admin/users/{userId}/suspend:
+    post:
+      operationId: suspend
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseActionResponse"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 회원
+  /api/v1/admin/users/{userId}/unsuspend:
+    post:
+      operationId: unsuspend
+      parameters:
+      - in: header
+        name: X-Admin-Key
+        required: false
+        schema:
+          type: string
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseActionResponse"
+          description: OK
+      security:
+      - adminKey: []
+      - bearerAuth: []
+      tags:
+      - 관리 · 회원
   /api/v1/app/version:
     get:
       operationId: version
@@ -1970,6 +2138,49 @@ paths:
       - 인터벌 달리기 (123장)
 components:
   schemas:
+    Account:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+        email:
+          type: string
+        friendCode:
+          type: string
+        id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        runnerDistance:
+          type: string
+        runnerExperience:
+          type: string
+        runnerTime:
+          type: string
+        status:
+          type: string
+    ActionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 0
+      required:
+      - reason
+    ActionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        userId:
+          type: integer
+          format: int64
     ApiError:
       type: object
       properties:
@@ -1978,6 +2189,18 @@ components:
         details: {}
         message:
           type: string
+    ApiResponseActionResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/ActionResponse"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseAppVersionResponse:
       type: object
       properties:
@@ -2122,11 +2345,35 @@ components:
         timestamp:
           type: string
           format: date-time
+    ApiResponseCursorPageUserRow:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/CursorPageUserRow"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
     ApiResponseCursorPageUserSummary:
       type: object
       properties:
         data:
           $ref: "#/components/schemas/CursorPageUserSummary"
+        error:
+          $ref: "#/components/schemas/ApiError"
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+    ApiResponseDetail:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Detail"
         error:
           $ref: "#/components/schemas/ApiError"
         success:
@@ -2830,6 +3077,25 @@ components:
           format: int64
         name:
           type: string
+    CourseRow:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        distanceM:
+          type: integer
+          format: int32
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        status:
+          type: string
+        totalReports:
+          type: integer
+          format: int32
     CourseSummaryResponse:
       type: object
       properties:
@@ -3148,6 +3414,17 @@ components:
             $ref: "#/components/schemas/RunSummaryResponse"
         nextCursor:
           type: string
+    CursorPageUserRow:
+      type: object
+      properties:
+        hasNext:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRow"
+        nextCursor:
+          type: string
     CursorPageUserSummary:
       type: object
       properties:
@@ -3158,6 +3435,78 @@ components:
           items:
             $ref: "#/components/schemas/UserSummary"
         nextCursor:
+          type: string
+    Detail:
+      type: object
+      properties:
+        account:
+          $ref: "#/components/schemas/Account"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entry"
+        admin:
+          type: boolean
+        courses:
+          type: array
+          items:
+            $ref: "#/components/schemas/CourseRow"
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Device"
+        reportsMade:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportRow"
+        reportsReceived:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportRow"
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/RunRow"
+        stats:
+          $ref: "#/components/schemas/Stats"
+    Device:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        lastActiveAt:
+          type: string
+          format: date-time
+        pushPlatform:
+          type: string
+        pushUpdatedAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+        signedInAt:
+          type: string
+          format: date-time
+    Entry:
+      type: object
+      properties:
+        action:
+          type: string
+        actor:
+          type: string
+        actorName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: integer
+          format: int64
+        reason:
           type: string
     Environment:
       type: object
@@ -3995,9 +4344,32 @@ components:
           - OTHER
       required:
       - reason
+    ReportRow:
+      type: object
+      properties:
+        content:
+          type: string
+        courseId:
+          type: integer
+          format: int64
+        courseName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        reporterId:
+          type: integer
+          format: int64
+        reporterNickname:
+          type: string
     ReportedCourse:
       type: object
       properties:
+        creatorId:
+          type: integer
+          format: int64
         creatorName:
           type: string
         id:
@@ -4038,6 +4410,16 @@ components:
         courseId:
           type: integer
           format: int64
+        creatorId:
+          type: integer
+          format: int64
+        creatorName:
+          type: string
+        creatorStatus:
+          type: string
+        distanceM:
+          type: integer
+          format: int32
         history:
           type: array
           items:
@@ -4045,10 +4427,19 @@ components:
         moderatedAt:
           type: string
           format: date-time
+        name:
+          type: string
         reports:
           type: array
           items:
             $ref: "#/components/schemas/Report"
+        route:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double
         status:
           type: string
           enum:
@@ -4278,6 +4669,39 @@ components:
           $ref: "#/components/schemas/VerificationResponse"
         workout:
           $ref: "#/components/schemas/WorkoutResultResponse"
+    RunRow:
+      type: object
+      properties:
+        avgPaceSecPerKm:
+          type: integer
+          format: int32
+        courseId:
+          type: integer
+          format: int64
+        courseName:
+          type: string
+        distanceM:
+          type: integer
+          format: int32
+        elapsedSeconds:
+          type: integer
+          format: int32
+        failureReason:
+          type: string
+        id:
+          type: integer
+          format: int64
+        mode:
+          type: string
+        source:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+        verificationStatus:
+          type: string
     RunSegmentResult:
       type: object
       properties:
@@ -4525,6 +4949,24 @@ components:
         total:
           type: integer
           format: int32
+    Stats:
+      type: object
+      properties:
+        createdCourses:
+          type: integer
+          format: int32
+        finishedRuns:
+          type: integer
+          format: int32
+        reviews:
+          type: integer
+          format: int32
+        totalDistanceM:
+          type: integer
+          format: int64
+        verifiedRuns:
+          type: integer
+          format: int32
     Step:
       type: object
       properties:
@@ -4623,6 +5065,31 @@ components:
         userId:
           type: integer
           format: int64
+    UserRow:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        email:
+          type: string
+        id:
+          type: integer
+          format: int64
+        lastActiveAt:
+          type: string
+          format: date-time
+        nickname:
+          type: string
+        platforms:
+          type: array
+          items:
+            type: string
+        runCount:
+          type: integer
+          format: int32
+        status:
+          type: string
     UserSummary:
       type: object
       properties:

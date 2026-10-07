@@ -16,7 +16,7 @@ export interface AuthRepository {
 
 // unauthorized: 세션이 끝났다 → 다시 로그인. network: 서버에 닿지 못함 → 저장된 세션으로 계속.
 // invalidCredentials: 이메일 · 비밀번호가 맞지 않음. emailTaken · nicknameTaken: 가입 중복. invalid: 입력 규칙 위반.
-// passwordMismatch: 비밀번호 변경의 지금 비밀번호가 틀림.
+// passwordMismatch: 비밀번호 변경의 지금 비밀번호가 틀림. suspended: 관리자가 이용을 정지한 계정 (결정 로그 85항).
 export type AuthErrorKind =
   | 'unauthorized'
   | 'network'
@@ -24,7 +24,8 @@ export type AuthErrorKind =
   | 'emailTaken'
   | 'nicknameTaken'
   | 'invalid'
-  | 'passwordMismatch';
+  | 'passwordMismatch'
+  | 'suspended';
 
 export class AuthError extends Error {
   constructor(

@@ -33,6 +33,8 @@ dallimo:
     # 웹 개발 확인용 Expo 서버
     cors-allowed-origins:
       - http://localhost:8081
+      # 관리 웹 개발 서버 (admin/)
+      - http://localhost:5174
 
   share:
     # 공유 페이지 개발용 웹 주소
@@ -46,6 +48,8 @@ dallimo:
   admin:
     # 개발용 관리 API 키 (X-Admin-Key). 운영은 환경변수 ADMIN_API_KEY
     api-key: e1b88a9ff2ee6a7784ae2236c1b961a8314a8601b50768c3
+    # 개발용 관리 웹 계정. 이 이메일로 가입하면 관리 웹(admin/)에 로그인할 수 있다
+    emails: admin@dallimo.dev
 
   external-courses:
     durunubi:
