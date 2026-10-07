@@ -1472,6 +1472,20 @@ App Store Connect가 빌드를 받지 않았다: "Missing purpose string in Info
 | 다른 문구 | 사진 보관함(`expo-file-system` · `expo-image`)은 권한 상태만 읽고 요청하지 않는다. 거절 메일에도 동작 하나만 나와 더 넣지 않는다 | Apple은 빠진 문구를 한 번에 모두 알려 준다 |
 | 확인한 것 | `npx expo config --type introspect`의 `ios.infoPlist`에 `NSMotionUsageDescription`이 들어간다 | |
 
+## 77. 서버 성능 지표 (Prometheus · Grafana)
+
+사용자 결정: 성능 모니터링을 넣는다. 명세 18장(관측 항목) · 34장(관측성 상세) · ADR "Observability: Actuator + 운영 metric exporter"를 따른다.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 내보내기 | Micrometer Prometheus(`/actuator/prometheus`). gamjabox compose에 Prometheus(15초, 30일) · Grafana(대시보드 미리 넣음) | ADR의 "운영 metric exporter". 서버 한 대 · 같은 compose라 따로 둘 인프라가 없다 |
+| 접근 | `METRICS_TOKEN` Bearer로만 연다. 비면 404. 사용자 JWT 체인보다 먼저 보는 별도 보안 체인 | 지표에 endpoint · 처리량이 드러난다. 사용자 체인은 Bearer를 JWT로 읽어서 같이 쓸 수 없다 |
+| 서비스 지표 | Run 시작 · 완료(mode, status), GPS Batch 결과, GPS 정확도, 완주 판정(outcome · reason · policy), 실시간 연결 · 끊김 · 메시지 지연, Push 결과(type · result) | 18장 표 항목을 서버가 아는 지점에서 센다 |
+| 자동 지표 | API 응답시간(endpoint별 histogram), Hikari 풀, Lettuce(Redis), JVM | Spring Boot가 잰다. API는 p95를 Prometheus에서 계산하려고 histogram을 켰다 |
+| 하지 않은 것 | 끝나지 않은 Run 수 gauge(인덱스가 없어 주기적 전체 조회가 된다 → 시작 대비 완료로 본다), GPS rejected point 비율(앱이 거른다), slow query(MySQL slow log) | 운영 DB에 부담을 주지 않는다 |
+| 개인정보 | 태그에 사용자 id · 위치 · 닉네임 없음. 값 종류가 정해진 enum만 태그로 | 34장 "개인정보와 정밀 위치정보를 관측성 데이터에 과도하게 포함하지 않는다" |
+| 확인한 것 | 토큰 401 · 404 · 통과 테스트, 러닝 흐름 뒤 지표가 쌓이는 테스트. 로컬에서 서버 + Prometheus(quay.io 이미지) + Grafana를 띄워 수집 · 대시보드 29개 패널 쿼리가 모두 오류 없이 도는 것을 확인 | |
+
 ## 79. 강제 업데이트
 
 사용자 결정: 오래된 앱을 막고 스토어로 보내는 강제 업데이트 안내를 넣는다. 명세에 없는 기능이다.

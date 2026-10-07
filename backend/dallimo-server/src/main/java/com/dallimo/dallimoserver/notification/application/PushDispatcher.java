@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.notification.application;
 
+import com.dallimo.dallimoserver.common.observability.DallimoMetrics;
 import com.dallimo.dallimoserver.notification.domain.NotificationType.Category;
 import com.dallimo.dallimoserver.notification.domain.QuietHours;
 import com.dallimo.dallimoserver.notification.infrastructure.NotificationJdbcRepository;
@@ -32,8 +33,10 @@ public class PushDispatcher {
     private final PushSender sender;
     private final NotificationProperties props;
     private final Clock clock;
+    private final DallimoMetrics metrics;
 
-    public PushDispatcher(NotificationJdbcRepository store, PushTokenJdbcRepository tokens, PushSender sender, NotificationProperties props, Clock clock) {
+    public PushDispatcher(NotificationJdbcRepository store, PushTokenJdbcRepository tokens, PushSender sender, NotificationProperties props, Clock clock, DallimoMetrics metrics) {
+        this.metrics = metrics;
         this.store = store;
         this.tokens = tokens;
         this.sender = sender;
@@ -69,6 +72,7 @@ public class PushDispatcher {
                 gone++;
                 tokens.deleteToken(r.to());
             }
+            metrics.push(n.type().name(), r.ok() ? "OK" : r.deviceGone() ? "DEVICE_GONE" : "FAILED");
         }
         // 34장 Push: 알림 종류 · provider ticket 결과 (토큰 · 내용은 남기지 않는다)
         log.info("push.sent notificationId={} type={} tokens={} ok={} failed={} deviceGone={}", n.id(), n.type(), results.size(), ok, results.size() - ok, gone);

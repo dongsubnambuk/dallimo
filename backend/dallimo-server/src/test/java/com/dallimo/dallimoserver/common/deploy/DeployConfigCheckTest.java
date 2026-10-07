@@ -13,7 +13,7 @@ class DeployConfigCheckTest {
 
         assertThat(DeployConfigCheck.missing(env)).map(s -> s.substring(0, s.indexOf(':')))
                 .containsExactly("SHARE_PUBLIC_BASE_URL", "APP_LINK_IOS_APP_IDS", "APP_LINK_ANDROID_PACKAGE · APP_LINK_ANDROID_SHA256",
-                        "ADMIN_API_KEY", "DATA_GO_KR_SERVICE_KEY");
+                        "ADMIN_API_KEY", "DATA_GO_KR_SERVICE_KEY", "METRICS_TOKEN");
     }
 
     @Test
@@ -24,7 +24,8 @@ class DeployConfigCheckTest {
                 .withProperty("dallimo.share.app-links.android-package", "com.dallimo.app")
                 .withProperty("dallimo.share.app-links.android-sha256", "AA:BB")
                 .withProperty("dallimo.admin.api-key", "k")
-                .withProperty("dallimo.external-courses.durunubi.service-key", "s");
+                .withProperty("dallimo.external-courses.durunubi.service-key", "s")
+                .withProperty("dallimo.metrics.token", "t");
 
         assertThat(DeployConfigCheck.missing(env)).isEmpty();
     }
