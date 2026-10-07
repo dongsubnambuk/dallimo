@@ -148,10 +148,10 @@ class AuthFlowTest {
 
     @Test
     void retryWithPreviousTokenWithinGraceIsAccepted() {
-        // 응답을 못 받고 같은 토큰으로 다시 보낸 경우
+        // 응답을 못 받고(앱이 꺼짐 · 연결 끊김) 다음에 앱을 켤 때 같은 토큰으로 다시 보낸 경우
         Tokens t = signup("dev-a");
         assertThat(post("/api/v1/auth/refresh", refreshBody(t.refresh(), "dev-a"))).hasStatusOk();
-        clock.advance(Duration.ofSeconds(10));
+        clock.advance(Duration.ofDays(2));
         Tokens retried = tokens(post("/api/v1/auth/refresh", refreshBody(t.refresh(), "dev-a")));
         assertThat(get("/api/v1/users/me", retried.access())).hasStatusOk();
     }
@@ -160,7 +160,7 @@ class AuthFlowTest {
     void reusedOldRefreshTokenRevokesSession() {
         Tokens t = signup("dev-a");
         Tokens next = tokens(post("/api/v1/auth/refresh", refreshBody(t.refresh(), "dev-a")));
-        clock.advance(Duration.ofSeconds(61));
+        clock.advance(Duration.ofDays(7).plusSeconds(1));
         // 이미 바뀐 옛 토큰: 탈취로 보고 세션을 끊는다
         assertThat(post("/api/v1/auth/refresh", refreshBody(t.refresh(), "dev-a"))).hasStatus(401)
                 .bodyJson().extractingPath("$.error.code").isEqualTo("AUTH_REQUIRED");

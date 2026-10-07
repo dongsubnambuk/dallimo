@@ -292,6 +292,11 @@ export function createMockRunningEngine({ scenario, speed }: MockOptions): Runni
       emit({ status: 'FINISHED', unsyncedPoints: 0 });
       return result(true);
     },
+    async discard() {
+      if (timer) clearInterval(timer);
+      timer = null;
+      emit({ status: 'CANCELED', autoPaused: false, runningSince: null, currentPaceSec: null });
+    },
     async recover() {
       if (scenario !== 'recovering') return null;
       // 앱이 꺼지기 전까지 1.2km, 6분 40초를 달린 기록이 남아 있던 경우

@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState, Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
@@ -16,6 +16,7 @@ import { runResultRepository } from '@/entities/run/api';
 import { getUserRepository } from '@/entities/user/api';
 import { hasRunInProgress, signOut, withdraw } from '@/features/auth/session';
 import { useMe } from '@/features/my/useMy';
+import { openPhoneSettings, permissionState, requestPermission, type PermissionState } from '@/features/onboarding/permissions';
 import { runnerSummary } from '@/features/onboarding/runnerOptions';
 import { getRunStore } from '@/features/run/engine/runStore';
 import { API_BASE_URL } from '@/shared/api/config';
@@ -54,6 +55,25 @@ function usePushSettings() {
   };
 }
 
+// 휴대폰 알림 권한 (결정 로그 82항). 꺼져 있으면 아래 알림 종류를 켜도 알림이 오지 않아서 맨 위에 보여 준다.
+// 휴대폰 설정에서 바꾸고 돌아오면 다시 읽는다
+function useNotificationPermission() {
+  const [state, setState] = useState<PermissionState | null>(null);
+  const refresh = useCallback(() => {
+    void permissionState('notification').then(setState);
+  }, []);
+  useEffect(() => {
+    refresh();
+    const sub = AppState.addEventListener('change', (s) => s === 'active' && refresh());
+    return () => sub.remove();
+  }, [refresh]);
+  const fix = async () => {
+    if (state === 'ask') setState(await requestPermission('notification'));
+    else openPhoneSettings();
+  };
+  return { state, fix };
+}
+
 function watchFooter(w: WatchState): string {
   if (!w.paired) return '연결된 Apple Watch가 없어요. 휴대폰의 Watch 앱에서 먼저 연결해 주세요.';
   if (!w.installed) return 'Apple Watch에 달리모 앱이 없어요. 휴대폰의 Watch 앱 › 사용 가능한 앱에서 달리모를 설치해 주세요.';
@@ -74,6 +94,7 @@ export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const prefs = usePreferences();
   const push = usePushSettings();
+  const notification = useNotificationPermission();
   const me = useMe('normal');
   const watch = useWatchState();
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -203,7 +224,24 @@ export function SettingsScreen() {
           />
         </SettingSection>
 
-        <SettingSection title="알림" footer="휴대폰 설정에서 달리모 알림을 끄면 여기 설정과 관계없이 알림이 오지 않아요.">
+        <SettingSection
+          title="알림"
+          footer={
+            notification.state === 'granted' || notification.state === 'unavailable' || notification.state == null
+              ? '휴대폰 설정에서 달리모 알림을 끄면 여기 설정과 관계없이 알림이 오지 않아요.'
+              : '휴대폰 알림이 꺼져 있어 아래 알림이 오지 않아요.'
+          }
+        >
+          {notification.state === 'ask' || notification.state === 'denied' ? (
+            <SettingRow
+              kind="link"
+              label="휴대폰 알림 켜기"
+              caption={notification.state === 'ask' ? '초대 · 친구 요청 · 기록 알림을 받으려면 허용해 주세요' : '휴대폰 설정 › 달리모 › 알림에서 켤 수 있어요'}
+              value="꺼짐"
+              external={notification.state === 'denied'}
+              onPress={() => void notification.fix()}
+            />
+          ) : null}
           <SettingRow kind="toggle" label="함께 달리기" caption="초대, 예약한 방 취소, 시작 10분 전" value={prefs.pushLive} onChange={(v) => push('pushLive', v)} />
           <SettingRow kind="toggle" label="친구 요청" value={prefs.pushFriend} onChange={(v) => push('pushFriend', v)} />
           <SettingRow kind="toggle" label="내 코스 기록" caption="친구가 내 코스 기록을 넘었을 때" value={prefs.pushRecord} onChange={(v) => push('pushRecord', v)} />

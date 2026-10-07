@@ -20,6 +20,7 @@ import { RoutePreview } from '@/features/my/components/RoutePreview';
 import { dayLabel, startedAt } from '@/features/my/labels';
 import { ResultMap } from '@/features/run-result/components/ResultMap';
 import { useRunResult } from '@/features/run-result/useRunResult';
+import { ConfirmSheet } from '@/features/settings/components/ConfirmSheet';
 import { formatDistanceKm, formatDuration } from '@/shared/format';
 import { regionNameAt } from '@/shared/location/regionName';
 
@@ -60,6 +61,10 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
+  // 입력한 내용이 있으면 닫기 전에 묻는다 (결정 로그 82항)
+  const [confirmClose, setConfirmClose] = useState(false);
+  const dirty = name.trim() !== '' || description.trim() !== '' || tags.length > 0 || times.length > 0;
+  const tryClose = () => (dirty ? setConfirmClose(true) : onClose());
   // 출발점 지역 이름 (CRS-003 지역 검색). 휴대폰 지오코더, 못 찾으면 비워 둔다
   const start = run.path[0] ?? null;
   const region = useQuery({ queryKey: ['region', start?.latitude, start?.longitude], queryFn: () => (start ? regionNameAt(start) : null), staleTime: Infinity });
@@ -91,7 +96,7 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
     <>
       <View style={styles.header}>
         <AppPressable
-          onPress={step === 'route' ? () => setStep('info') : onClose}
+          onPress={step === 'route' ? () => setStep('info') : tryClose}
           accessibilityLabel={step === 'route' ? '정보 입력으로 돌아가기' : '닫기'}
           style={[styles.round, { backgroundColor: colors.bg.surface }]}
         >
@@ -219,6 +224,19 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
           </>
         )}
       </ScrollView>
+      {confirmClose ? (
+        <ConfirmSheet
+          title="코스 등록을 그만할까요?"
+          body="입력한 이름과 설명이 사라져요."
+          confirmLabel="그만하기"
+          danger
+          onConfirm={() => {
+            setConfirmClose(false);
+            onClose();
+          }}
+          onClose={() => setConfirmClose(false)}
+        />
+      ) : null}
     </>
   );
 }

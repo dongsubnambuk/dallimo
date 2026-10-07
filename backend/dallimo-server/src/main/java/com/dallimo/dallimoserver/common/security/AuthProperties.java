@@ -28,7 +28,7 @@ public record AuthProperties(
         if (issuer == null) issuer = "dallimo";
         if (accessTokenTtl == null) accessTokenTtl = Duration.ofMinutes(30);
         if (refreshTokenTtl == null) refreshTokenTtl = Duration.ofDays(30);
-        if (refreshReuseGrace == null) refreshReuseGrace = Duration.ofSeconds(60);
+        if (refreshReuseGrace == null) refreshReuseGrace = Duration.ofDays(7);
         if (corsAllowedOrigins == null) corsAllowedOrigins = List.of();
     }
 }
