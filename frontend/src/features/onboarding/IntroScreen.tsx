@@ -8,18 +8,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Wordmark } from '@/components/Brand';
 import { CourseMapPreview } from '@/components/CourseMapPreview';
 import { GapIndicator } from '@/components/GapIndicator';
-import { MetricBlock } from '@/components/MetricBlock';
 import { ParticipantChip } from '@/components/ParticipantChip';
+import { RankingRow } from '@/components/RankingRow';
+import { VerificationBadge } from '@/components/VerificationBadge';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { MOCK_COURSE_ROUTES } from '@/entities/course/api/mockCourseRoutes';
-import { AppPressable, AppText } from '@/design/primitives';
+import { AppIcon, AppPressable, AppText } from '@/design/primitives';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 
 import { markIntroSeen, useOnboarding } from './onboardingState';
 
-// 첫 실행 소개 (사용자 결정, 결정 로그 64항). 로그인 전에 한 번만, 3장.
-// 장마다 실제 화면에 쓰는 컴포넌트(코스 지도 · 앞섬/뒤처짐 · 함께 달리기 진행)를 그대로 보여 준다 (1.2장 COURSE · COMPETE · TOGETHER).
+// 첫 실행 소개 (결정 로그 64 · 84항). 로그인 전에 한 번만, 3장으로 짧게.
+// 첫 장에서 어떤 앱인지 말하고, 다음 두 장에 주요 기능을 실제 화면에 쓰는 컴포넌트로 보여 준다
+// (① 코스를 달리고 인증 · ② 코스 랭킹과 지난 나와 경쟁 · ③ 함께 달리기와 워치 · 잠금 화면, 1.2장 COURSE · COMPETE · TOGETHER).
+// 끝나면 가입, 이미 계정이 있으면 로그인. 가입 뒤에는 러너 정보 · 권한 두 화면만 거쳐 바로 탐색으로 간다.
 // 로그인 화면과 같은 dark 바탕. 건너뛰거나 끝까지 보면 다시 보이지 않는다.
 
 const ROUTE = MOCK_COURSE_ROUTES['c-suseongmot'].route.map(([latitude, longitude]) => ({ latitude, longitude }));
@@ -46,35 +49,49 @@ function Intro() {
   const [index, setIndex] = useState(0);
 
   // 그림 칸 높이: 작은 화면에서도 제목 · 버튼이 한 화면에 들어오게
-  const visualHeight = Math.max(200, Math.min(320, height * 0.38));
+  const visualHeight = Math.max(170, Math.min(320, height * 0.36));
 
   const pages: Page[] = [
     {
-      title: '오늘 달릴 코스를 찾아요',
-      body: '주변 러너가 달린 코스를 지도에서 고르고, 거리와 난이도를 미리 확인해요.',
-      label: '수성못 둘레길 코스 지도, 1.9km',
-      visual: <CourseMapPreview route={ROUTE} badge="1.9 km" startLabel="출발" height={visualHeight} />,
-    },
-    {
-      title: '지난 기록과 겨뤄요',
-      body: '같은 코스의 내 최고 기록, 친구 기록과 지금 얼마나 앞서는지 달리면서 알려 줘요.',
-      label: '현재 페이스 5분 12초, 내 최고 기록보다 12초 앞섬',
+      title: '달리모는 코스를 달리고\n겨루는 러닝 앱이에요',
+      body: '내 주변 코스를 골라 끝까지 달리면 기록이 인증되고, 같은 코스 러너들과 순위로 겨뤄요.',
+      label: '수성못 둘레길 코스 지도 1.9km, 공식 기록 인증됨',
       visual: (
-        <View style={[styles.panel, { height: visualHeight }]}>
-          <MetricBlock label="현재 페이스" value={`5'12"`} unit="/km" size="hero" align="center" />
-          <GapIndicator direction="ahead" delta={12} label="내 최고 기록" />
+        <View style={{ height: visualHeight }}>
+          <CourseMapPreview route={ROUTE} badge="1.9 km" startLabel="출발" height={visualHeight} />
+          <View style={[styles.overlay, { backgroundColor: colors.bg.canvas }]}>
+            <VerificationBadge status="verified" />
+          </View>
         </View>
       ),
     },
     {
-      title: '떨어져 있어도 같이 달려요',
-      body: '친구와 같은 시간에 출발하고, 서로 어디쯤 달리는지 실시간으로 봐요.',
-      label: '함께 달리기 진행 상황: 나 62%, 지수 70%, 민수 완주',
+      title: '순위를 올리고\n지난 나를 이겨요',
+      body: '코스마다 랭킹과 크라운이 있어요. 달리는 동안 내 최고 기록보다 몇 초 앞서는지 알려 줘요.',
+      label: '수성못 둘레길 랭킹: 1위 지수 코스 크라운, 18위 나 개인 최고 기록. 내 최고 기록보다 12초 앞섬',
+      visual: (
+        <View style={[styles.panel, styles.people, { height: visualHeight }]}>
+          <RankingRow rank={1} name="지수" timeSec={468} titles={['crown']} />
+          <RankingRow rank={18} name="나" timeSec={612} relation="self" isPB rankChange={3} />
+          <View style={styles.center}>
+            <GapIndicator direction="ahead" delta={12} label="내 최고 기록" />
+          </View>
+        </View>
+      ),
+    },
+    {
+      title: '친구와 함께 달리고\n손목과 잠금 화면에서 봐요',
+      body: '떨어져 있어도 같은 시간에 출발해 서로 얼마나 앞서는지 실시간으로 봐요.',
+      label: '함께 달리기 진행 상황: 나 62%, 지수 70%. Apple Watch와 잠금 화면에서도 보여요',
       visual: (
         <View style={[styles.panel, styles.people, { height: visualHeight }]}>
           <ParticipantChip name="나" status="running" progress={0.62} trailing="3.1km" />
           <ParticipantChip name="지수" status="running" progress={0.7} trailing="+72m" />
-          <ParticipantChip name="민수" status="finished" progress={1} />
+          <View style={[styles.device, { backgroundColor: colors.bg.elevated }]}>
+            <AppIcon name="watch" size={14} color={colors.text.accent} />
+            <AppIcon name="lock" size={14} color={colors.text.accent} />
+            <AppText role="caption">워치 · 잠금 화면에서도</AppText>
+          </View>
         </View>
       ),
     },
@@ -194,6 +211,23 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     gap: spacing.md,
   },
+  overlay: {
+    position: 'absolute',
+    left: spacing.md,
+    bottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  device: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
   copy: {
     gap: spacing.sm,
   },
@@ -220,6 +254,7 @@ const styles = StyleSheet.create({
   },
   center: {
     textAlign: 'center',
+    alignItems: 'center',
   },
   link: {
     fontFamily: fontFamily.bold,
