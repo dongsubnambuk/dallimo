@@ -4,7 +4,7 @@
 /** @type {import('@bacons/apple-targets/app.plugin').Config} */
 module.exports = {
   type: 'widget',
-  name: 'DallimoLiveActivity',
+  name: 'DallimoLiveActivityWidget',
   displayName: '달리모 러닝',
   // 휴대폰 앱 번들 id 뒤에 붙는다 (com.dongseopseo.dallimo.liveactivity, app.json appExtensions와 같게)
   bundleIdentifier: '.liveactivity',

@@ -3,7 +3,7 @@
     "name": "DALLIMO",
     "slug": "dallimo",
     "scheme": "dallimo",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
@@ -101,7 +101,7 @@
                 },
                 {
                   "bundleIdentifier": "com.dongseopseo.dallimo.liveactivity",
-                  "targetName": "DallimoLiveActivity"
+                  "targetName": "DallimoLiveActivityWidget"
                 }
               ]
             }
