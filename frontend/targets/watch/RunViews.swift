@@ -130,6 +130,10 @@ struct RunPager: View {
     TabView(selection: $page) {
       RunControlsView(state: state).tag(0)
       RunMetricsView(state: state).tag(1)
+      // 함께 달리기: 오른쪽으로 넘기면 참가자 진행 상황 (결정 로그 83항)
+      if !state.people.isEmpty {
+        RunPeopleView(people: state.people).tag(2)
+      }
     }
     .tabViewStyle(.page)
   }
@@ -378,6 +382,54 @@ struct SoloSummaryView: View {
         }
         Button("완료") { recorder.dismissSummary() }
           .padding(.top, 4)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+  }
+}
+
+// MARK: 함께 달리기 참가자 (결정 로그 83항)
+
+struct RunPeopleView: View {
+  let people: [RunPerson]
+
+  private func statusText(_ p: RunPerson) -> String? {
+    switch p.status {
+    case "finished": return "완주"
+    case "dnf": return "포기"
+    case "away": return "연결 끊김"
+    default: return nil
+    }
+  }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 6) {
+        Text("참가자").font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+        ForEach(people) { p in
+          VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+              Text("\(p.id + 1)").font(.footnote.weight(.bold).monospacedDigit()).foregroundStyle(p.me ? Color.dallimoMint : .secondary)
+              Text(p.name).font(.footnote.weight(p.me ? .bold : .regular)).lineLimit(1)
+              Spacer(minLength: 2)
+              Text(statusText(p) ?? "\(p.distanceKm)km")
+                .font(.footnote.monospacedDigit())
+                .foregroundStyle(p.status == "running" ? Color.primary : Color.secondary)
+            }
+            if p.progress >= 0 {
+              GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                  Capsule().fill(Color.white.opacity(0.15))
+                  Capsule().fill(p.me ? Color.dallimoMint : Color.white.opacity(0.6))
+                    .frame(width: max(4, geo.size.width * p.progress))
+                }
+              }
+              .frame(height: 4)
+            }
+          }
+          .accessibilityElement(children: .combine)
+          .accessibilityLabel("\(p.id + 1)위 \(p.name), \(statusText(p) ?? "\(p.distanceKm)킬로미터")")
+        }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     }

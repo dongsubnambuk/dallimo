@@ -15,6 +15,18 @@ export const WATCH_PROTOCOL = 1;
 // 모드별 한 줄 (휴대폰 ModeStrip · IntervalPanel · 함께 달리기 순위와 같은 내용)
 export type WatchStrip = { label: string; value: string; tone: 'accent' | 'warning' | 'neutral' };
 
+// 함께 달리기 참가자 진행 상황 (워치 참가자 페이지 · 잠금 화면 · 다이내믹 아일랜드, 결정 로그 83항).
+// 순위 순서. progress: 목표 거리 대비 0~1 (타임 어택처럼 거리 목표가 없으면 -1). 위치는 보내지 않는다 (CLAUDE.md 6항)
+export type WatchPerson = {
+  name: string;
+  distanceKm: string;
+  progress: number;
+  me: boolean;
+  status: 'running' | 'finished' | 'dnf' | 'away';
+};
+// 워치 · 잠금 화면에 보여 줄 최대 인원
+export const MAX_PEOPLE = 5;
+
 export type WatchRunMessage = {
   t: 'run';
   v: number;
@@ -41,6 +53,8 @@ export type WatchRunMessage = {
   canFinish: boolean;
   // 워치 끝내기 버튼 · 확인 문구 (함께 달리기는 "그만두기")
   finishLabel: string;
+  // 함께 달리기 참가자 (혼자 달리면 빈 배열)
+  people: WatchPerson[];
 };
 
 export type WatchRunContext = {
@@ -52,6 +66,7 @@ export type WatchRunContext = {
   canPause?: boolean;
   canFinish?: boolean;
   finishLabel?: string;
+  people?: WatchPerson[];
 };
 
 export function runMessage(s: ActiveRunSnapshot, now: number, sentAt: number, ctx: WatchRunContext): WatchRunMessage {
@@ -81,6 +96,7 @@ export function runMessage(s: ActiveRunSnapshot, now: number, sentAt: number, ct
     canPause: ctx.canPause ?? true,
     canFinish: ctx.canFinish ?? true,
     finishLabel: ctx.finishLabel ?? '끝내기',
+    people: (ctx.people ?? []).slice(0, MAX_PEOPLE),
   };
 }
 
