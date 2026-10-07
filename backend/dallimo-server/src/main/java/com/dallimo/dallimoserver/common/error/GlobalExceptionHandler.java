@@ -4,6 +4,7 @@ import com.dallimo.dallimoserver.common.web.ApiResponse;
 import com.dallimo.dallimoserver.common.observability.ServerErrorRecorder;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
+import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpStatusCode;
@@ -27,10 +28,10 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    // 처리하지 못한 오류를 관리 웹 모니터링에 남긴다 (FOUNDATION-DECISION-LOG 87항)
-    private final ServerErrorRecorder errors;
+    // 처리하지 못한 오류를 관리 웹 모니터링에 남긴다 (FOUNDATION-DECISION-LOG 87항). 웹 계층만 띄운 테스트(@WebMvcTest)에는 없다
+    private final ObjectProvider<ServerErrorRecorder> errors;
 
-    public GlobalExceptionHandler(ServerErrorRecorder errors) {
+    public GlobalExceptionHandler(ObjectProvider<ServerErrorRecorder> errors) {
         this.errors = errors;
     }
 
@@ -95,7 +96,7 @@ public class GlobalExceptionHandler {
             }
         }
         log.error("Unhandled exception", e);
-        errors.record(e, request);
+        errors.ifAvailable(r -> r.record(e, request));
         return respond(ErrorCode.INTERNAL_ERROR.status(), ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage(), null);
     }
 

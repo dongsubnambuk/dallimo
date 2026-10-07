@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerMapping;
@@ -108,9 +109,10 @@ public class RequestStats extends OncePerRequestFilter {
     private final Clock clock;
     private final Instant startedAt;
 
-    public RequestStats(Clock clock) {
-        this.clock = clock;
-        this.startedAt = clock.instant();
+    // 웹 계층만 띄운 테스트(@WebMvcTest)에는 Clock 빈이 없다
+    public RequestStats(ObjectProvider<Clock> clock) {
+        this.clock = clock.getIfAvailable(Clock::systemUTC);
+        this.startedAt = this.clock.instant();
         for (int i = 0; i < MINUTES; i++) slots[i] = new Slot();
     }
 
