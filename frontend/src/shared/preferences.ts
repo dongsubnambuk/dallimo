@@ -28,9 +28,11 @@ export type Preferences = {
   runAlerts: boolean;
   // 워치 심박을 러닝 기록에 저장 (건강정보 따로 동의, 결정 로그 65항). 기본은 끔
   heartRateSave: boolean;
+  // 잠금 화면 · 다이내믹 아일랜드에 러닝 보여주기 (라이브 액티비티, 결정 로그 83항)
+  liveActivity: boolean;
 };
 
-const DEFAULTS: Preferences = { healthImport: false, watchMirror: true, autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true, heartRateSave: false };
+const DEFAULTS: Preferences = { healthImport: false, watchMirror: true, autoPause: false, voice: true, voiceSplitKm: 1, voiceCompetition: true, haptics: true, pushLive: true, pushFriend: true, pushRecord: true, runAlerts: true, heartRateSave: false, liveActivity: true };
 const KEY = 'dallimo.preferences';
 
 let current: Preferences = DEFAULTS;

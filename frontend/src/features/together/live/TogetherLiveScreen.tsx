@@ -24,7 +24,9 @@ import { beginActiveRun, endActiveRun, useRunSnapshot } from '@/features/run/eng
 import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { createFinishVoice, createRankVoice, createRemainingVoice } from '@/features/run/voice/competitionRules';
 import { activeMs } from '@/features/run/engine/runningEngine';
+import { useRunLiveActivity } from '@/features/run/liveActivity/useRunLiveActivity';
 import { launchWatchApp, sendWatchEnd, useWatchLink } from '@/features/watch/useWatchLink';
+import type { WatchRunContext } from '@/features/watch/watchMessages';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import { haptics } from '@/shared/haptics';
 import { showNow } from '@/shared/notifications/notifier';
@@ -32,7 +34,7 @@ import { getPreferences, usePreferences } from '@/shared/preferences';
 import { speak } from '@/shared/voice';
 
 import { goalLabel, participantStatus } from '../labels';
-import { distanceGap, orderMembers } from './liveRank';
+import { distanceGap, orderMembers, watchPeople } from './liveRank';
 
 type Props = { roomId: string; scenario: LiveRunScenario; speed: number; resume: boolean };
 
@@ -225,17 +227,21 @@ function LiveRun({ room, scenario, speed, resume }: { room: LiveRoom; scenario: 
   const paused = status === 'PAUSED';
 
   // WATCH-003: 워치에 순위 · 차이를 보여 주고 일시정지 · 그만두기를 받는다
+  const mirrorContext = (): WatchRunContext => ({
+    title: goalLabel(room),
+    strip:
+      mine !== 'RUNNING'
+        ? { label: mine === 'FINISHED' ? '완주' : '중도 포기', value: '다른 참가자를 기다려요', tone: 'neutral' }
+        : { label: rank != null ? `${ordered.length}명 중 ${rank}위` : '함께 달리기', value: gapCopy(room, ordered, meNow, avgPace), tone: rank === 1 ? 'accent' : 'neutral' },
+    canPause: mine === 'RUNNING',
+    canFinish: mine === 'RUNNING',
+    finishLabel: '그만두기',
+    people: watchPeople(room, ordered),
+  });
+  // 잠금 화면 · 다이내믹 아일랜드에도 순위 · 참가자 진행 상황 (결정 로그 83항)
+  useRunLiveActivity(engine, { context: mirrorContext });
   useWatchLink(engine, {
-    context: () => ({
-      title: goalLabel(room),
-      strip:
-        mine !== 'RUNNING'
-          ? { label: mine === 'FINISHED' ? '완주' : '중도 포기', value: '다른 참가자를 기다려요', tone: 'neutral' }
-          : { label: rank != null ? `${ordered.length}명 중 ${rank}위` : '함께 달리기', value: gapCopy(room, ordered, meNow, avgPace), tone: rank === 1 ? 'accent' : 'neutral' },
-      canPause: mine === 'RUNNING',
-      canFinish: mine === 'RUNNING',
-      finishLabel: '그만두기',
-    }),
+    context: mirrorContext,
     onCommand: (cmd) => {
       if (mine !== 'RUNNING') return;
       const st = engine.getSnapshot().status;

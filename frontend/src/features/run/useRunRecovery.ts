@@ -5,6 +5,8 @@ import type { RunPlanParams } from '@/features/run-ready/runPlanParams';
 
 import { getActiveRun } from './engine/activeRunSession';
 import { getRunStore } from './engine/runStore';
+import { liveActivity } from '@/shared/liveActivity/liveActivity';
+
 import { startRunSync } from './sync/runSyncService';
 
 // 11.3장: 앱을 다시 켰을 때 RUNNING · PAUSED로 남은 러닝이 있으면 카운트다운 없이 러닝 화면으로 이어간다.
@@ -21,6 +23,8 @@ export function useRunRecovery() {
     getRunStore()
       .then((store) => store.findOpenRun())
       .then((run) => {
+        // 앱이 꺼지며 잠금 화면에 남은 러닝 라이브 액티비티를 지운다 (이어 달리면 러닝 화면이 새로 띄운다)
+        if (!run && !getActiveRun()) void liveActivity.endAll();
         if (!run || getActiveRun()) return;
         const plan = parsePlan(run.plan);
         // 함께 달리기 중이었으면 그 방으로 돌아간다. 방이 이미 끝났으면 결과가 온다

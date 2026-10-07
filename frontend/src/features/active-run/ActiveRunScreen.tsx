@@ -21,11 +21,12 @@ import { endActiveRun, useRunSnapshot } from '@/features/run/engine/activeRunSes
 import { useSplitAnnouncer } from '@/features/run/voice/useSplitAnnouncer';
 import { useGapLine, useGapVoice } from '@/features/run/voice/useCompetitionVoice';
 import { useIntervalCues } from '@/features/run/voice/useIntervalCues';
+import { useRunLiveActivity } from '@/features/run/liveActivity/useRunLiveActivity';
 import { segmentLine } from '@/features/run/segment/segmentLine';
 import { useSegmentAttack, type SegmentAttack } from '@/features/run/segment/useSegmentAttack';
 import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine } from '@/features/run/engine/runningEngine';
 import { sendWatchEnd, sendWatchIdle, useWatchHeartRate, useWatchLink } from '@/features/watch/useWatchLink';
-import { isManualStep, soloStrip } from '@/features/watch/watchMessages';
+import { isManualStep, soloStrip, type WatchRunContext } from '@/features/watch/watchMessages';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import { pointAt, type GeoPoint } from '@/shared/geo';
 import { haptics } from '@/shared/haptics';
@@ -77,15 +78,18 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
   // 124장 Segment Attack: 코스 러닝이면 약 1km 구간마다 내 최고 · 1위와 비교 (인터벌 달리기는 구간이 따로 있다)
   const attack = useSegmentAttack(engine, flat ? null : (course?.id ?? null));
   // WATCH-001~004: 워치에 지금 상태를 보여 주고 워치 조작을 받는다 (휴대폰 버튼과 같은 동작)
+  const mirrorContext = (s: ActiveRunSnapshot, now: number): WatchRunContext => ({
+    title: summary,
+    // 그냥 코스 러닝이면 구간 도전이 워치 한 줄이 된다 (PB · 도전은 목표 차이가 먼저)
+    strip: (s.mode === 'COURSE' && attack ? watchSegmentStrip(attack, s, now) : null) ?? soloStrip(s, now, { target: chase, flat }),
+    manualStep: isManualStep(s, flat),
+    completed,
+    saveLabel,
+  });
+  // 잠금 화면 · 다이내믹 아일랜드에도 같은 내용 (결정 로그 83항)
+  useRunLiveActivity(engine, { context: mirrorContext });
   useWatchLink(engine, {
-    context: (s, now) => ({
-      title: summary,
-      // 그냥 코스 러닝이면 구간 도전이 워치 한 줄이 된다 (PB · 도전은 목표 차이가 먼저)
-      strip: (s.mode === 'COURSE' && attack ? watchSegmentStrip(attack, s, now) : null) ?? soloStrip(s, now, { target: chase, flat }),
-      manualStep: isManualStep(s, flat),
-      completed,
-      saveLabel,
-    }),
+    context: mirrorContext,
     onCommand: (cmd) => {
       const st = engine.getSnapshot().status;
       if (cmd === 'pause' && st === 'RUNNING') {

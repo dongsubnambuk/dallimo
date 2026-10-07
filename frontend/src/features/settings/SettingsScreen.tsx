@@ -20,6 +20,7 @@ import { openPhoneSettings, permissionState, requestPermission, type PermissionS
 import { runnerSummary } from '@/features/onboarding/runnerOptions';
 import { getRunStore } from '@/features/run/engine/runStore';
 import { API_BASE_URL } from '@/shared/api/config';
+import { LIVE_ACTIVITY_AVAILABLE } from '@/shared/liveActivity/liveActivity';
 import { getPreferences, setPreference, usePreferences, type Preferences } from '@/shared/preferences';
 import { useWatchState, type WatchState } from '@/shared/watch/watchTransport';
 
@@ -188,6 +189,16 @@ export function SettingsScreen() {
             onChange={(v) => setPreference('voiceSplitKm', v)}
           />
           <SettingRow kind="toggle" label="진동" caption="출발 · 일시정지 · GPS 약함 · 완주를 진동으로 알려요" value={prefs.haptics} onChange={(v) => setPreference('haptics', v)} />
+          {/* 라이브 액티비티 (결정 로그 83항, 아이폰만) */}
+          {LIVE_ACTIVITY_AVAILABLE ? (
+            <SettingRow
+              kind="toggle"
+              label="잠금 화면에 러닝 보여주기"
+              caption="잠금 화면과 다이내믹 아일랜드에 거리 · 시간 · 페이스를 보여 줘요. 함께 달리기면 친구 진행 상황도 보여요"
+              value={prefs.liveActivity}
+              onChange={(v) => setPreference('liveActivity', v)}
+            />
+          ) : null}
         </SettingSection>
 
         {/* WATCH-001: 달리기를 시작하면 워치에서도 보여 준다 (아이폰에서만) */}

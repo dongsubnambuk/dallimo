@@ -7,6 +7,16 @@ import WatchKit
 // 워치 → 휴대폰: hello(켜짐, 지금 상태를 달라) · cmd(pause · resume · finish · next) · hr(심박)
 //               · 워치 단독 기록 파일(transferFile, metadata t=watchRun, 결정 로그 81항)
 
+// 함께 달리기 참가자 진행 상황 (휴대폰 WatchPerson, 결정 로그 83항). progress < 0이면 거리 목표가 없다
+struct RunPerson: Identifiable {
+  let id: Int
+  let name: String
+  let distanceKm: String
+  let progress: Double
+  let me: Bool
+  let status: String
+}
+
 struct RunState {
   let status: String
   let running: Bool
@@ -26,6 +36,7 @@ struct RunState {
   let canPause: Bool
   let canFinish: Bool
   let finishLabel: String
+  let people: [RunPerson]
 
   init?(_ m: [String: Any]) {
     guard let status = m["status"] as? String, let title = m["title"] as? String else { return nil }
@@ -47,6 +58,18 @@ struct RunState {
     self.canPause = m["canPause"] as? Bool ?? true
     self.canFinish = m["canFinish"] as? Bool ?? true
     self.finishLabel = m["finishLabel"] as? String ?? "끝내기"
+    let list = m["people"] as? [[String: Any]] ?? []
+    self.people = list.enumerated().compactMap { index, p -> RunPerson? in
+      guard let name = p["name"] as? String else { return nil }
+      return RunPerson(
+        id: index,
+        name: name,
+        distanceKm: p["distanceKm"] as? String ?? "0.00",
+        progress: (p["progress"] as? NSNumber)?.doubleValue ?? -1,
+        me: p["me"] as? Bool ?? false,
+        status: p["status"] as? String ?? "running"
+      )
+    }
   }
 
   var paused: Bool { status == "PAUSED" }
