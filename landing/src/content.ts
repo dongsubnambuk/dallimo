@@ -1,9 +1,9 @@
 import { LEGAL_CONTACT } from '@legal/types';
 
-// App Store 주소. 출시 전에는 null이라 "출시 준비 중"으로 보인다 (landing/README.md).
+// App Store 주소 (결정 로그 89항). null이면 "출시 준비 중"으로 보인다 (landing/README.md).
 // App Store에만 낸다 (사용자 결정, 결정 로그 71항)
 export const STORE: { ios: string | null } = {
-  ios: null,
+  ios: 'https://apps.apple.com/kr/app/%EB%8B%AC%EB%A6%AC%EB%AA%A8/id6818753247',
 };
 
 // 연락은 이메일 대신 문의 페이지(/support/)의 문의 양식으로 받는다 (결정 로그 71항)

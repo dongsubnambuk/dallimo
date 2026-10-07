@@ -57,7 +57,7 @@ npm run preview    # dist 확인
 
 | 무엇 | 어디 |
 | --- | --- |
-| App Store 주소 (출시 뒤) | `src/content.ts`의 `STORE.ios`. 넣으면 "출시 준비 중" 칸이 내려받기 버튼으로 바뀐다. App Store에만 낸다(결정 로그 71항) |
+| App Store 주소 | `src/content.ts`의 `STORE.ios` (지금 `id6818753247`, 결정 로그 89항). 비우면 "출시 준비 중" 칸이 된다. `index.html`의 `apple-itunes-app`(iPhone Safari 앱 배너)도 같은 앱 id. App Store에만 낸다(결정 로그 71항) |
 | 운영 주체 · 문의 페이지 주소 | 앱 코드 `frontend/src/features/settings/legal/types.ts`의 `LEGAL_CONTACT` (앱과 같이 바뀐다) |
 | 약관 본문 | 앱 코드 `frontend/src/features/settings/legal/*.ts`. 따로 고칠 것 없다 |
 | 자주 묻는 질문 · 메뉴 | `src/content.ts` |

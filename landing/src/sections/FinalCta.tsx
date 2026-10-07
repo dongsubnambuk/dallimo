@@ -16,13 +16,13 @@ export function FinalCta() {
       />
       <div className="wrap text-center">
         <Reveal>
-          <p className="text-[14px] font-bold text-signal">출시 준비 중</p>
+          <p className="text-[14px] font-bold text-signal">App Store에서 받기</p>
           <h2 id="download-title" className="mx-auto mt-4 max-w-[14em] text-[clamp(36px,6vw,72px)] leading-[1.08] font-black tracking-[-0.045em]">
             첫 코스에서
             <br />
             기다릴게요
           </h2>
-          <p className="mx-auto mt-6 max-w-[30em] text-[17px] leading-[1.7] text-muted md:text-[18px]">App Store 출시를 앞두고 마지막 점검을 하고 있어요. 출시하면 바로 이 자리에서 받을 수 있어요.</p>
+          <p className="mx-auto mt-6 max-w-[30em] text-[17px] leading-[1.7] text-muted md:text-[18px]">iPhone에서 무료로 받을 수 있어요. 내 주변 코스부터 달려 보세요.</p>
         </Reveal>
         <Reveal delay={0.1}>
           <StoreBadges className="mt-10 justify-center" />

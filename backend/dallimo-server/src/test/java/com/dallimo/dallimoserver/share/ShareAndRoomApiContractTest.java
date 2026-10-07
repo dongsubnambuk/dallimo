@@ -65,6 +65,8 @@ abstract class ShareAndRoomApiContractTest {
         assertThat(page).hasStatusOk();
         String html = body(page);
         assertThat(page.getResponse().getContentType()).startsWith("text/html");
+        // 앱이 없으면 App Store로 (스마트 앱 배너 + 링크, 결정 로그 89항)
+        assertThat(html).contains("app-id=6818753247, app-argument=").contains("/s/" + code + "\">").contains("App Store에서 받기");
         assertThat(html).contains("dallimo://share/" + code).contains("og:title").contains(me.name.replace("<", "&lt;").replace(">", "&gt;") + "님의 달리기 기록").doesNotContain("<b>러너</b>");
         assertThat(html).contains("자유 달리기 · 0.9km · 4:59");
         assertThat(get(null, "/s/nosuchcode1")).hasStatus(404);
