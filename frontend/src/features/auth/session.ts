@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
 
 import { authRepository } from '@/entities/auth/api';
 import { AuthError } from '@/entities/auth/api/authRepository';
@@ -10,7 +11,7 @@ import { registerAuthHooks } from '@/shared/api/http';
 import { loadPreferences, setPreference } from '@/shared/preferences';
 import { clearRecentSearches } from '@/shared/recentSearches';
 import { getDeviceId } from '@/shared/storage/deviceId';
-import { getItem, removeItem, setItem } from '@/shared/storage/keyValueStore';
+import { readItem, removeItem, setItem } from '@/shared/storage/keyValueStore';
 
 // 로그인 세션 (14.1장).
 // - Access Token은 메모리에만 둔다. 기기에는 Refresh Token만 남긴다(iOS Keychain · Android Keystore).
@@ -18,6 +19,8 @@ import { getItem, removeItem, setItem } from '@/shared/storage/keyValueStore';
 // - 새로 받기는 한 번에 하나만 한다(동시에 여러 요청이 와도 같은 결과를 기다린다). Refresh Token이 매번 바뀌기 때문이다.
 // - 서버가 세션이 끝났다고 하면(로그아웃 · 다른 곳에서 탈취 감지 · 탈퇴) 로그인 화면으로 간다.
 // - 서버에 닿지 못하면 세션을 유지한다(러닝은 오프라인에서도 기록된다, RUN-006).
+// - 키체인을 읽지 못하면(앱을 미리 띄울 때 화면이 잠겨 있음) 로그아웃으로 보지 않고, 앱이 앞으로 올 때 다시 확인한다 (결정 로그 82항).
+// - 새 Refresh Token을 저장하지 못해도 이번 실행에서는 메모리 값을 쓰고, 다음 새로 받기 때 다시 저장한다.
 
 // restoring: 앱 시작 때 저장된 세션을 확인하는 중(splash 유지)
 export type AuthStatus = 'restoring' | 'signedOut' | 'signedIn';
@@ -30,6 +33,8 @@ let status: AuthStatus = 'restoring';
 let accessToken: string | null = null;
 let accessExpiresAt = 0;
 let refreshing: Promise<string | null> | null = null;
+// 마지막으로 받은 Refresh Token. 키체인 저장이 실패해도 옛 토큰(서버가 곧 거절)을 다시 쓰지 않게 한다
+let refreshMem: string | null = null;
 const listeners = new Set<() => void>();
 
 function set(next: AuthStatus) {
@@ -52,13 +57,26 @@ export function useAuthStatus(): AuthStatus {
 async function adopt(session: AuthSession) {
   accessToken = session.tokens.accessToken;
   accessExpiresAt = session.tokens.accessTokenExpiresAt;
+  refreshMem = session.tokens.refreshToken;
   // 새 Refresh Token을 먼저 저장한다 (옛 토큰은 서버에서 곧 쓸 수 없게 된다)
   await setItem(REFRESH_KEY, session.tokens.refreshToken);
 }
 
-async function clearSession() {
+// 서버가 세션을 끊어 로그아웃됐다 (스스로 로그아웃한 것과 나눠 로그인 화면에서 알려 준다)
+let expiredNotice = false;
+
+/** 로그인 화면이 한 번 읽는다: 세션이 끝나 로그아웃됐는가 */
+export function takeExpiredNotice(): boolean {
+  const v = expiredNotice;
+  expiredNotice = false;
+  return v;
+}
+
+async function clearSession(expired = false) {
+  expiredNotice = expired;
   accessToken = null;
   accessExpiresAt = 0;
+  refreshMem = null;
   await removeItem(REFRESH_KEY);
   // 가입 직후 온보딩 중에 로그아웃하면 다음 로그인 계정에 이어지지 않게 끝낸다
   finishOnboarding();
@@ -74,9 +92,10 @@ async function clearSession() {
 function refreshSession(): Promise<string | null> {
   refreshing ??= (async () => {
     try {
-      const refreshToken = await getItem(REFRESH_KEY);
+      // 키체인을 읽지 못하면 던진다 (세션이 끝난 것이 아니다)
+      const refreshToken = refreshMem ?? (await readItem(REFRESH_KEY));
       if (!refreshToken) {
-        await clearSession();
+        await clearSession(status === 'signedIn');
         return null;
       }
       const session = await authRepository.refresh(refreshToken, await getDeviceId());
@@ -84,7 +103,7 @@ function refreshSession(): Promise<string | null> {
       return session.tokens.accessToken;
     } catch (e) {
       if (e instanceof AuthError && e.kind === 'unauthorized') {
-        await clearSession();
+        await clearSession(true);
         return null;
       }
       throw e;
@@ -104,23 +123,44 @@ export async function getAccessToken(): Promise<string | null> {
 
 registerAuthHooks({
   getAccessToken,
-  refreshAccessToken: () => refreshSession().catch(() => null),
+  // 서버에 닿지 못하면 던진다 (http가 로그아웃하지 않는다)
+  refreshAccessToken: () => refreshSession(),
   onUnauthorized: () => {
     // 이미 로그아웃 중이면 무시
-    if (status === 'signedIn') clearSession();
+    if (status === 'signedIn') clearSession(true);
   },
 });
 
 /** AUTH-003 자동 로그인: 저장된 Refresh Token으로 새 토큰을 받는다 */
 export async function restoreSession() {
+  let stored: string | null;
+  try {
+    stored = await readItem(REFRESH_KEY);
+  } catch {
+    // 키체인을 아직 읽을 수 없다 (잠금 화면에서 미리 띄움). 확인 중(splash)으로 두고 앱이 앞으로 오면 다시 한다
+    return retryWhenActive();
+  }
   await Promise.all([loadMockAccounts(), loadPreferences(), loadOnboarding()]);
-  if (!(await getItem(REFRESH_KEY))) return set('signedOut');
+  if (!stored) return set('signedOut');
   try {
     const token = await refreshSession();
     if (token) set('signedIn');
   } catch {
     // 서버에 닿지 못한 것뿐이면 저장된 세션으로 계속한다. 다음 요청 때 다시 새로 받는다.
     set('signedIn');
+  }
+}
+
+function retryWhenActive() {
+  const sub = AppState.addEventListener('change', (s) => {
+    if (s !== 'active') return;
+    sub.remove();
+    void restoreSession();
+  });
+  // 이미 앞에 있으면 잠깐 뒤에 다시
+  if (AppState.currentState === 'active') {
+    sub.remove();
+    setTimeout(() => void restoreSession(), 1000);
   }
 }
 

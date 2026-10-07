@@ -24,7 +24,7 @@ import { useIntervalCues } from '@/features/run/voice/useIntervalCues';
 import { segmentLine } from '@/features/run/segment/segmentLine';
 import { useSegmentAttack, type SegmentAttack } from '@/features/run/segment/useSegmentAttack';
 import { activeMs, type ActiveRunSnapshot, type RunFinishResult, type RunningEngine } from '@/features/run/engine/runningEngine';
-import { sendWatchEnd, useWatchHeartRate, useWatchLink } from '@/features/watch/useWatchLink';
+import { sendWatchEnd, sendWatchIdle, useWatchHeartRate, useWatchLink } from '@/features/watch/useWatchLink';
 import { isManualStep, soloStrip } from '@/features/watch/watchMessages';
 import { formatDistanceKm, formatDuration, formatDurationSpoken, formatPace } from '@/shared/format';
 import { pointAt, type GeoPoint } from '@/shared/geo';
@@ -140,6 +140,16 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
     if (result.synced) openResult(id);
   };
 
+  // 기록 없이 끝내기 (짧은 러닝만, 결정 로그 82항): 저장 · 업로드하지 않고 시작 전 화면으로 돌아간다
+  const discard = async () => {
+    setConfirming(false);
+    await engine.discard();
+    sendWatchIdle();
+    endActiveRun();
+    if (router.canGoBack()) router.back();
+    else router.replace('/run');
+  };
+
   const openResult = (id: string) => {
     endActiveRun();
     router.replace({ pathname: '/run/result', params: { id } });
@@ -197,7 +207,7 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
         onFinish={() => setConfirming(true)}
       />
 
-      {confirming ? <FinishConfirm engine={engine} summary={summary} onContinue={() => setConfirming(false)} onFinish={finish} /> : null}
+      {confirming ? <FinishConfirm engine={engine} summary={summary} onContinue={() => setConfirming(false)} onFinish={finish} onDiscard={discard} /> : null}
     </View>
   );
 }
@@ -464,12 +474,29 @@ function Controls({
   );
 }
 
+// 이보다 짧으면 "기록하지 않고 끝내기"를 보여 준다 (잘못 시작한 러닝). 길게 달린 기록은 실수로 지우지 않게 숨긴다
+const DISCARDABLE_M = 100;
+const DISCARDABLE_SEC = 60;
+
 // SCR-R03 러닝 종료: 오입력 방지. 계속 달리기 / 종료 확인 (RUN-010)
-function FinishConfirm({ engine, summary, onContinue, onFinish }: { engine: RunningEngine; summary: string; onContinue: () => void; onFinish: () => void }) {
+function FinishConfirm({
+  engine,
+  summary,
+  onContinue,
+  onFinish,
+  onDiscard,
+}: {
+  engine: RunningEngine;
+  summary: string;
+  onContinue: () => void;
+  onFinish: () => void;
+  onDiscard: () => void;
+}) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const d = useRunSnapshot(engine, (s) => s.distanceM);
   const sec = useElapsedSec(engine);
+  const short = d < DISCARDABLE_M || sec < DISCARDABLE_SEC;
 
   return (
     <View style={styles.scrimWrap}>
@@ -509,6 +536,13 @@ function FinishConfirm({ engine, summary, onContinue, onFinish }: { engine: Runn
             </AppText>
           </AppPressable>
         </View>
+        {short ? (
+          <AppPressable onPress={onDiscard} accessibilityRole="button" accessibilityLabel="기록하지 않고 끝내기" style={styles.discard}>
+            <AppText role="label" tone="secondary" style={styles.discardText}>
+              기록하지 않고 끝내기
+            </AppText>
+          </AppPressable>
+        ) : null}
       </View>
     </View>
   );
@@ -552,6 +586,15 @@ function FinishingView({ engine, result, onOpenResult }: { engine: RunningEngine
 const CONTROL_H = 64;
 
 const styles = StyleSheet.create({
+  discard: {
+    minHeight: touchTarget.min,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  discardText: {
+    textDecorationLine: 'underline',
+  },
   root: {
     flex: 1,
     paddingHorizontal: spacing.lg,

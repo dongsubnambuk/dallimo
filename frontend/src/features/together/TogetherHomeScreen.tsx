@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,6 +29,15 @@ export function TogetherHomeScreen({ scenario }: { scenario: LiveScenario }) {
     if (upcoming.data && scenario === 'normal') syncLiveReminders(upcoming.data.filter((r) => /^\d+$/.test(r.id)));
   }, [upcoming.data, scenario]);
   const recent = useQuery({ queryKey: ['live', 'recent', scenario], queryFn: () => repo.listRecent(), retry: false });
+  // 탭은 화면이 남아 있어서, 방을 만들거나 대기실을 닫고 돌아오면 목록을 다시 읽는다 (만든 방이 바로 보이게)
+  const { refetch: refetchUpcoming } = upcoming;
+  const { refetch: refetchRecent } = recent;
+  useFocusEffect(
+    useCallback(() => {
+      void refetchUpcoming();
+      void refetchRecent();
+    }, [refetchUpcoming, refetchRecent]),
+  );
   const create = () => router.push('/together/new');
 
   return (

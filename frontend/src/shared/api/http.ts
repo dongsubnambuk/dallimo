@@ -26,7 +26,7 @@ export class ApiRequestError extends Error {
 type AuthHooks = {
   // 지금 쓸 수 있는 Access Token (곧 만료되면 먼저 새로 받는다). 로그인 전이면 null
   getAccessToken(): Promise<string | null>;
-  // 만료됐다는 응답을 받았을 때 새로 받는다
+  // 만료됐다는 응답을 받았을 때 새로 받는다. 세션이 끝났으면 null, 서버에 닿지 못하면 throw
   refreshAccessToken(): Promise<string | null>;
   // 다시 로그인해야 한다
   onUnauthorized(): void;
@@ -83,8 +83,13 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, auth =
   };
 
   let res = await send(auth ? await hooks?.getAccessToken() ?? null : null);
+  // 토큰 새로 받기가 서버에 닿지 못했다. 세션이 끝난 게 아니라서 로그아웃하지 않는다 (결정 로그 82항)
+  let refreshUnreachable = false;
   if (auth && res.status === 401 && (await errorCode(res.clone())) === 'TOKEN_EXPIRED' && hooks) {
-    const fresh = await hooks.refreshAccessToken();
+    const fresh = await hooks.refreshAccessToken().catch(() => {
+      refreshUnreachable = true;
+      return null;
+    });
     if (fresh) res = await send(fresh);
   }
   if (res.status === 204) return undefined as T;
@@ -93,7 +98,7 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, auth =
   if (res.ok && envelope?.success) return envelope.data as T;
 
   const code = envelope?.error?.code ?? (res.status >= 500 ? 'INTERNAL_ERROR' : 'VALIDATION_ERROR');
-  if (auth && res.status === 401) hooks?.onUnauthorized();
+  if (auth && res.status === 401 && !refreshUnreachable) hooks?.onUnauthorized();
   throw new ApiRequestError(res.status, code, envelope?.error?.message ?? '요청을 처리하지 못했어요', envelope?.error?.details ?? null);
 }
 

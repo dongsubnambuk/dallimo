@@ -47,6 +47,14 @@ export function RunReadyScreen({ params, scenario }: { params: RunPlanParams; sc
   );
 }
 
+// 코스 · 인터벌 준비를 닫는다 (결정 로그 82항): 달리기 탭은 자유 달리기로 되돌리고, 고르던 화면(코스 상세 · 인터벌 목록)으로 돌아간다.
+// 예전에는 탭에 남아 자유 달리기로 바뀌기만 해서, 닫았는데 다른 달리기가 준비된 것처럼 보였다
+function closePlan(plan: ReadyPlan) {
+  router.replace('/run');
+  if (plan.kind === 'course') router.push({ pathname: '/course/[id]', params: { id: plan.plan.courseId } });
+  else if (plan.kind === 'interval') router.push('/training');
+}
+
 function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScenario }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -85,8 +93,8 @@ function RunReady({ plan, scenario }: { plan: ReadyPlan; scenario: RunReadyScena
         {plan.kind !== 'free' ? (
           <>
             <AppPressable
-              onPress={() => router.replace('/run')}
-              accessibilityLabel={plan.kind === 'course' ? '코스 러닝 취소, 자유 달리기로' : '인터벌 달리기 취소, 자유 달리기로'}
+              onPress={() => closePlan(plan)}
+              accessibilityLabel={plan.kind === 'course' ? '닫고 코스로 돌아가기' : '닫고 인터벌 목록으로'}
               style={[styles.round, { backgroundColor: colors.bg.surface }]}
             >
               <AppIcon name="close" size={20} color={colors.text.primary} />

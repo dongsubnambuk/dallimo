@@ -8,7 +8,7 @@ import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { AuthFrame } from '@/features/auth/AuthFrame';
 
 import { OnboardingHeader } from './components/OnboardingHeader';
-import { finishOnboarding } from './onboardingState';
+import { finishPermissionsGuide, useOnboarding } from './onboardingState';
 import { openPhoneSettings, permissionState, requestPermission, type PermissionKind, type PermissionState } from './permissions';
 
 // 가입 직후 2단계: 권한 안내 (사용자 결정, 결정 로그 64항).
@@ -54,6 +54,8 @@ export function PermissionsScreen() {
 function Permissions() {
   const [states, setStates] = useState<Partial<Record<PermissionKind, PermissionState>>>({});
   const [asking, setAsking] = useState<PermissionKind | null>(null);
+  // 로그인한 계정은 러너 정보 없이 권한 안내만 (한 단계)
+  const { permissionsOnly } = useOnboarding();
 
   useEffect(() => {
     let alive = true;
@@ -78,7 +80,7 @@ function Permissions() {
 
   return (
     <>
-      <OnboardingHeader step={2} total={2} onSkip={finishOnboarding} skipLabel="나중에 할게요" />
+      <OnboardingHeader step={permissionsOnly ? 1 : 2} total={permissionsOnly ? 1 : 2} onSkip={finishPermissionsGuide} skipLabel="나중에 할게요" />
       <View style={styles.intro}>
         <AppText role="screenTitle" accessibilityRole="header">
           달리기 전에 켜 둘 권한
@@ -95,7 +97,7 @@ function Permissions() {
       </View>
 
       <View style={styles.bottom}>
-        <SecondaryButton label={allGranted ? '시작하기' : '이대로 시작하기'} emphasized disabled={asking != null} onPress={finishOnboarding} style={styles.cta} />
+        <SecondaryButton label={allGranted ? '시작하기' : '이대로 시작하기'} emphasized disabled={asking != null} onPress={finishPermissionsGuide} style={styles.cta} />
       </View>
     </>
   );

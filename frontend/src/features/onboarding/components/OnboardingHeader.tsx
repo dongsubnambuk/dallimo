@@ -7,9 +7,14 @@ import { spacing, touchTarget } from '@/design/tokens';
 export function OnboardingHeader({ step, total, onSkip, skipLabel = '건너뛰기' }: { step: number; total: number; onSkip: () => void; skipLabel?: string }) {
   return (
     <View style={styles.root}>
-      <AppText role="label" tone="secondary" accessibilityLabel={`${total}단계 중 ${step}단계`}>
-        {step} / {total}
-      </AppText>
+      {/* 한 단계뿐이면(로그인 뒤 권한 안내만) 단계를 보여 주지 않는다 */}
+      {total > 1 ? (
+        <AppText role="label" tone="secondary" accessibilityLabel={`${total}단계 중 ${step}단계`}>
+          {step} / {total}
+        </AppText>
+      ) : (
+        <View />
+      )}
       <AppPressable onPress={onSkip} accessibilityRole="button" accessibilityLabel={skipLabel} style={styles.skip}>
         <AppText role="label" tone="secondary">
           {skipLabel}

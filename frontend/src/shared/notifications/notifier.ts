@@ -92,7 +92,11 @@ export async function scheduledIds(): Promise<string[]> {
 /** 알림을 눌렀을 때 (앱이 꺼져 있다가 알림으로 켜진 경우 포함) */
 export function onNotificationTap(cb: (data: NotificationData) => void): () => void {
   const last = Notifications.getLastNotificationResponse();
-  if (last) cb(last.notification.request.content.data ?? {});
+  if (last) {
+    // 한 번만 연다 (다시 로그인해 탭이 새로 떠도 같은 알림 화면으로 다시 가지 않게)
+    Notifications.clearLastNotificationResponse();
+    cb(last.notification.request.content.data ?? {});
+  }
   const sub = Notifications.addNotificationResponseReceivedListener((r) => cb(r.notification.request.content.data ?? {}));
   return () => sub.remove();
 }

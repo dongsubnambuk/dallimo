@@ -12,7 +12,7 @@ import { EMAIL_SHAPE } from '@/entities/auth/types';
 
 import { AuthFrame } from './AuthFrame';
 import { AuthField } from './components/AuthField';
-import { logIn } from './session';
+import { logIn, takeExpiredNotice } from './session';
 
 // SCR-A01 로그인. 사용자 결정으로 소셜 로그인 대신 이메일 · 비밀번호 (FOUNDATION-DECISION-LOG 30항).
 // 브랜드 첫 화면이라 splash와 같은 dark 바탕에 심볼 · 워드마크 · 짧은 문구를 둔다 (BRAND-AND-PROJECT Short copy).
@@ -30,7 +30,8 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // 서버가 세션을 끊어 이 화면으로 왔으면 왜 로그인해야 하는지 알려 준다 (결정 로그 82항)
+  const [error, setError] = useState<string | null>(() => (takeExpiredNotice() ? '로그인이 만료됐어요. 다시 로그인해 주세요.' : null));
 
   const canSubmit = EMAIL_SHAPE.test(email.trim()) && password.length > 0 && !pending;
 

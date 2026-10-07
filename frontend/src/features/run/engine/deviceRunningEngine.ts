@@ -296,6 +296,16 @@ export function createDeviceRunningEngine(): RunningEngine {
       } satisfies RunFinishResult;
     },
 
+    async discard() {
+      const t = now();
+      if (snap.status === 'RUNNING') closeSegment(t);
+      setRecording(null);
+      stopListening();
+      emit({ status: 'CANCELED', autoPaused: false, runningSince: null, currentPaceSec: null });
+      const store = await getRunStore();
+      await store.endRun(runUuid, t, 'CANCELED');
+    },
+
     // 11.3장: 앱이 꺼지기 전 RUNNING · PAUSED로 남은 러닝을 SQLite에서 불러와 이어서 기록한다.
     // prepare(모드 · 코스)를 먼저 부른다.
     async recover() {

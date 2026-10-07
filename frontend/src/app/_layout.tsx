@@ -12,6 +12,7 @@ import { restoreSession, useAuthStatus } from '@/features/auth/session';
 import { ForceUpdateScreen } from '@/features/force-update/ForceUpdateScreen';
 import { useForceUpdate } from '@/features/force-update/forceUpdate';
 import { useOnboarding } from '@/features/onboarding/onboardingState';
+import { usePermissionsGuide } from '@/features/onboarding/usePermissionsGuide';
 import { usePendingShareLink } from '@/features/share/usePendingShareLink';
 // 백그라운드 위치 task는 앱이 뜰 때 먼저 등록되어 있어야 한다 (OS가 백그라운드에서 앱을 다시 켤 때 포함)
 import '@/tasks/background-location';
@@ -24,7 +25,9 @@ export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
   const auth = useAuthStatus();
   // 가입 직후 러너 정보 · 권한 안내가 남았는가 (결정 로그 64항)
-  const { pending: onboarding } = useOnboarding();
+  const { pending: onboarding, permissionsOnly } = useOnboarding();
+  // 로그인한 계정이 이 기기에서 알림 권한 안내를 본 적이 없으면 한 번 보여 준다
+  usePermissionsGuide(auth);
   const inApp = auth === 'signedIn' && !onboarding;
   const ready = (fontsLoaded || !!fontError) && auth !== 'restoring';
   // 네이티브 스플래시 뒤를 이어 받는 앱 안 스플래시 (한 번만)
@@ -115,9 +118,12 @@ export default function RootLayout() {
             {/* App Link: 공유 페이지 주소(https://{도메인}/s/{code})를 앱이 바로 열 때 */}
             <Stack.Screen name="s/[code]" options={{ headerShown: false, animation: 'fade' }} />
           </Stack.Protected>
-          {/* 가입 직후 온보딩: 러너 정보 → 권한 안내 (dark, 결정 로그 64항) */}
-          <Stack.Protected guard={auth === 'signedIn' && onboarding}>
+          {/* 가입 직후 온보딩: 러너 정보 → 권한 안내 (dark, 결정 로그 64항).
+              로그인한 계정이 권한 안내만 볼 때는 러너 정보를 건너뛴다 (결정 로그 82항) */}
+          <Stack.Protected guard={auth === 'signedIn' && onboarding && !permissionsOnly}>
             <Stack.Screen name="onboarding/runner" options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
+          </Stack.Protected>
+          <Stack.Protected guard={auth === 'signedIn' && onboarding}>
             <Stack.Screen name="onboarding/permissions" options={{ headerShown: false, contentStyle: { backgroundColor: darkTheme.colors.bg.canvas } }} />
           </Stack.Protected>
           {/* 첫 실행 소개(한 번만) → SCR-A01 로그인 · 회원가입 (dark) */}

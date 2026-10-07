@@ -81,6 +81,8 @@ export interface RunningEngine {
   pause(): Promise<void>;
   resume(): Promise<void>;
   finish(): Promise<RunFinishResult>;
+  // 기록을 남기지 않고 끝낸다 (잘못 시작했거나 너무 짧은 러닝, 결정 로그 82항). 기기 기록은 CANCELED로 남고 서버에 올리지 않는다
+  discard(): Promise<void>;
   recover(): Promise<ActiveRunSnapshot | null>;
   // 인터벌 달리기: 직접 넘기는 구간을 지금 끝내고 다음 구간으로
   nextIntervalStep(): void;

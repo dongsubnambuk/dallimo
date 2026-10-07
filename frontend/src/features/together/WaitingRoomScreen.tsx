@@ -121,6 +121,7 @@ function WaitingRoom({ roomId, scenario, invite }: { roomId: string; scenario: L
         onReady={(v) => ready.mutate(v)}
         onJoin={() => join.mutate()}
         onInvite={() => setInviting(true)}
+        onLeave={() => setConfirmLeave(true)}
         bottomInset={insets.bottom}
       />
     );
@@ -131,7 +132,9 @@ function WaitingRoom({ roomId, scenario, invite }: { roomId: string; scenario: L
     <View style={[styles.root, { backgroundColor: colors.bg.canvas, paddingTop: insets.top }]}>
       <StatusBar style="light" />
       <View style={styles.header}>
-        <AppPressable onPress={() => (room.data && room.data.status !== 'CANCELED' ? setConfirmLeave(true) : goHome())} accessibilityLabel="방 나가기" style={[styles.round, { backgroundColor: colors.bg.surface }]}>
+        {/* 닫기는 화면만 닫는다. 방은 그대로 남고 함께 달리기 탭의 "예정된 방"에서 다시 연다 (결정 로그 82항).
+            방 취소 · 나가기 · 초대 거절은 참가자 목록 아래 따로 둔다 */}
+        <AppPressable onPress={goHome} accessibilityLabel="닫기, 방은 그대로 남아요" style={[styles.round, { backgroundColor: colors.bg.surface }]}>
           <AppIcon name="close" size={20} color={colors.text.primary} />
         </AppPressable>
         <AppText role="label" tone="secondary" style={styles.bold}>
@@ -171,6 +174,7 @@ function RoomBody({
   onReady,
   onJoin,
   onInvite,
+  onLeave,
   bottomInset,
 }: {
   room: LiveRoom;
@@ -180,6 +184,7 @@ function RoomBody({
   onReady: (v: boolean) => void;
   onJoin: () => void;
   onInvite: () => void;
+  onLeave: () => void;
   bottomInset: number;
 }) {
   const { colors } = useTheme();
@@ -266,6 +271,15 @@ function RoomBody({
             </View>
           ))}
         </View>
+
+        {/* 방을 끝내는 행동은 닫기와 나눠 아래에 둔다. 출발 카운트다운이 시작되면 숨긴다 */}
+        {!counting ? (
+          <AppPressable onPress={onLeave} accessibilityRole="button" style={styles.leave}>
+            <AppText role="label" style={[styles.bold, { color: colors.status.danger }]}>
+              {me.status === 'INVITED' ? '초대 거절' : me.isHost ? '방 취소하기' : '방에서 나가기'}
+            </AppText>
+          </AppPressable>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: bottomInset + spacing.md, borderTopColor: colors.border.subtle }]}>
@@ -430,6 +444,12 @@ async function shareInvite(room: LiveRoom) {
 }
 
 const styles = StyleSheet.create({
+  leave: {
+    minHeight: touchTarget.min,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
   selfStart: {
     alignSelf: 'flex-start',
   },
