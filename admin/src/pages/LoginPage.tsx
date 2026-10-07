@@ -42,7 +42,7 @@ export function LoginPage() {
         <p className="muted">관리자로 등록된 달리모 계정으로 로그인해 주세요.</p>
         <label className="field">
           <span>이메일</span>
-          <input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+          <input id="email" type="text" inputMode="email" autoCapitalize="none" spellCheck={false} autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </label>
         <label className="field">
           <span>비밀번호</span>
