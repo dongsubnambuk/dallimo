@@ -67,9 +67,11 @@ public class AuthService {
             passwords.matches(password, dummyHash);
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
-        if (user.getPasswordHash() == null || !passwords.matches(password, user.getPasswordHash()) || !user.isActive()) {
+        if (user.getPasswordHash() == null || !passwords.matches(password, user.getPasswordHash())) {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
+        if (user.isSuspended()) throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
+        if (!user.isActive()) throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         return open(user, deviceId);
     }
 

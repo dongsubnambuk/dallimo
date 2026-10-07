@@ -80,6 +80,8 @@ public class User {
     }
 
     public static final String STATUS_WITHDRAWN = "WITHDRAWN";
+    // 관리자가 이용을 정지한 계정 (FOUNDATION-DECISION-LOG 85항). 로그인 · 토큰 갱신이 막히고 기록 · 코스는 남는다
+    public static final String STATUS_SUSPENDED = "SUSPENDED";
 
     public void changeNickname(String nickname, Instant now) {
         this.nickname = nickname;
@@ -119,6 +121,30 @@ public class User {
         this.runnerTime = null;
         this.updatedAt = now;
         this.deletedAt = now;
+    }
+
+    /** 관리자 정지. 이용 중인 계정만 */
+    public void suspend(Instant now) {
+        this.status = STATUS_SUSPENDED;
+        this.updatedAt = now;
+    }
+
+    /** 정지 해제 */
+    public void unsuspend(Instant now) {
+        this.status = STATUS_ACTIVE;
+        this.updatedAt = now;
+    }
+
+    public boolean isSuspended() {
+        return STATUS_SUSPENDED.equals(status) && deletedAt == null;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public String getStatus() {
+        return status;
     }
 
     public boolean isActive() {

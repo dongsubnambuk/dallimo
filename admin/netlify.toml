@@ -1,0 +1,18 @@
+# 달리모 관리 웹 (결정 로그 85항). 소개 사이트(저장소 루트 netlify.toml, base = landing)와 다른 Netlify 사이트로 올린다.
+# Netlify 새 사이트 → 같은 저장소 → Base directory를 admin으로 두면 이 파일을 읽는다.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # 운영 서버. 서버 CORS_ALLOWED_ORIGINS에 이 사이트 주소를 더해야 부를 수 있다
+  VITE_API_URL = "https://dallimo.gamjabox.cloud"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"

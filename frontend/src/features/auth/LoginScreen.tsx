@@ -46,7 +46,10 @@ function Login() {
       setError(
         e instanceof AuthError && e.kind === 'invalidCredentials'
           ? '이메일 또는 비밀번호가 맞지 않아요.'
-          : '로그인하지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+          : e instanceof AuthError && e.kind === 'suspended'
+            ? // 서버 안내(문의 페이지 주소 포함)를 그대로 보여 준다 (결정 로그 85항)
+              e.message
+            : '로그인하지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
       );
       setPending(false);
     }

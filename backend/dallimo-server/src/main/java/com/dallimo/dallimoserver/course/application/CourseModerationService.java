@@ -5,6 +5,7 @@ import com.dallimo.dallimoserver.common.error.ErrorCode;
 import com.dallimo.dallimoserver.course.domain.CourseStatus;
 import com.dallimo.dallimoserver.course.domain.ModerationAction;
 import com.dallimo.dallimoserver.course.infrastructure.CourseModerationJdbcRepository;
+import com.dallimo.dallimoserver.course.infrastructure.CourseModerationJdbcRepository.Info;
 import com.dallimo.dallimoserver.course.infrastructure.CourseModerationJdbcRepository.Log;
 import com.dallimo.dallimoserver.course.infrastructure.CourseModerationJdbcRepository.Report;
 import com.dallimo.dallimoserver.course.infrastructure.CourseModerationJdbcRepository.ReportedCourse;
@@ -27,8 +28,11 @@ import java.util.List;
 @EnableConfigurationProperties(CourseModerationProperties.class)
 public class CourseModerationService {
 
-    public record Detail(Target course, List<Report> reports, List<Log> history) {
+    public record Detail(Target course, Info info, List<double[]> route, List<Report> reports, List<Log> history) {
     }
+
+    // 검토 화면 경로 미리보기 점 수
+    private static final int ROUTE_POINTS = 300;
 
     private final CourseModerationJdbcRepository store;
     private final CourseModerationProperties props;
@@ -61,7 +65,8 @@ public class CourseModerationService {
     @Transactional(readOnly = true)
     public Detail detail(long courseId) {
         Target c = store.find(courseId).orElseThrow(() -> new ApiException(ErrorCode.COURSE_NOT_FOUND));
-        return new Detail(c, store.reports(courseId), store.history(courseId));
+        Info info = store.info(courseId).orElseThrow(() -> new ApiException(ErrorCode.COURSE_NOT_FOUND));
+        return new Detail(c, info, store.route(courseId, ROUTE_POINTS), store.reports(courseId), store.history(courseId));
     }
 
     /**

@@ -23,6 +23,8 @@ export type ApiErrorCode =
   | 'RESOURCE_FORBIDDEN' // 403
   // 이메일 로그인(사용자 결정, 명세 41장 변경)
   | 'INVALID_CREDENTIALS' // 401
+  // 관리자가 정지한 계정 (결정 로그 85항). 비밀번호가 맞을 때만
+  | 'ACCOUNT_SUSPENDED' // 403
   | 'EMAIL_ALREADY_EXISTS' // 409
   | 'NICKNAME_ALREADY_EXISTS' // 409
   // 비밀번호 변경 (결정 로그 58항). 401이면 앱이 로그아웃하므로 400

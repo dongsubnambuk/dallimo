@@ -24,8 +24,9 @@ services:
       # ── 인증 ──────────────────────────────────────────────────
       # openssl rand -base64 32
       JWT_SECRET: ${JWT_SECRET}
-      # 웹으로 띄운 앱(npx expo start --web)에서 이 서버를 부를 수 있게
-      CORS_ALLOWED_ORIGINS: http://localhost:8081
+      # 브라우저에서 이 서버를 부를 수 있는 주소: 웹으로 띄운 앱(npx expo start --web) · 관리 웹(admin/).
+      # 관리 웹을 배포하면 .env에 CORS_ALLOWED_ORIGINS=http://localhost:8081,https://{관리 웹 주소}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8081}
 
       # ── 공개 주소(gamjabox 도메인) · App Link ─────────────────────────
       SHARE_PUBLIC_BASE_URL: https://dallimo.gamjabox.cloud
@@ -35,9 +36,11 @@ services:
       # Play Console 앱 서명 키의 SHA-256. Play Console에 앱을 올린 뒤 .env에 넣는다
       APP_LINK_ANDROID_SHA256: ${APP_LINK_ANDROID_SHA256}
 
-      # ── 관리 API (X-Admin-Key). 비어 있으면 관리 API를 모두 닫는다 ──────
-      # openssl rand -hex 24. application-dev.yaml의 개발 키는 공개돼 있어서 쓰지 않는다
+      # ── 관리 API. 둘 다 비어 있으면 관리 API를 모두 닫는다 ──────────────
+      # X-Admin-Key (curl). openssl rand -hex 24. application-dev.yaml의 개발 키는 공개돼 있어서 쓰지 않는다
       ADMIN_API_KEY: ${ADMIN_API_KEY}
+      # 관리 웹에 로그인할 수 있는 달리모 계정 이메일. 쉼표로 여러 개
+      ADMIN_EMAILS: ${ADMIN_EMAILS}
       COURSE_AUTO_HIDE_REPORTS: 3
 
       # ── 외부 추천 코스 ──────────────────────────────────────────

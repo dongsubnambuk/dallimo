@@ -66,7 +66,9 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `EXPO_ACCESS_TOKEN` | 아니오 | Expo Push "Enhanced push security"를 켰을 때 |
 | `SHARE_PUBLIC_BASE_URL` · `APP_LINK_IOS_APP_IDS` · `APP_LINK_ANDROID_PACKAGE` · `APP_LINK_ANDROID_SHA256` | 아니오(prod) | 공유 링크 주소 · App Link |
 | `SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES` | 아니오 | 프록시가 사설 · 루프백 주소가 아닐 때만. 그 프록시 주소의 정규식 (아래 "프록시") |
-| `ADMIN_API_KEY` | 아니오 | 관리 API 키. 없으면 관리 API가 닫힌다 (예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) |
+| `ADMIN_API_KEY` | 아니오 | 관리 API 키(curl · 스크립트). `ADMIN_EMAILS`와 둘 다 없으면 관리 API가 닫힌다 (예전 이름 `EXTERNAL_COURSE_ADMIN_KEY`도 받는다) |
+| `ADMIN_EMAILS` | 아니오 | 관리 웹(`admin/`)에 로그인할 수 있는 달리모 계정 이메일. 쉼표로 여러 개 (아래 "관리 웹") |
+| `CORS_ALLOWED_ORIGINS` | 아니오 | 브라우저에서 부를 수 있는 주소. 관리 웹을 배포하면 그 주소를 쉼표로 더한다 |
 | `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
 | `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
 | `APP_MIN_VERSION_IOS` · `APP_STORE_URL_IOS` | 아니오 | 강제 업데이트 (아래 "앱 버전"). 비어 있으면 막지 않는다 |
@@ -444,16 +446,35 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 
 | API | 설명 |
 | --- | --- |
-| `GET /api/v1/admin/courses/reported?status=&size=` | 검토할 코스. `status`가 없으면 검토 대기(열린 신고가 있거나 숨김), 있으면 그 상태 전부. `[{ id, name, status, source, creatorName, openReports, totalReports, openReasons{ DANGER: n, … }, lastReportedAt, moderatedAt }]`. 숨긴 코스 → 열린 신고 많은 순 → 최근 신고 순 |
-| `GET /api/v1/admin/courses/{id}/reports` | `{ courseId, status, moderatedAt, reports[{ id, userId, nickname, reason, content, createdAt, open }], history[{ action, fromStatus, toStatus, reportCount, note, createdAt }] }` |
+| `GET /api/v1/admin/courses/reported?status=&size=` | 검토할 코스. `status`가 없으면 검토 대기(열린 신고가 있거나 숨김), 있으면 그 상태 전부. `[{ id, name, status, source, creatorId, creatorName, openReports, totalReports, openReasons{ DANGER: n, … }, lastReportedAt, moderatedAt }]`. 숨긴 코스 → 열린 신고 많은 순 → 최근 신고 순 |
+| `GET /api/v1/admin/courses/{id}/reports` | `{ courseId, name, distanceM, creatorId, creatorName, creatorStatus, status, moderatedAt, route[[위도, 경도]](최대 300점), reports[{ id, userId, nickname, reason, content, createdAt, open }], history[{ action, fromStatus, toStatus, reportCount, note, createdAt }] }` |
 | `POST /api/v1/admin/courses/{id}/moderation` | `{ action: HIDE\|BLOCK\|RESTORE, note? }` → `{ courseId, status, moderatedAt }` |
 
-- **부르는 법**: 외부 추천 코스와 같은 관리 API(`X-Admin-Key: {ADMIN_API_KEY}`). 키가 없으면 404, 틀리면 403.
+- **부르는 법**: 관리 웹(관리자 계정 Bearer) 또는 `X-Admin-Key: {ADMIN_API_KEY}` (아래 "관리 웹"). 관리 API가 모두 꺼져 있으면 404, 권한이 없으면 403. 처리하면 누가 했는지 `tbl_admin_audit`에도 남는다.
 - **열린 신고**: 관리자가 마지막으로 검토한 뒤(`tbl_course.moderated_at` 뒤) 들어온, 만든 사람이 아닌 사람의 신고. 같은 사람이 다시 신고하면 신고 시각이 바뀌어 다시 센다.
 - **자동 숨김**: 열린 신고가 `COURSE_AUTO_HIDE_REPORTS`(기본 3)건이 되면 신고를 저장한 같은 트랜잭션에서 `HIDDEN`(코스 행을 잠가 동시에 두 번 숨기지 않는다). 숨긴 코스는 목록 · 검색 · 상세(403)에서 빠지고 더 신고할 수 없다. 만든 사람의 내 코스에는 `HIDDEN`으로 남는다.
 - **관리자 검토**: `HIDE` → `HIDDEN`, `BLOCK` → `BLOCKED`, `RESTORE` → 숨기기 전 상태(기록이 없으면 `NEW`, 공개 중이면 그대로). 어느 쪽이든 검토 시각을 남겨 그때까지의 신고를 닫는다(근거 없는 신고는 `RESTORE`로 공개 유지). 모든 변경은 `tbl_course_moderation`(V16)에 남는다.
 - **알림**: 만든 사람에게 알림은 보내지 않는다(명세 NTF 종류에 없음). 앱 내 코스에 "신고로 숨김 · 검토 중" · "공개 중지"로 보인다.
 - **테스트**: `CourseModerationApiContractTest`를 MySQL · MariaDB에서(만든 사람 신고 제외 · 같은 사람 한 건 · 세 번째 신고에 숨김 · 목록 · 상세 403 · 내 코스 상태 · 관리 키 · 대기 목록 · 사유별 수 · 신고 · 처리 기록 · 다시 공개 · 검토 뒤 새 신고 · 차단 · 차단 뒤 다시 공개 · 잘못된 요청).
+
+## 관리 웹 (사용자 결정, 결정 로그 85항)
+
+관리 웹(`admin/`)이 부르는 회원 조회 · 정지 API. 코스 신고 처리 API(위)도 같은 방법으로 부른다.
+
+| API | 설명 |
+| --- | --- |
+| `GET /api/v1/admin/me` | 관리자 확인 → `{ userId, nickname }` (관리 키면 둘 다 null). 관리 웹이 로그인 직후 부른다 |
+| `GET /api/v1/admin/users?q=&status=&cursor=&size=` | 최근 가입 순. `q`: 숫자면 회원 id, 그리고 이메일 · 닉네임 일부. `status`: `ACTIVE` · `SUSPENDED` · `WITHDRAWN`. `{ items[{ id, email, nickname, status, createdAt, lastActiveAt, runCount, platforms }], nextCursor, hasNext }` |
+| `GET /api/v1/admin/users/{id}` | `{ account, admin, stats{ finishedRuns, totalDistanceM, verifiedRuns, createdCourses, reviews }, devices[], runs[](최근 20, 인증 결과 · 실패 사유), courses[], reportsMade[], reportsReceived[], actions[](조치 기록) }` |
+| `POST /api/v1/admin/users/{id}/suspend` | `{ reason }`(필수, 500자) → `{ userId, status }`. 이용 정지 |
+| `POST /api/v1/admin/users/{id}/unsuspend` | `{ reason }` → `{ userId, status }`. 정지 해제 |
+
+- **관리자**: 달리모 계정으로 로그인하고, 그 이메일이 `ADMIN_EMAILS`(쉼표로 여러 개)에 있으면 관리 API를 부를 수 있다(`AdminKeyGuard`). DB를 고치지 않고 환경변수로 정한다. curl · 스크립트는 지금처럼 `X-Admin-Key`.
+- **정지**: `tbl_user.status = 'SUSPENDED'`. 모든 기기 세션을 끊고(남은 Access Token도 바로 막힌다) Push 토큰을 지운다. 로그인하면 비밀번호가 맞을 때만 403 `ACCOUNT_SUSPENDED`(문의 페이지 안내). 기록 · 코스 · 랭킹은 그대로 둔다. 탈퇴한 회원 · 관리자 계정은 정지할 수 없다(409 `USER_INVALID_STATE`). App Store 심사 기준 1.2(회원 콘텐츠가 있는 앱은 악성 회원을 막을 수단) 대응.
+- **조치 기록**: 정지 · 해제 · 코스 신고 처리를 `tbl_admin_audit`(V25)에 남긴다. `actor`는 관리자면 `user:{id}`, 관리 키면 `key`. 회원 상세의 `actions`로 본다.
+- **개인정보**: 위치(달리기 GPS 점)는 관리 API로 주지 않는다. 이메일은 탈퇴하지 않은 회원만. 코스 경로는 공개 정보라 신고 검토에서 준다.
+- **CORS**: 관리 웹 주소를 `CORS_ALLOWED_ORIGINS`에 더한다(개발은 `http://localhost:5174`가 들어 있다).
+- **테스트**: `AdminUserApiContractTest`를 MySQL · MariaDB에서(관리자 확인 · 일반 회원 403 · 검색(닉네임 · 이메일 · id · `%`) · 페이지 · 상세 · 정지(세션 끊김 · 로그인 403 · 틀린 비밀번호 401 · 중복 · 관리자 · 해제 대상 아님) · 해제 · 조치 기록 · 관리 키 조치 · 신고 검토 정보 · 관리자 계정으로 처리).
 
 ## 앱 버전 · 강제 업데이트 (사용자 결정, 결정 로그 79항)
 
@@ -512,7 +533,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 요청 id | `X-Request-Id` 8~64자 `[A-Za-z0-9._-]`, 아니면 서버가 UUID | 로그를 어지럽히지 않게 |
 | 프로필 | dev(기본, 내 컴퓨터) · test · prod. local은 dev에 합쳤다. 개발 MySQL · Redis는 각자 준비, 로컬에서 Docker를 쓰지 않는다 | 사용자 결정(명세 15.3장은 local/dev/test/prod) |
 | 운영 DB | MySQL 8.4 (prod 기본 드라이버 `mysql`). MariaDB 테스트(ADR-004 이중 테스트)는 그대로 둬서 바꿀 수 있게 한다 | 사용자 결정(명세 15.2장 · ADR-004는 운영 MariaDB) |
-| 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
+| 관리 API 키 | `dallimo.admin.api-key`(`ADMIN_API_KEY`) 하나를 외부 추천 코스 · 코스 신고 검토 · 관리 웹 API가 함께 쓴다 | 운영 API가 늘어도 키 하나 |
+| 관리자 계정 | `ADMIN_EMAILS` 환경변수의 이메일. `tbl_user`에 역할 컬럼을 두지 않는다 | 사용자 결정(결정 로그 85항): DB를 직접 고치지 않는다. 혼자 운영해 역할 구분이 필요 없다 |
 | 외부 추천 코스 | V15 `tbl_course.source · source_ref · attribution · license · source_url`, 관리 API `X-Admin-Key`, 1~21.1km, 같은 자리 100m · 길이 10% 안이면 중복 | 사용자 결정(명세 2.1장 MVP 제외 항목을 넣음). 값은 명세에 없어 정한 시작값 |
 | 쿼리 파라미터 검증 | 컨트롤러에 `@Validated`를 붙이지 않는다. Spring MVC 기본 검증이 400으로 바뀐다 | 붙이면 AOP 검증 예외가 500이 됐다(`/runs?size=51`, `nickname-availability?nickname=` 포함, 이번에 고침) |
 | 검증 기준값 (`VerificationPolicy` 2026-09-v1) | 출발 · 도착 반경 100m, 경로 허용 폭 50m, 최소 일치율 85% | 사용자 결정: 명세 10.5장 후보값. 실기기 테스트 뒤 조정하고 버전을 올린다 |

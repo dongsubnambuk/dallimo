@@ -27,8 +27,12 @@ public class CourseModerationJdbcRepository {
     public record Target(long id, CourseStatus status, long creatorId, Instant moderatedAt) {
     }
 
-    public record ReportedCourse(long id, String name, CourseStatus status, String source, String creatorName, int openReports, int totalReports,
-                                 Map<String, Integer> openReasons, Instant lastReportedAt, Instant moderatedAt) {
+    public record ReportedCourse(long id, String name, CourseStatus status, String source, long creatorId, String creatorName, int openReports,
+                                 int totalReports, Map<String, Integer> openReasons, Instant lastReportedAt, Instant moderatedAt) {
+    }
+
+    /** 관리 웹 신고 검토 화면 머리 (이름 · 거리 · 만든 사람) */
+    public record Info(String name, int distanceM, long creatorId, String creatorName, String creatorStatus) {
     }
 
     public record Report(long id, long userId, String nickname, String reason, String content, Instant createdAt, boolean open) {
@@ -102,22 +106,22 @@ public class CourseModerationJdbcRepository {
             p.addValue("status", status.name());
         }
         List<ReportedCourse> rows = named.query("""
-                SELECT c.id, c.name, c.status, c.source, u.nickname, c.moderated_at, COUNT(r.id) AS total_reports,
+                SELECT c.id, c.name, c.status, c.source, c.creator_id, u.nickname, c.moderated_at, COUNT(r.id) AS total_reports,
                        COALESCE(SUM(CASE WHEN %s THEN 1 ELSE 0 END), 0) AS open_reports, MAX(r.created_at) AS last_reported_at
                 FROM tbl_course c
                 JOIN tbl_user u ON u.id = c.creator_id
                 LEFT JOIN tbl_course_report r ON r.course_id = c.id
                 WHERE %s
-                GROUP BY c.id, c.name, c.status, c.source, u.nickname, c.moderated_at
+                GROUP BY c.id, c.name, c.status, c.source, c.creator_id, u.nickname, c.moderated_at
                 %s
                 ORDER BY CASE WHEN c.status = 'HIDDEN' THEN 0 ELSE 1 END, open_reports DESC, last_reported_at DESC, c.id DESC
                 LIMIT :limit""".formatted(OPEN, where, having), p,
                 (rs, i) -> new ReportedCourse(rs.getLong("id"), rs.getString("name"), CourseStatus.valueOf(rs.getString("status")), rs.getString("source"),
-                        rs.getString("nickname"), rs.getInt("open_reports"), rs.getInt("total_reports"), Map.of(), instant(rs, "last_reported_at"),
+                        rs.getLong("creator_id"), rs.getString("nickname"), rs.getInt("open_reports"), rs.getInt("total_reports"), Map.of(), instant(rs, "last_reported_at"),
                         instant(rs, "moderated_at")));
         if (rows.isEmpty()) return rows;
         Map<Long, Map<String, Integer>> reasons = openReasons(rows.stream().map(ReportedCourse::id).toList());
-        return rows.stream().map(r -> new ReportedCourse(r.id(), r.name(), r.status(), r.source(), r.creatorName(), r.openReports(), r.totalReports(),
+        return rows.stream().map(r -> new ReportedCourse(r.id(), r.name(), r.status(), r.source(), r.creatorId(), r.creatorName(), r.openReports(), r.totalReports(),
                 reasons.getOrDefault(r.id(), Map.of()), r.lastReportedAt(), r.moderatedAt())).toList();
     }
 
@@ -141,6 +145,22 @@ public class CourseModerationJdbcRepository {
                 WHERE r.course_id = ? ORDER BY r.created_at DESC, r.id DESC""".formatted(OPEN),
                 (rs, i) -> new Report(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getString(5), instant(rs, 6), rs.getInt(7) == 1),
                 courseId);
+    }
+
+    public Optional<Info> info(long courseId) {
+        return jdbc.query("""
+                SELECT c.name, c.distance_m, c.creator_id, u.nickname, u.status FROM tbl_course c JOIN tbl_user u ON u.id = c.creator_id
+                WHERE c.id = ? AND c.deleted_at IS NULL""",
+                (rs, i) -> new Info(rs.getString(1), rs.getInt(2), rs.getLong(3), rs.getString(4), rs.getString(5)), courseId).stream().findFirst();
+    }
+
+    /** 코스 경로 [위도, 경도] (검토 화면 미리보기). 점이 많으면 maxPoints 안으로 고르게 솎는다 (끝점은 남긴다) */
+    public List<double[]> route(long courseId, int maxPoints) {
+        List<double[]> all = jdbc.query("SELECT latitude, longitude FROM tbl_course_route_point WHERE course_id = ? ORDER BY seq",
+                (rs, i) -> new double[]{rs.getDouble(1), rs.getDouble(2)}, courseId);
+        if (all.size() <= maxPoints) return all;
+        double step = (all.size() - 1) / (double) (maxPoints - 1);
+        return java.util.stream.IntStream.range(0, maxPoints).mapToObj(i -> all.get((int) Math.round(i * step))).toList();
     }
 
     /** 처리 기록 (최근 먼저) */
