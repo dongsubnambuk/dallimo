@@ -1634,3 +1634,14 @@ App Store Connect가 빌드를 받지 않았다: "Missing purpose string in Info
 | 첫 화면 | 제목(브랜드 문구)은 그대로, 위 칩을 "코스를 달리고 기록으로 겨루는 러닝 앱"으로, 설명과 칩("Apple Watch만 차고 달려도 기록")을 지금 기능에 맞춤 | |
 | 질문 | 기기(워치 단독 · 심박 밴드), 위치(공유 카드 200m · 심박 동의)를 고쳐 개인정보 구간 내용을 옮겼다 | |
 | 확인한 것 | `tsc` · `npm run build`(미리 그리기 · 글꼴 555자). 320 · 390 · 820 · 1440 폭: 가로 스크롤 없음, 기록 숫자 줄바꿈 없음, 콘솔 · hydrate 오류 없음. 페이지 높이 390폭 약 7,100px · 1440폭 약 5,200px | |
+
+## 89. App Store 주소
+
+사용자 결정: 앱이 App Store에 올라갔다. 주소 `https://apps.apple.com/kr/app/달리모/id6818753247`.
+
+| 항목 | 판단 | 근거 |
+| --- | --- | --- |
+| 소개 사이트 | `STORE.ios`에 주소를 넣어 "출시 준비 중" 칸을 App Store 버튼으로, 마지막 구간을 "App Store에서 받기"로. `apple-itunes-app` 메타로 iPhone Safari 위에 "열기 · 받기" 배너 | 68 · 71항: 주소가 생기면 바꾸기로 했다 |
+| 강제 업데이트 | 서버 `dallimo.app-version.ios.store-url` 기본값과 compose에 주소를 넣었다. 최소 버전(`APP_MIN_VERSION_IOS`)만 정하면 된다 | 79항. 환경변수를 줄인다(86항과 같은 사용자 결정) |
+| 공유 링크 페이지 | `/s/{code}`에 "앱이 없나요? App Store에서 받기"와 스마트 앱 배너(`app-argument`가 이 페이지 주소라 앱이 있으면 Universal Link로 앱을 연다) | 14.3장 "미설치 시 Web Landing"의 남은 단계 |
+| 홍보 영상 | 마지막 문구 "곧 App Store 출시" → "App Store에서 받기" (다시 만들 때 반영) | |

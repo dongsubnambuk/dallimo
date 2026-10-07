@@ -70,7 +70,7 @@ CI: `.github/workflows/backend.yml` (backend · `docs/api/openapi.yaml` 변경 P
 | `COURSE_AUTO_HIDE_REPORTS` | 아니오 | 신고 자동 숨김 기준 (기본 3) |
 | `DATA_GO_KR_SERVICE_KEY` · `EXTERNAL_ELEVATION_ENABLED` · `EXTERNAL_ELEVATION_URL` · `EXTERNAL_COURSE_CRON` · `EXTERNAL_COURSE_OSM_BOXES` | 아니오 | 외부 추천 코스 |
 | `METRICS_TOKEN` · `GRAFANA_ADMIN_PASSWORD` | 아니오 | 성능 지표 (아래 "성능 지표"). 토큰이 없으면 `/actuator/prometheus`가 닫힌다 |
-| `APP_MIN_VERSION_IOS` · `APP_STORE_URL_IOS` | 아니오 | 강제 업데이트 (아래 "앱 버전"). 비어 있으면 막지 않는다 |
+| `APP_MIN_VERSION_IOS` · `APP_STORE_URL_IOS` | 아니오 | 강제 업데이트 (아래 "앱 버전"). 최소 버전이 비어 있으면 막지 않는다. App Store 주소는 기본값(`application.yaml`, compose)이 들어 있다 |
 
 ### 프록시 (nginx · 로드밸런서 뒤)
 
@@ -525,7 +525,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 
 `GET /api/v1/app/version?platform=ios` (로그인 없이) → `{ platform, minVersion, storeUrl }`. 앱은 켤 때 한 번 부르고, 설치된 앱 버전이 `minVersion`보다 낮으면 "업데이트가 필요해요" 화면으로 모든 화면을 가린다.
 
-- 값은 배포 환경변수 `APP_MIN_VERSION_IOS`(예: `1.0.1`) · `APP_STORE_URL_IOS`(`https://apps.apple.com/app/id{App Store Connect의 Apple ID}`). 바꾸고 서버를 다시 띄우면 바로 적용된다.
+- 값은 배포 환경변수 `APP_MIN_VERSION_IOS`(예: `1.0.1`). App Store 주소(`id6818753247`)는 `application.yaml` 기본값과 compose에 들어 있다(결정 로그 89항). 바꾸고 서버를 다시 띄우면 바로 적용된다.
+- 같은 App Store 주소를 공유 링크 페이지(`/s/{code}`)가 "앱이 없나요? App Store에서 받기"와 iPhone Safari 앱 배너(`apple-itunes-app`, 앱이 있으면 이 주소로 앱을 연다)에 쓴다.
 - 비어 있으면 `minVersion`이 null이라 막지 않는다. 서버에 닿지 못해도 앱은 막지 않는다.
 - 이전 버전에서 서버 API가 깨지는 변경(필드 삭제 · 의미 변경)을 내보낼 때만 올린다. 화면 · JS 수정은 OTA(`frontend/docs/deploy/APP-RELEASE-SETUP.md` 2.6)로 충분하다.
 

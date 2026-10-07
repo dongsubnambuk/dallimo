@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.share.api;
 
+import com.dallimo.dallimoserver.appversion.AppVersionProperties;
 import com.dallimo.dallimoserver.common.error.ApiException;
 import com.dallimo.dallimoserver.running.domain.RunMode;
 import com.dallimo.dallimoserver.share.application.ShareProperties;
@@ -12,18 +13,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.HtmlUtils;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 공유 링크를 눌렀을 때 여는 페이지 (14.3장 "앱 설치 시 Deep Link, 미설치 시 Web Landing"의 첫 단계).
  * 메신저는 dallimo:// 주소를 링크로 보여주지 않는 경우가 많아 공유 URL은 이 http(s) 페이지로 한다.
  * 휴대폰에서 열면 바로 앱(dallimo://share/{code})을 열고, 안 열리면 버튼으로 연다. 미리보기(og) 태그를 단다.
- * 앱 설치 안내 · 스토어 링크는 배포 뒤에 붙인다.
+ * 앱이 없으면 App Store로 (iPhone Safari 스마트 앱 배너 + 링크, 결정 로그 89항). 스토어 주소는 강제 업데이트와 같은 값(dallimo.app-version.ios.store-url)
  */
 @RestController
 public class ShareLandingController {
@@ -31,12 +34,17 @@ public class ShareLandingController {
     private static final Pattern CODE = Pattern.compile("[a-z0-9]{4,32}");
     private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("M월 d일 (E) a h:mm", Locale.KOREAN).withZone(ZoneId.of("Asia/Seoul"));
 
+    // App Store 주소에서 앱 id (…/id6818753247)
+    private static final Pattern APP_ID = Pattern.compile("/id(\\d+)");
+
     private final ShareService shares;
     private final ShareProperties props;
+    private final AppVersionProperties versions;
 
-    public ShareLandingController(ShareService shares, ShareProperties props) {
+    public ShareLandingController(ShareService shares, ShareProperties props, AppVersionProperties versions) {
         this.shares = shares;
         this.props = props;
+        this.versions = versions;
     }
 
     @GetMapping(value = "/s/{code}", produces = MediaType.TEXT_HTML_VALUE)
@@ -45,10 +53,17 @@ public class ShareLandingController {
         try {
             ShareService.Resolved r = shares.resolve(code);
             String[] text = describe(r);
-            return page(HttpStatus.OK, html(code, text[0], text[1]));
+            return page(HttpStatus.OK, html(code, text[0], text[1], pageUrl(code)));
         } catch (ApiException e) {
             return page(HttpStatus.NOT_FOUND, notFound());
         }
+    }
+
+    /** 이 페이지 주소 (공유 URL과 같게 SHARE_PUBLIC_BASE_URL이 있으면 그것) */
+    private String pageUrl(String code) {
+        String base = props.publicBaseUrl();
+        if (base == null || base.isBlank()) base = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
+        return base.replaceAll("/+$", "") + "/s/" + code;
     }
 
     /** [제목, 설명] */
@@ -86,16 +101,25 @@ public class ShareLandingController {
         };
     }
 
-    private String html(String code, String title, String description) {
+    private String html(String code, String title, String description, String pageUrl) {
         String t = HtmlUtils.htmlEscape(title, "UTF-8");
         String d = HtmlUtils.htmlEscape(description, "UTF-8");
         String app = "dallimo://share/" + code;
+        String store = versions.of("ios").storeUrl();
+        String banner = "";
+        String storeLink = "";
+        if (store != null && !store.isBlank()) {
+            Matcher m = APP_ID.matcher(store);
+            // 앱이 있으면 배너의 "열기"가 이 주소(Universal Link)로 앱을 연다
+            if (m.find()) banner = "<meta name=\"apple-itunes-app\" content=\"app-id=" + m.group(1) + ", app-argument=" + HtmlUtils.htmlEscape(pageUrl, "UTF-8") + "\">";
+            storeLink = "<a class=\"sub\" href=\"" + HtmlUtils.htmlEscape(store, "UTF-8") + "\">앱이 없나요? App Store에서 받기</a>";
+        }
         String web = props.webAppUrl() == null || props.webAppUrl().isBlank() ? null : props.webAppUrl().replaceAll("/+$", "") + "/share/" + code;
         return """
                 <!doctype html>
                 <html lang="ko"><head>
                 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,">
-                <title>%1$s · 달리모</title>
+                <title>%1$s · 달리모</title>%6$s
                 <meta property="og:site_name" content="달리모"><meta property="og:title" content="%1$s"><meta property="og:description" content="%2$s">
                 <style>
                   :root{color-scheme:light dark}
@@ -111,12 +135,13 @@ public class ShareLandingController {
                 <div class="brand">DALLIMO 달리모</div>
                 <h1>%1$s</h1><p>%2$s</p>
                 <a class="btn" href="%3$s">달리모 앱에서 열기</a>
+                %7$s
                 %4$s
                 </main>
                 <script>if(/iPhone|iPad|Android/i.test(navigator.userAgent)){location.href=%5$s}</script>
                 </body></html>
                 """.formatted(t, d, app, web == null ? "" : "<a class=\"sub\" href=\"" + HtmlUtils.htmlEscape(web, "UTF-8") + "\">웹에서 열기 (개발용)</a>",
-                "\"" + app + "\"");
+                "\"" + app + "\"", banner, storeLink);
     }
 
     private static String notFound() {

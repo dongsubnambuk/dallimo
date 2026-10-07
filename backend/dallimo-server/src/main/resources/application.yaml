@@ -84,7 +84,8 @@ dallimo:
   app-version:
     ios:
       min-version: ${APP_MIN_VERSION_IOS:}
-      store-url: ${APP_STORE_URL_IOS:}
+      # App Store 주소 (결정 로그 89항). 바꿀 일이 있을 때만 환경변수로
+      store-url: ${APP_STORE_URL_IOS:https://apps.apple.com/kr/app/%EB%8B%AC%EB%A6%AC%EB%AA%A8/id6818753247}
     android:
       min-version: ${APP_MIN_VERSION_ANDROID:}
       store-url: ${APP_STORE_URL_ANDROID:}
