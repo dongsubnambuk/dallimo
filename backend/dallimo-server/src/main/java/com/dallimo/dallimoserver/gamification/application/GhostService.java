@@ -8,6 +8,7 @@ import com.dallimo.dallimoserver.course.infrastructure.CourseJdbcRepository;
 import com.dallimo.dallimoserver.friend.application.FriendService;
 import com.dallimo.dallimoserver.gamification.domain.GhostProfile;
 import com.dallimo.dallimoserver.gamification.infrastructure.GhostJdbcRepository;
+import com.dallimo.dallimoserver.running.domain.RunMetrics;
 import com.dallimo.dallimoserver.running.infrastructure.RunPointJdbcRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +49,7 @@ public class GhostService {
         GhostJdbcRepository.RecordRow r = found.filter(x -> x.courseId() == courseId)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "고스트로 쓸 공식 기록이 없어요."));
         List<double[]> samples = GhostProfile.of(routes.routes(List.of(courseId)).getOrDefault(courseId, List.of()), points.findAll(r.runId()),
-                course.getDistanceM(), r.seconds());
+                course.getDistanceM(), r.seconds(), RunMetrics.checksAccuracy(r.source()));
         String relation = viewerId != null && r.userId() == viewerId ? "self" : viewerId != null && friends.friendIds(viewerId).contains(r.userId()) ? "friend" : "normal";
         return new Ghost(r.id(), r.userId(), r.nickname(), relation, r.seconds(), course.getDistanceM(), samples);
     }

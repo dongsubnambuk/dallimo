@@ -2,6 +2,7 @@ package com.dallimo.dallimoserver.running;
 
 import com.dallimo.dallimoserver.running.domain.RunMetrics;
 import com.dallimo.dallimoserver.running.domain.RunPoint;
+import com.dallimo.dallimoserver.running.domain.RunSource;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -42,6 +43,18 @@ class RunMetricsTest {
         double d = RunMetrics.compute(pts).distanceM();
         // 99구간(297m)에서 튄 점 앞뒤 2구간, 정확도 낮은 점 앞뒤 2구간을 뺀다
         assertThat(d).isCloseTo(297 - 12, within(2.0));
+    }
+
+    @Test
+    void importedRouteIsNotFilteredByAccuracyButStillByJumps() {
+        // FOUNDATION-DECISION-LOG 92항: 건강 앱 경로는 정확도가 없거나 커도 쓴다. 순간 이동은 그대로 뺀다
+        List<RunPoint> pts = new ArrayList<>();
+        for (RunPoint p : straight(100)) pts.add(new RunPoint(p.seq(), p.latitude(), p.longitude(), null, p.seq() % 2 == 0 ? null : 35.0, null, p.recordedAt()));
+        assertThat(RunMetrics.compute(pts, RunSource.DALLIMO).accepted()).isEmpty();
+        assertThat(RunMetrics.compute(pts, RunSource.APPLE_HEALTH).distanceM()).isCloseTo(297, within(2.0));
+        RunPoint p = pts.get(50);
+        pts.set(50, new RunPoint(p.seq(), p.latitude() + 0.01, p.longitude(), null, null, null, p.recordedAt())); // 1km 순간 이동
+        assertThat(RunMetrics.compute(pts, RunSource.APPLE_HEALTH).distanceM()).isCloseTo(297 - 6, within(2.0));
     }
 
     @Test

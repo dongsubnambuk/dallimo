@@ -42,7 +42,7 @@ public class CourseMatcher {
     }
 
     public Optional<Match> match(long userId, List<RunPoint> points, VerificationPolicy policy) {
-        List<RunPoint> accepted = RunMetrics.compute(points).accepted();
+        List<RunPoint> accepted = RunMetrics.compute(points, policy.checkAccuracy()).accepted();
         if (accepted.size() < 2) return Optional.empty();
         double minLat = Double.MAX_VALUE, maxLat = -Double.MAX_VALUE, minLng = Double.MAX_VALUE, maxLng = -Double.MAX_VALUE;
         for (RunPoint p : accepted) {

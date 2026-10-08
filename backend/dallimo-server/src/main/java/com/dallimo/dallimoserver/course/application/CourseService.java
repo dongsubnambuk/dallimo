@@ -136,7 +136,7 @@ public class CourseService {
         if (run.getUserId() != userId) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN);
         if (run.getStatus() != RunStatus.FINISHED) throw new ApiException(ErrorCode.RUN_INVALID_STATE, "끝난 러닝만 코스로 만들 수 있어요.");
 
-        List<CourseRoute.Point> accepted = RunMetrics.compute(runPoints.findAll(sourceRunId)).accepted().stream()
+        List<CourseRoute.Point> accepted = RunMetrics.compute(runPoints.findAll(sourceRunId), run.getSource()).accepted().stream()
                 .map(p -> new CourseRoute.Point(p.latitude(), p.longitude(), p.altitudeM()))
                 .toList();
         CourseRoute.Normalized route = CourseRoute.normalize(accepted);

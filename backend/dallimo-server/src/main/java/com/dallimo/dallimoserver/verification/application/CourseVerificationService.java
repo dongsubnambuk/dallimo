@@ -93,7 +93,7 @@ public class CourseVerificationService {
             // 124장: 이 기록으로 코스 크라운 · 로컬 레전드가 됐으면 활동으로 남긴다
             activities.onTitles(recordId, run.getUserId(), titles.change(courseId, run.getUserId(), recordId, now), now);
             // 124장 Segment Attack: 코스를 약 1km씩 나눈 구간 기록
-            segments.record(courseId, courseDistance, runId, run.getUserId(), route, runPoints, now);
+            segments.record(courseId, courseDistance, runId, run.getUserId(), route, runPoints, policy.checkAccuracy(), now);
         }
         run.completeVerification(result.outcome().name(), now);
         // 34장 Verification: runId · policyVersion · matchRate · failureReason

@@ -130,7 +130,9 @@ public class ActivityImportService {
         if (!a.points().isEmpty()) points.insertAll(run.getId(), a.points());
         int wall = (int) Duration.between(a.startedAt(), a.endedAt()).toSeconds();
         int elapsed = Math.max(0, Math.min(a.activeSeconds(), wall));
-        int distance = a.points().size() >= 2 ? (int) Math.round(RunMetrics.compute(a.points()).distanceM()) : (a.distanceM() == null ? 0 : a.distanceM());
+        // 경로로 잰 거리. 쓸 수 있는 point가 2개보다 적으면 건강 앱이 잰 거리
+        RunMetrics.Result measured = RunMetrics.compute(a.points(), a.source());
+        int distance = measured.accepted().size() >= 2 ? (int) Math.round(measured.distanceM()) : (a.distanceM() == null ? 0 : a.distanceM());
         run.finish(a.endedAt(), elapsed, distance, RunMetrics.avgPace(distance, elapsed), now);
         if (problem != null) run.importProblem(problem, now);
         runs.saveAndFlush(run);

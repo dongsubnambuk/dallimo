@@ -33,7 +33,25 @@ public final class RunMetrics {
     private RunMetrics() {
     }
 
+    /** 달리모 앱이 직접 잰 point (정확도로 거른다) */
     public static Result compute(List<RunPoint> points) {
+        return compute(points, true);
+    }
+
+    /** 이 source의 point를 정확도로 거르는가. 건강 앱에서 가져온 경로는 기록한 기기가 이미 고른 위치라 거르지 않는다 (FOUNDATION-DECISION-LOG 92항) */
+    public static boolean checksAccuracy(RunSource source) {
+        return source == null || source == RunSource.DALLIMO;
+    }
+
+    public static Result compute(List<RunPoint> points, RunSource source) {
+        return compute(points, checksAccuracy(source));
+    }
+
+    /**
+     * checkAccuracy: false면 정확도(없거나 20m 초과)로 빼지 않는다. 순간 이동 · 끊김 판정은 그대로 한다.
+     * 가져온 경로는 정확도가 없거나(기기마다 다르다) 크게 적혀 있어 모두 빠지면 경로 · 거리가 0이 됐다
+     */
+    public static Result compute(List<RunPoint> points, boolean checkAccuracy) {
         double distance = 0;
         double moving = 0;
         double splitStartMoving = 0;
@@ -45,7 +63,7 @@ public final class RunMetrics {
         boolean broken = false;
 
         for (RunPoint p : points) {
-            if (p.accuracyM() == null || p.accuracyM() > REQUIRED_ACCURACY_M) {
+            if (checkAccuracy && (p.accuracyM() == null || p.accuracyM() > REQUIRED_ACCURACY_M)) {
                 broken = true;
                 continue;
             }

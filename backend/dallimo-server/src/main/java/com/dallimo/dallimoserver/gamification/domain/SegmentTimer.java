@@ -31,12 +31,17 @@ public final class SegmentTimer {
 
     /** 구간마다 기록(초, 반올림). 끝까지 가지 못한 구간은 null */
     public static List<Integer> time(List<CourseRoute.Point> route, List<RunPoint> raw, List<CourseSegments.Segment> segments) {
+        return time(route, raw, segments, true);
+    }
+
+    /** checkAccuracy: false면 point를 정확도로 거르지 않는다 (가져온 경로, RunMetrics.checksAccuracy) */
+    public static List<Integer> time(List<CourseRoute.Point> route, List<RunPoint> raw, List<CourseSegments.Segment> segments, boolean checkAccuracy) {
         List<Integer> out = new ArrayList<>();
         if (route.size() < 2 || segments.isEmpty()) {
             segments.forEach(s -> out.add(null));
             return out;
         }
-        Track track = track(route, RunMetrics.compute(raw).accepted());
+        Track track = track(route, RunMetrics.compute(raw, checkAccuracy).accepted());
         // 구간은 코스 길이로 나눴다. 여기서 잰 경로 길이(평면 근사)에 맞춰 늘이거나 줄인다
         double scale = track.total() / segments.get(segments.size() - 1).endM();
         for (CourseSegments.Segment s : segments) {
