@@ -81,7 +81,9 @@ public class CourseVerificationService {
 
         Instant now = clock.instant();
         store.insertResult(runId, result, policy.version(), now);
-        if (result.outcome() == VerificationOutcome.VERIFIED) {
+        // 만든 사람이 지운 코스(FOUNDATION-DECISION-LOG 90항): 판정은 남기되 공식 기록 · 랭킹 · 알림 · 활동은 만들지 않는다
+        boolean deleted = store.courseDeleted(courseId);
+        if (result.outcome() == VerificationOutcome.VERIFIED && !deleted) {
             int courseDistance = store.courseDistance(courseId).orElse(result.segmentDistanceM());
             int pace = (int) Math.round(result.recordSeconds() / (Math.max(1, courseDistance) / 1000.0));
             store.insertRecord(courseId, runId, run.getUserId(), result.recordSeconds(), pace, result.matchRate(), now);

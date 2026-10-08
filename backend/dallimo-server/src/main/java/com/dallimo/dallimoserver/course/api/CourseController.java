@@ -5,6 +5,7 @@ import com.dallimo.dallimoserver.common.web.CursorPage;
 import com.dallimo.dallimoserver.course.api.CourseDtos.CourseDetailResponse;
 import com.dallimo.dallimoserver.course.api.CourseDtos.CourseSummaryResponse;
 import com.dallimo.dallimoserver.course.api.CourseDtos.CreateCourseRequest;
+import com.dallimo.dallimoserver.course.api.CourseDtos.EditCourseRequest;
 import com.dallimo.dallimoserver.course.api.CourseDtos.ReportRequest;
 import com.dallimo.dallimoserver.course.api.CourseDtos.ReviewRequest;
 import com.dallimo.dallimoserver.course.api.CourseDtos.ReviewResponse;
@@ -26,6 +27,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -94,6 +96,20 @@ public class CourseController {
         CourseView v = courses.create(userId(jwt), req.sourceRunId(), req.name(), req.description(), req.region(), req.recommendedTime(), req.tags());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(CourseDetailResponse.from(v, ranking.weekly(userId(jwt), v.course()),
                 reviews.mine(userId(jwt), v.course().getId()), userId(jwt))));
+    }
+
+    /** 내가 만든 코스의 이름 · 설명 · 태그 · 추천 시간 고치기. 43장 표에 없어 더했다 (FOUNDATION-DECISION-LOG 90항) */
+    @PatchMapping("/{courseId}")
+    public ApiResponse<CourseDetailResponse> edit(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId, @Valid @RequestBody EditCourseRequest req) {
+        CourseView v = courses.edit(userId(jwt), courseId, req.name(), req.description(), req.recommendedTime(), req.tags());
+        return ApiResponse.ok(CourseDetailResponse.from(v, ranking.weekly(userId(jwt), v.course()), reviews.mine(userId(jwt), courseId), userId(jwt)));
+    }
+
+    /** 내가 만든 코스 지우기 (22.3장 deleted_at). 43장 표에 없어 더했다 (FOUNDATION-DECISION-LOG 90항) */
+    @DeleteMapping("/{courseId}")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable long courseId) {
+        courses.delete(userId(jwt), courseId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{courseId}/bookmarks")

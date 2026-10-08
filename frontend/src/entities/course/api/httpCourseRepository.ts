@@ -82,6 +82,8 @@ export type CourseDetailDto = {
   rating: { avg: number | null; count: number; canReview: boolean; mine: ReviewDto | null };
   // 추천 코스 출처 (사용자 코스는 null)
   source: CourseSourceInfo | null;
+  // 보는 사람이 만든 코스 (결정 로그 90항). 예전 서버는 없다
+  isMine?: boolean;
 };
 
 // 노면 점수 평균을 말로 (1 울퉁불퉁 ~ 3 고름)
@@ -166,6 +168,7 @@ export function toCourseDetail(c: CourseDetailDto): CourseDetail {
       myEntry: c.competition.myEntry ? toRankingEntry(c.competition.myEntry) : null,
     },
     bookmarked: c.bookmarked,
+    isMine: c.isMine === true,
   };
 }
 
@@ -226,6 +229,18 @@ export function createHttpCourseRepository(): CourseRepository {
       call(async () => toReview(await apiRequest<ReviewDto>(`/api/v1/courses/${encodeURIComponent(courseId)}/reviews`, { method: 'POST', body: input }))),
 
     deleteReview: (courseId) => call(() => apiRequest<void>(`/api/v1/courses/${encodeURIComponent(courseId)}/reviews/me`, { method: 'DELETE' })),
+
+    edit: (id, input) =>
+      call(async () =>
+        toCourseDetail(
+          await apiRequest<CourseDetailDto>(`/api/v1/courses/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: { name: input.name.trim(), description: input.description?.trim() || null, tags: input.tags, recommendedTime: input.recommendedTime },
+          }),
+        ),
+      ),
+
+    remove: (id) => call(() => apiRequest<void>(`/api/v1/courses/${encodeURIComponent(id)}`, { method: 'DELETE' })),
 
     report: (courseId, reason, content) =>
       call(() => apiRequest<void>(`/api/v1/courses/${encodeURIComponent(courseId)}/reports`, { method: 'POST', body: { reason, content } })),
