@@ -36,6 +36,8 @@ const icons = {
   warning: { ios: 'exclamationmark.triangle.fill', android: 'warning' },
   check: { ios: 'checkmark', android: 'check' },
   expand: { ios: 'chevron.down', android: 'expand_more' },
+  // 달리는 중 구간 페이스 목록에서 기록 화면으로 (위로 넘기기, 결정 로그 91항)
+  expandUp: { ios: 'chevron.up', android: 'expand_less' },
   collapse: { ios: 'chevron.right', android: 'chevron_right' },
   search: { ios: 'magnifyingglass', android: 'search' },
   close: { ios: 'xmark', android: 'close' },
