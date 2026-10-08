@@ -149,6 +149,40 @@ public class CourseService {
         return assemble(List.of(course), userId, Map.of()).get(0);
     }
 
+    /**
+     * 내가 만든 코스의 이름 · 설명 · 태그 · 추천 시간 고치기 (FOUNDATION-DECISION-LOG 90항). 경로는 바꾸지 않는다 (43.1장).
+     * 운영 정책으로 숨겨진 코스는 고칠 수 없다
+     */
+    @Transactional
+    public CourseView edit(long userId, long courseId, String name, String description, String recommendedTime, List<String> tags) {
+        Course c = owned(userId, courseId);
+        if (!c.getStatus().viewable()) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN, "숨겨진 코스는 고칠 수 없어요.");
+        c.edit(name, description, recommendedTime, clock.instant());
+        store.replaceTags(courseId, tags);
+        return assemble(List.of(c), userId, Map.of()).get(0);
+    }
+
+    /**
+     * 내가 만든 코스 지우기 (FOUNDATION-DECISION-LOG 90항). 22.3장: deleted_at으로 감춘다.
+     * 탐색 · 검색 · 랭킹 · 상세에서 빠지고, 이 코스를 달린 사람들의 Run은 기록에 그대로 남는다. 끝나지 않은 도전은 취소한다.
+     * 같은 요청을 다시 보내도 결과가 같다
+     */
+    @Transactional
+    public void delete(long userId, long courseId) {
+        Course c = courses.findById(courseId).orElseThrow(() -> new ApiException(ErrorCode.COURSE_NOT_FOUND));
+        if (!c.getCreatorId().equals(userId)) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN, "내가 만든 코스만 지울 수 있어요.");
+        if (c.deleted()) return;
+        Instant now = clock.instant();
+        c.delete(now);
+        store.cancelOpenChallenges(courseId, now);
+    }
+
+    private Course owned(long userId, long courseId) {
+        Course c = courses.findById(courseId).filter(x -> !x.deleted()).orElseThrow(() -> new ApiException(ErrorCode.COURSE_NOT_FOUND));
+        if (!c.getCreatorId().equals(userId)) throw new ApiException(ErrorCode.RESOURCE_FORBIDDEN, "내가 만든 코스만 고칠 수 있어요.");
+        return c;
+    }
+
     /** CRS-105. 같은 요청을 다시 보내도 결과가 같다 */
     @Transactional
     public void bookmark(long userId, long courseId, boolean saved) {

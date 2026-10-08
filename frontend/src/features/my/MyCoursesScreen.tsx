@@ -17,6 +17,8 @@ import { type MockCourseScenario } from '@/entities/course/api/mockCourseReposit
 import type { MyCourse, MyCourseKind } from '@/entities/course/types';
 import { formatCount, formatDuration } from '@/shared/format';
 
+import { CourseDeleteSheet } from '@/features/course/CourseDeleteSheet';
+
 import { dayLabel } from './labels';
 
 const TABS: { key: MyCourseKind; label: string }[] = [
@@ -39,6 +41,10 @@ export function MyCoursesScreen({ initialTab, scenario }: { initialTab: MyCourse
   const repo = useMemo(() => getCourseRepository(scenario), [scenario]);
   const list = useQuery({ queryKey: ['course', 'mine', tab, scenario], queryFn: () => repo.getMine(tab), retry: false });
   const back = () => (router.canGoBack() ? router.back() : router.replace('/my'));
+  // 신고로 숨겨졌거나 공개 중지된 내 코스는 상세를 열 수 없어 여기서 지운다 (결정 로그 90항)
+  const [closed, setClosed] = useState<MyCourse | null>(null);
+  const open = (c: MyCourse) =>
+    tab === 'created' && (c.status === 'HIDDEN' || c.status === 'BLOCKED') ? setClosed(c) : router.push({ pathname: '/course/[id]', params: { id: c.id } });
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg.canvas, paddingTop: insets.top }]}>
@@ -82,8 +88,8 @@ export function MyCoursesScreen({ initialTab, scenario }: { initialTab: MyCourse
               route={item.displayRoute}
               recordContext={contextOf(tab, item)}
               socialContext={item.finisherCount > 0 ? `완주 ${formatCount(item.finisherCount)}명` : undefined}
-              onPress={() => router.push({ pathname: '/course/[id]', params: { id: item.id } })}
-              accessibilityHint="코스 상세를 열어요"
+              onPress={() => open(item)}
+              accessibilityHint={tab === 'created' && (item.status === 'HIDDEN' || item.status === 'BLOCKED') ? '코스를 지울 수 있어요' : '코스 상세를 열어요'}
             />
           )}
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + spacing.xxl }]}
@@ -97,6 +103,16 @@ export function MyCoursesScreen({ initialTab, scenario }: { initialTab: MyCourse
           }
         />
       )}
+      {closed ? (
+        <CourseDeleteSheet
+          courseId={closed.id}
+          name={closed.name}
+          otherFinishers={Math.max(0, closed.finisherCount - (closed.myBestSec != null ? 1 : 0))}
+          note={closed.status === 'HIDDEN' ? '신고로 숨겨져 검토 중인 코스라 열 수 없어요.' : '운영 정책으로 공개가 중지된 코스라 열 수 없어요.'}
+          onDeleted={() => setClosed(null)}
+          onClose={() => setClosed(null)}
+        />
+      ) : null}
     </View>
   );
 }

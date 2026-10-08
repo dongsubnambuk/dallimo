@@ -46,6 +46,21 @@ public final class CourseDtos {
         }
     }
 
+    /** 내 코스 고치기 (FOUNDATION-DECISION-LOG 90항). 등록 요청과 같은 규칙. 경로는 바꾸지 않는다 (43.1장) */
+    public record EditCourseRequest(
+            @NotBlank @Size(max = 100) String name,
+            @Size(max = 1000) String description,
+            @Size(max = 6) List<@NotBlank @Size(max = 20) String> tags,
+            @Size(max = 30) String recommendedTime) {
+
+        public EditCourseRequest {
+            name = name == null ? null : name.trim();
+            description = description == null || description.isBlank() ? null : description.trim();
+            recommendedTime = recommendedTime == null || recommendedTime.isBlank() ? null : recommendedTime.trim();
+            tags = tags == null ? List.of() : tags.stream().map(t -> t == null ? null : t.trim()).distinct().toList();
+        }
+    }
+
     /** 목록 한 줄 (CourseSummary). displayRoute는 100점 이하로 줄인 경로 */
     /** ratingAvg: 평가 평균(소수 한 자리, 평가가 없으면 null) · reviewCount (CRS-004 평점 필터 · 정렬) */
     /** difficulty · recommendedTime: 앱 추천 코스가 러닝 경험 · 달리는 시간에 맞춘다 (FOUNDATION-DECISION-LOG 64항). 모르면 null */
@@ -144,12 +159,15 @@ public final class CourseDtos {
                               RankingService.FriendBest friendBest) {
     }
 
-    /** 상세 (CourseDetail). route는 1000점 이하, elevationProfile은 [거리(m), 고도(m)] (고도가 없으면 null) */
+    /**
+     * 상세 (CourseDetail). route는 1000점 이하, elevationProfile은 [거리(m), 고도(m)] (고도가 없으면 null).
+     * isMine: 보는 사람이 만든 코스 (고치기 · 지우기를 보여 준다, FOUNDATION-DECISION-LOG 90항)
+     */
     public record CourseDetailResponse(long id, String name, CourseStatus status, String description, String creatorName,
                                        int distanceM, int estimatedSec, String difficulty, Double elevationGainM, List<String> tags,
                                        List<double[]> route, List<double[]> elevationProfile, int finisherCount, int weeklyRunnerCount,
                                        MyRecord myRecord, Competition competition, boolean bookmarked, Instant createdAt, String region,
-                                       String recommendedTime, Environment environment, Rating rating, SourceInfo source) {
+                                       String recommendedTime, Environment environment, Rating rating, SourceInfo source, boolean isMine) {
         static CourseDetailResponse from(CourseView v, RankingService.WeeklyPreview weekly, CourseReviewService.Mine mine, Long viewerId) {
             var s = v.stats();
             MyRecord my = s.myBestSec() == null ? null : new MyRecord(s.myBestSec(), s.myLastSec(), s.myFinishCount());
@@ -161,7 +179,8 @@ public final class CourseDtos {
                     RankingEntryResponse.from(weekly.me()), weekly.friendBest()), v.bookmarked(), v.course().getCreatedAt(), v.course().getRegion(),
                     v.course().getRecommendedTime(), Environment.from(v.reviews()),
                     new Rating(oneDecimal(v.reviews().ratingAvg()), v.reviews().reviewCount(), mine.canReview(),
-                            mine.review() == null ? null : ReviewResponse.from(mine.review(), viewerId)), SourceInfo.from(v.course()));
+                            mine.review() == null ? null : ReviewResponse.from(mine.review(), viewerId)), SourceInfo.from(v.course()),
+                    viewerId != null && v.course().getCreatorId().equals(viewerId));
         }
     }
 

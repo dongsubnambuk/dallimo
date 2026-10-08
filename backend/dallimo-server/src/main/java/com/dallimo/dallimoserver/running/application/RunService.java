@@ -363,8 +363,10 @@ public class RunService {
         return run;
     }
 
+    // 지운 코스도 받는다: 오프라인으로 달린 뒤 그사이 코스가 지워져도 기록은 올라가야 한다 (FOUNDATION-DECISION-LOG 90항).
+    // 지운 코스에는 공식 기록을 만들지 않는다 (CourseVerificationService)
     private boolean courseExists(long courseId) {
-        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course WHERE id = ? AND deleted_at IS NULL", Integer.class, courseId);
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course WHERE id = ?", Integer.class, courseId);
         return n != null && n > 0;
     }
 

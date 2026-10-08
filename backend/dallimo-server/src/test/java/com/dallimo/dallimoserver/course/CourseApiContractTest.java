@@ -283,6 +283,98 @@ abstract class CourseApiContractTest {
         assertThat(get(null, "/api/v1/users/me/courses?kind=SAVED")).hasStatus(401);
     }
 
+    // ── 내 코스 고치기 · 지우기 (FOUNDATION-DECISION-LOG 90항) ──
+
+    @Test
+    void onlyCreatorEditsNameDescriptionTagsAndTimeButNotRoute() {
+        User me = signup();
+        User other = signup();
+        double[] at = somewhere();
+        long courseId = course(me.token, at, "처음 이름");
+        String before = body(get(me.token, "/api/v1/courses/" + courseId));
+        assertThat((Boolean) JsonPath.read(before, "$.data.isMine")).isTrue();
+        assertThat((Boolean) JsonPath.read(body(get(other.token, "/api/v1/courses/" + courseId)), "$.data.isMine")).isFalse();
+        assertThat((Boolean) JsonPath.read(body(get(null, "/api/v1/courses/" + courseId)), "$.data.isMine")).isFalse();
+
+        String edit = """
+                {"name":"  바뀐 이름 ","description":"  설명  ","tags":["평지","강변","평지"],"recommendedTime":"새벽 · 저녁"}""";
+        assertThat(patch(other.token, "/api/v1/courses/" + courseId, edit)).hasStatus(403);
+        assertThat(patch(null, "/api/v1/courses/" + courseId, edit)).hasStatus(401);
+        assertThat(patch(me.token, "/api/v1/courses/" + courseId, """
+                {"name":"   ","tags":[]}""")).hasStatus(400);
+        assertThat(patch(me.token, "/api/v1/courses/99999999", edit)).hasStatus(404);
+
+        MvcTestResult r = patch(me.token, "/api/v1/courses/" + courseId, edit);
+        assertThat(r).hasStatusOk();
+        String b = body(r);
+        assertThat((String) JsonPath.read(b, "$.data.name")).isEqualTo("바뀐 이름");
+        assertThat((String) JsonPath.read(b, "$.data.description")).isEqualTo("설명");
+        assertThat((String) JsonPath.read(b, "$.data.recommendedTime")).isEqualTo("새벽 · 저녁");
+        assertThat(JsonPath.<List<String>>read(b, "$.data.tags")).containsExactly("평지", "강변");
+        assertThat((Boolean) JsonPath.read(b, "$.data.isMine")).isTrue();
+        // 경로 · 거리는 그대로 (43.1장)
+        assertThat((Integer) JsonPath.read(b, "$.data.distanceM")).isEqualTo(JsonPath.<Integer>read(before, "$.data.distanceM"));
+        assertThat(JsonPath.<List<?>>read(b, "$.data.route")).hasSameSizeAs(JsonPath.<List<?>>read(before, "$.data.route"));
+
+        // 설명 · 태그 · 추천 시간을 비우면 지운다
+        String cleared = body(patch(me.token, "/api/v1/courses/" + courseId, """
+                {"name":"바뀐 이름","description":" ","tags":[],"recommendedTime":null}"""));
+        assertThat((Object) JsonPath.read(cleared, "$.data.description")).isNull();
+        assertThat((Object) JsonPath.read(cleared, "$.data.recommendedTime")).isNull();
+        assertThat(JsonPath.<List<String>>read(cleared, "$.data.tags")).isEmpty();
+
+        // 운영 정책으로 숨겨진 코스는 고칠 수 없다
+        jdbc.update("UPDATE tbl_course SET status = 'HIDDEN' WHERE id = ?", courseId);
+        assertThat(patch(me.token, "/api/v1/courses/" + courseId, edit)).hasStatus(403);
+    }
+
+    @Test
+    void creatorDeletesCourseAndOthersKeepTheirRuns() {
+        User me = signup();
+        User rival = signup();
+        double[] at = somewhere();
+        long courseId = course(me.token, at, "지울 코스");
+        assertThat(post(me.token, "/api/v1/courses/" + courseId + "/bookmarks", "")).hasStatus(204);
+        // 다른 사람이 이 코스를 달렸다
+        long rivalRun = newRun(rival.token, courseId);
+        upload(rival.token, rivalRun, at, 1, 300, false);
+        assertThat(finish(rival.token, rivalRun, 300)).hasStatusOk();
+        assertThat(awaitVerification(rival.token, rivalRun)).isEqualTo("VERIFIED");
+        long recordId = jdbc.queryForObject("SELECT id FROM tbl_course_record WHERE run_id = ?", Long.class, rivalRun);
+        // 내 이 코스 기록에 걸린 끝나지 않은 도전
+        jdbc.update("""
+                INSERT INTO tbl_challenge (challenger_id, target_user_id, course_id, target_record_id, status, created_at)
+                VALUES (?, ?, ?, ?, 'OPEN', ?)""", me.userId, rival.userId, courseId, recordId, Timestamp.from(T0));
+
+        assertThat(delete(rival.token, "/api/v1/courses/" + courseId)).hasStatus(403);
+        assertThat(delete(null, "/api/v1/courses/" + courseId)).hasStatus(401);
+        assertThat(delete(me.token, "/api/v1/courses/" + courseId)).hasStatus(204);
+        assertThat(delete(me.token, "/api/v1/courses/" + courseId)).hasStatus(204);
+        assertThat(delete(me.token, "/api/v1/courses/99999999")).hasStatus(404);
+
+        // 상세 · 랭킹 · 주변 · 내 코스에서 빠진다
+        assertThat(get(rival.token, "/api/v1/courses/" + courseId)).hasStatus(404);
+        assertThat(get(null, "/api/v1/courses/" + courseId + "/rankings")).hasStatus(404);
+        assertThat(ids(body(get(null, "/api/v1/courses/nearby?lat=%f&lng=%f&radius=2000".formatted(at[0], at[1]))))).doesNotContain(courseId);
+        assertThat(ids(body(get(me.token, "/api/v1/users/me/courses?kind=CREATED")), "$.data")).doesNotContain(courseId);
+        assertThat(ids(body(get(me.token, "/api/v1/users/me/courses?kind=SAVED")), "$.data")).doesNotContain(courseId);
+        assertThat(ids(body(get(rival.token, "/api/v1/users/me/courses?kind=FINISHED")), "$.data")).doesNotContain(courseId);
+        assertThat(patch(me.token, "/api/v1/courses/" + courseId, """
+                {"name":"다시"}""")).hasStatus(404);
+        // 다른 사람의 Run은 기록에 그대로 남는다 (22.3장)
+        String run = body(get(rival.token, "/api/v1/runs/" + rivalRun));
+        assertThat((String) JsonPath.read(run, "$.data.summary.courseName")).isEqualTo("지울 코스");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course_record WHERE course_id = ?", Integer.class, courseId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT status FROM tbl_challenge WHERE course_id = ?", String.class, courseId)).isEqualTo("CANCELED");
+
+        // 오프라인으로 달린 뒤 그사이 지워졌어도 올라간다. 공식 기록은 만들지 않는다
+        long late = newRun(rival.token, courseId);
+        upload(rival.token, late, at, 1, 300, false);
+        assertThat(finish(rival.token, late, 300)).hasStatusOk();
+        assertThat(awaitVerification(rival.token, late)).isNotEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course_record WHERE run_id = ?", Integer.class, late)).isZero();
+    }
+
     // ── 기록 숫자 · 코스 러닝 ──
 
     @Test
@@ -435,6 +527,12 @@ abstract class CourseApiContractTest {
     private MvcTestResult search(String query, String rest) {
         return mvc.get().uri(java.net.URI.create("/api/v1/courses/search?query="
                 + java.net.URLEncoder.encode(query, StandardCharsets.UTF_8).replace("+", "%20") + rest)).exchange();
+    }
+
+    private MvcTestResult patch(String token, String uri, String json) {
+        var req = mvc.patch().uri(uri).contentType(MediaType.APPLICATION_JSON).content(json);
+        if (token != null) req = req.header("Authorization", "Bearer " + token);
+        return req.exchange();
     }
 
     private MvcTestResult delete(String token, String uri) {

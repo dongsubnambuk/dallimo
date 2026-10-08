@@ -53,6 +53,10 @@ public class VerificationJdbcRepository {
                 ORDER BY id LIMIT ?""", Long.class, Timestamp.from(updatedBefore), limit);
     }
 
+    public boolean courseDeleted(long courseId) {
+        return !jdbc.queryForList("SELECT id FROM tbl_course WHERE id = ? AND deleted_at IS NOT NULL", Long.class, courseId).isEmpty();
+    }
+
     public Optional<Integer> courseDistance(long courseId) {
         return jdbc.queryForList("SELECT distance_m FROM tbl_course WHERE id = ?", Integer.class, courseId).stream().findFirst();
     }

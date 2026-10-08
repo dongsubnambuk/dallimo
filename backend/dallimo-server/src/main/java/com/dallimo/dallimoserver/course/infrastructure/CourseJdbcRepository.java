@@ -63,6 +63,17 @@ public class CourseJdbcRepository {
         if (!rows.isEmpty()) jdbc.batchUpdate("INSERT INTO tbl_course_tag (course_id, tag, seq) VALUES (?, ?, ?)", rows);
     }
 
+    /** 지운 코스에 걸린 끝나지 않은 도전은 취소한다 (도전 목록에서 빠지고, 달리는 중이던 Run은 판정하지 않는다) */
+    public void cancelOpenChallenges(long courseId, Instant now) {
+        jdbc.update("UPDATE tbl_challenge SET status = 'CANCELED', finished_at = ? WHERE course_id = ? AND status IN ('OPEN', 'RUNNING')",
+                Timestamp.from(now), courseId);
+    }
+
+    public void replaceTags(long courseId, List<String> tags) {
+        jdbc.update("DELETE FROM tbl_course_tag WHERE course_id = ?", courseId);
+        insertTags(courseId, tags);
+    }
+
     public Map<Long, List<String>> tags(List<Long> courseIds) {
         Map<Long, List<String>> out = new HashMap<>();
         if (courseIds.isEmpty()) return out;

@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useMemo, useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLoader } from '@/components/Brand';
-import { FilterChip } from '@/components/FilterChip';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { StateNotice } from '@/components/StateNotice';
 import { AppIcon, AppPressable, AppText } from '@/design/primitives';
@@ -13,7 +12,7 @@ import { useTheme } from '@/design/theme';
 import { fontFamily, radius, spacing, touchTarget } from '@/design/tokens';
 import { getCourseRegistration } from '@/entities/course/api';
 import { CourseRepositoryError } from '@/entities/course/api/courseRepository';
-import { COURSE_DESCRIPTION_MAX, COURSE_NAME_MAX } from '@/entities/course/api/courseRegistration';
+import { COURSE_NAME_MAX } from '@/entities/course/api/courseRegistration';
 import { type RegisterScenario } from '@/entities/course/api/mockCourseRegistration';
 import type { RunResult } from '@/entities/run/result';
 import { RoutePreview } from '@/features/my/components/RoutePreview';
@@ -24,9 +23,7 @@ import { ConfirmSheet } from '@/features/settings/components/ConfirmSheet';
 import { formatDistanceKm, formatDuration } from '@/shared/format';
 import { regionNameAt } from '@/shared/location/regionName';
 
-// 탐색 필터 · 기존 코스와 같은 태그 이름을 쓴다
-const TAGS = ['평지', '오르막', '강변', '신호 적음', '야간 밝음', '초보 추천'];
-const TIMES = ['새벽', '아침', '오전', '오후', '저녁', '밤'];
+import { CourseInfoFields, joinTimes, type CourseInfoValue } from './CourseInfoFields';
 
 // SCR-E05 코스 등록 (CREG-001~004). 3.2장 코스 생성 흐름: 자유 러닝 완료 → 코스로 공유 → 정보 입력 → 경로 확인 → 등록.
 export function CourseCreateScreen({ runId, scenario }: { runId: string; scenario: RegisterScenario }) {
@@ -57,10 +54,8 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
   const queryClient = useQueryClient();
   const repo = useMemo(() => getCourseRegistration(scenario), [scenario]);
   const [step, setStep] = useState<'info' | 'route'>('info');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [times, setTimes] = useState<string[]>([]);
+  const [info, setInfo] = useState<CourseInfoValue>({ name: '', description: '', tags: [], times: [] });
+  const { name, description, tags, times } = info;
   // 입력한 내용이 있으면 닫기 전에 묻는다 (결정 로그 82항)
   const [confirmClose, setConfirmClose] = useState(false);
   const dirty = name.trim() !== '' || description.trim() !== '' || tags.length > 0 || times.length > 0;
@@ -79,8 +74,7 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
         name: trimmed,
         description: description.trim() || null,
         tags,
-        // 고른 순서가 아니라 하루 순서대로 적는다. 예: "새벽 · 저녁"
-        recommendedTime: times.length ? TIMES.filter((t) => times.includes(t)).join(' · ') : null,
+        recommendedTime: joinTimes(times),
         region: region.data ?? null,
       }),
     onSuccess: (course) => {
@@ -89,8 +83,6 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
     },
   });
   const error = register.error instanceof CourseRepositoryError && register.error.kind === 'invalid' ? register.error.message : register.isError ? '등록하지 못했어요. 연결을 확인하고 다시 시도해 주세요.' : null;
-
-  const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   return (
     <>
@@ -137,44 +129,7 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
                 </AppText>
               </View>
             ) : null}
-            <Field label="코스 이름" required counter={`${trimmed.length}/${COURSE_NAME_MAX}`} over={trimmed.length > COURSE_NAME_MAX}>
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="예: 수성못 새벽 한 바퀴"
-                placeholderTextColor={colors.text.secondary}
-                accessibilityLabel="코스 이름"
-                maxFontSizeMultiplier={1.4}
-                style={[styles.input, { backgroundColor: colors.bg.surface, color: colors.text.primary }]}
-              />
-            </Field>
-            <Field label="설명" hint="선택">
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder="어떤 길인지, 달릴 때 알아 두면 좋은 점"
-                placeholderTextColor={colors.text.secondary}
-                accessibilityLabel="코스 설명"
-                maxLength={COURSE_DESCRIPTION_MAX}
-                multiline
-                maxFontSizeMultiplier={1.4}
-                style={[styles.input, styles.multiline, { backgroundColor: colors.bg.surface, color: colors.text.primary }]}
-              />
-            </Field>
-            <Field label="태그" hint="여러 개 고를 수 있어요">
-              <View style={styles.chips}>
-                {TAGS.map((t) => (
-                  <FilterChip key={t} label={t} selected={tags.includes(t)} onPress={() => toggle(tags, setTags, t)} />
-                ))}
-              </View>
-            </Field>
-            <Field label="추천 시간" hint="여러 개 고를 수 있어요">
-              <View style={styles.chips}>
-                {TIMES.map((t) => (
-                  <FilterChip key={t} label={t} selected={times.includes(t)} onPress={() => toggle(times, setTimes, t)} />
-                ))}
-              </View>
-            </Field>
+            <CourseInfoFields value={info} onChange={setInfo} />
             <SecondaryButton label="경로 확인" emphasized disabled={!nameOk || !!blocked} onPress={() => setStep('route')} />
           </>
         ) : (
@@ -204,7 +159,7 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
               ) : null}
               {tags.length || times.length ? (
                 <AppText role="label" tone="secondary">
-                  {[...tags, ...(times.length ? [`추천 ${TIMES.filter((t) => times.includes(t)).join(' · ')}`] : [])].join(' · ')}
+                  {[...tags, ...(times.length ? [`추천 ${joinTimes(times)}`] : [])].join(' · ')}
                 </AppText>
               ) : null}
             </View>
@@ -238,30 +193,6 @@ function Form({ run, scenario, onClose, bottomInset }: { run: RunResult; scenari
         />
       ) : null}
     </>
-  );
-}
-
-function Field({ label, hint, required, counter, over, children }: { label: string; hint?: string; required?: boolean; counter?: string; over?: boolean; children: ReactNode }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.field}>
-      <View style={styles.fieldHead}>
-        <AppText role="label" style={styles.bold}>
-          {label}
-          {required ? <AppText role="label" style={{ color: colors.status.danger }}> *</AppText> : null}
-        </AppText>
-        {hint ? (
-          <AppText role="caption" tone="secondary">
-            {hint}
-          </AppText>
-        ) : counter ? (
-          <AppText role="caption" tone={over ? 'danger' : 'secondary'} tabular>
-            {counter}
-          </AppText>
-        ) : null}
-      </View>
-      {children}
-    </View>
   );
 }
 
@@ -321,31 +252,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
     borderRadius: radius.card,
-  },
-  field: {
-    gap: spacing.sm,
-  },
-  fieldHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-  },
-  input: {
-    minHeight: touchTarget.min + spacing.sm,
-    borderRadius: radius.control,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontFamily: fontFamily.medium,
-    fontSize: 16,
-  },
-  multiline: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
   },
   legend: {
     flexDirection: 'row',

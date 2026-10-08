@@ -238,6 +238,8 @@ function toDetail(c: MockCourse, scenario: MockCourseScenario): CourseDetail {
         ? null
         : { leaderSec: c.leaderSec, myWeeklyRank: hasRecord ? x.myWeeklyRank : null, friendBest: x?.friendBest ?? null, weeklyTop: top, myEntry },
     bookmarked: bookmarks.has(c.id),
+    // 앱을 켜 둔 동안 내가 등록한 코스 (결정 로그 90항 고치기 · 지우기)
+    isMine: created.has(c.id),
     status: statusOf(c),
     rating: {
       avg: ratingOf(c.id).ratingAvg,
@@ -383,6 +385,31 @@ export function createMockCourseRepository(scenario: MockCourseScenario): Course
     async deleteReview(courseId) {
       await wait(300);
       reviews.set(courseId, (reviews.get(courseId) ?? []).filter((r) => !r.isMine));
+    },
+    async edit(id, input) {
+      await wait(400);
+      if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
+      const c = MOCK_COURSES.find((m) => m.id === id);
+      if (!c) throw new CourseRepositoryError('notFound', '코스를 찾을 수 없어요');
+      if (!created.has(id)) throw new CourseRepositoryError('hidden', '내가 만든 코스만 고칠 수 있어요.');
+      c.name = input.name.trim();
+      c.tags = input.tags;
+      const x = MOCK_DETAIL[id];
+      if (x) {
+        x.description = input.description?.trim() || null;
+        x.recommendedTime = input.recommendedTime;
+      }
+      return toDetail(c, scenario);
+    },
+    async remove(id) {
+      await wait(400);
+      if (scenario === 'error') throw new CourseRepositoryError('network', '네트워크에 연결할 수 없어요');
+      const i = MOCK_COURSES.findIndex((m) => m.id === id);
+      if (i < 0) return;
+      if (!created.has(id)) throw new CourseRepositoryError('hidden', '내가 만든 코스만 지울 수 있어요.');
+      MOCK_COURSES.splice(i, 1);
+      created.delete(id);
+      bookmarks.delete(id);
     },
     async report(courseId, reason: ReportReason) {
       await wait(400);

@@ -151,6 +151,20 @@ public class Course {
         return deletedAt != null;
     }
 
+    /** 만든 사람이 고칠 수 있는 정보만 바꾼다. 경로 · 거리는 바꾸지 않는다 (43.1장) */
+    public void edit(String name, String description, String recommendedTime, Instant now) {
+        this.name = name;
+        this.description = description;
+        this.recommendedTime = recommendedTime;
+        this.updatedAt = now;
+    }
+
+    /** 22.3장: 지우지 않고 deleted_at으로 감춘다. 이 코스를 달린 Run · 공식 기록은 그대로 둔다 */
+    public void delete(Instant now) {
+        this.deletedAt = now;
+        this.updatedAt = now;
+    }
+
     public Long getId() {
         return id;
     }

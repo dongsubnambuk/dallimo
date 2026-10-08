@@ -979,8 +979,24 @@ paths:
       tags:
       - 코스 (43장)
   /api/v1/courses/{courseId}:
+    delete:
+      operationId: delete_1
+      parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+      security:
+      - bearerAuth: []
+      tags:
+      - 코스 (43장)
     get:
-      operationId: detail_1
+      operationId: detail
       parameters:
       - in: path
         name: courseId
@@ -997,6 +1013,32 @@ paths:
           description: OK
       security:
       - {}
+      - bearerAuth: []
+      tags:
+      - 코스 (43장)
+    patch:
+      operationId: edit
+      parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditCourseRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseCourseDetailResponse"
+          description: OK
+      security:
       - bearerAuth: []
       tags:
       - 코스 (43장)
@@ -1860,7 +1902,7 @@ paths:
       - Run (42장)
   /api/v1/runs/{runId}:
     get:
-      operationId: detail
+      operationId: detail_1
       parameters:
       - in: path
         name: runId
@@ -3367,6 +3409,8 @@ components:
         id:
           type: integer
           format: int64
+        isMine:
+          type: boolean
         myRecord:
           $ref: "#/components/schemas/MyRecord"
         name:
@@ -3832,6 +3876,31 @@ components:
         signedInAt:
           type: string
           format: date-time
+    EditCourseRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 1000
+          minLength: 0
+        name:
+          type: string
+          maxLength: 100
+          minLength: 0
+        recommendedTime:
+          type: string
+          maxLength: 30
+          minLength: 0
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 20
+            minLength: 0
+          maxItems: 6
+          minItems: 0
+      required:
+      - name
     Entry:
       type: object
       properties:
