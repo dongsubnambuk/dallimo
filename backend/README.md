@@ -408,7 +408,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **Run 필드** (122.4장): `source · source_provider · provider_activity_id · source_device_name · imported_at · trust_level · verification_policy_version · import_status · import_failure_reason`. 달리모 기록은 `DALLIMO · HIGH`, 건강 앱은 `MEDIUM`, GPX는 `LOW`(순위에 넣지 않음).
 - **결과**: `IMPORTED`(Run을 만듦), `MERGE_CANDIDATE`(같은 시간에 달리모로 기록한 러닝이 있음, Run을 만들지 않고 겹친 Run id), `FAILED`(형식 오류, 다시 보낼 수 있음).
 - **코스 매칭**: 경로 근처(출발점 반경 안에 point가 지나는) 코스를 가까운 순으로 30개까지 골라 검증기를 미리 돌려 본다(저장하지 않음). 인증되는 코스가 있으면 일치율이 가장 높은 코스로 이어 COURSE Run이 되고 보통 검증(비동기)을 거친다. 없으면 코스 없는 FREE Run. 매칭 중 오류가 나도 Run은 남기고 `import_failure_reason = COURSE_MATCH_FAILED`.
-- **검증 정책**: 가져온 기록은 `2026-09-imp-v1`(따라 달린 비율 90% 이상, 출발~도착 point 간격 가운데 값 5초 이하, 넘으면 `GPS_SPARSE`). 결과에 정책 버전을 남긴다.
+- **검증 정책**: 가져온 기록은 `2026-10-imp-v2`(따라 달린 비율 90% 이상, 출발~도착 point 간격 가운데 값 5초 이하, 넘으면 `GPS_SPARSE`). 결과에 정책 버전을 남긴다.
+- **가져온 경로 point** (FOUNDATION-DECISION-LOG 92항): 정확도(20m)로 거르지 않는다. 정확도가 없거나 크게 적혀 와도 경로 · 거리 · 코스 매칭 · 검증 · 고스트 · 구간 기록에 쓴다. 순간 이동(초속 12m)과 15초 넘는 끊김은 그대로 본다. 쓸 point가 2개보다 적으면 건강 앱 거리를 쓴다. 예전에 거리 0으로 저장된 가져온 기록은 서버를 켤 때 `ImportedDistanceRepair`가 다시 잰다.
 - **테스트**: `ImportApiContractTest`를 MySQL · MariaDB에서(코스 매칭 → 인증 · 같은 요청 같은 결과 · check · integrations · 달리모 기록과 겹침 · 성긴 경로 → 코스 없음 · 실내 · 자유 · 실패 기록 뒤 다시 시도 · 잘못된 요청 · 로그인).
 
 ## 외부 추천 코스 (사용자 결정: 명세 2.1장 MVP 제외 "전국 자동 코스 생성"을 외부 공개 데이터 가져오기로 넣는다)
