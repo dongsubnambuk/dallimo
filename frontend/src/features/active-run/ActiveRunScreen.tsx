@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLoader } from '@/components/Brand';
@@ -36,6 +36,7 @@ import { IntervalPanel } from './components/IntervalPanel';
 import { ModeStrip, type RunTarget } from './components/ModeStrip';
 import { RunPathMap } from './components/RunPathMap';
 import { SegmentAttackBanner } from './components/SegmentAttackBanner';
+import { SplitPage } from './components/SplitPage';
 import { runNoticeOf } from './runNotice';
 import { useElapsedSec } from './useElapsedSec';
 
@@ -172,15 +173,19 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
       {view === 'metrics' && flat ? (
         <IntervalPanel engine={engine} flat={flat} />
       ) : view === 'metrics' ? (
-        <View style={styles.metrics}>
-          <DistanceHero engine={engine} />
-          <View style={styles.row}>
-            <ElapsedMetric engine={engine} size="large" />
-            <AvgPaceMetric engine={engine} size="large" />
-          </View>
-          {attack ? <SegmentAttackBanner engine={engine} attack={attack} /> : null}
-          <ModeStrip engine={engine} target={chase} />
-        </View>
+        <MetricsPager engine={engine}>
+          {(compact) => (
+            <View style={[styles.metrics, compact && styles.metricsCompact]}>
+              <DistanceHero engine={engine} compact={compact} />
+              <View style={styles.row}>
+                <ElapsedMetric engine={engine} size="large" />
+                <AvgPaceMetric engine={engine} size="large" />
+              </View>
+              {attack ? <SegmentAttackBanner engine={engine} attack={attack} /> : null}
+              <ModeStrip engine={engine} target={chase} />
+            </View>
+          )}
+        </MetricsPager>
       ) : (
         <View style={styles.mapView}>
           <View style={[styles.mapFrame, { borderColor: colors.border.subtle }]}>
@@ -212,6 +217,39 @@ export function ActiveRunScreen({ engine, summary, course, target, workout = nul
       />
 
       {confirming ? <FinishConfirm engine={engine} summary={summary} onContinue={() => setConfirming(false)} onFinish={finish} onDiscard={discard} /> : null}
+    </View>
+  );
+}
+
+// 이보다 낮은 화면(iPhone SE 등)은 거리 숫자를 한 단계 줄여 한 쪽에 다 들어가게 한다
+const COMPACT_PAGE_HEIGHT = 480;
+
+// 결정 로그 91항: 기록 화면을 아래로 넘기면 1km 구간 페이스 목록. 한 쪽씩 멈춘다. 넘기지 않아도 아래 버튼으로 연다
+function MetricsPager({ engine, children }: { engine: RunningEngine; children: (compact: boolean) => ReactNode }) {
+  const { colors } = useTheme();
+  const [height, setHeight] = useState(0);
+  const scroll = useRef<ScrollView>(null);
+  return (
+    <View style={styles.flex} onLayout={(e) => setHeight(Math.round(e.nativeEvent.layout.height))}>
+      {height > 0 ? (
+        <ScrollView ref={scroll} pagingEnabled snapToInterval={height} decelerationRate="fast" showsVerticalScrollIndicator={false}>
+          <View style={{ height }}>
+            {children(height < COMPACT_PAGE_HEIGHT)}
+            <AppPressable
+              onPress={() => scroll.current?.scrollTo({ y: height, animated: true })}
+              accessibilityRole="button"
+              accessibilityLabel="구간 페이스 보기"
+              style={styles.pageHint}
+            >
+              <AppText role="label" tone="secondary">
+                구간 페이스
+              </AppText>
+              <AppIcon name="expand" size={16} color={colors.text.secondary} />
+            </AppPressable>
+          </View>
+          <SplitPage engine={engine} height={height} onBack={() => scroll.current?.scrollTo({ y: 0, animated: true })} />
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -310,9 +348,9 @@ function RunNotice({ engine }: { engine: RunningEngine }) {
 
 // ---- 지표 (각각 필요한 값만 구독해 초 단위 갱신이 화면 전체를 다시 그리지 않게 한다) ----
 
-function DistanceHero({ engine }: { engine: RunningEngine }) {
+function DistanceHero({ engine, compact = false }: { engine: RunningEngine; compact?: boolean }) {
   const d = useRunSnapshot(engine, (s) => s.distanceM);
-  return <MetricBlock label="킬로미터" value={formatDistanceKm(d)} size="giant" align="center" style={styles.hero} />;
+  return <MetricBlock label="킬로미터" value={formatDistanceKm(d)} size={compact ? 'hero' : 'giant'} align="center" style={styles.hero} />;
 }
 
 function DistanceCompact({ engine }: { engine: RunningEngine }) {
@@ -668,8 +706,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xxl,
   },
+  metricsCompact: {
+    gap: spacing.lg,
+  },
   hero: {
     alignSelf: 'stretch',
+  },
+  pageHint: {
+    minHeight: touchTarget.min,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
   row: {
     flexDirection: 'row',

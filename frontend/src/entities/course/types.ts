@@ -136,6 +136,8 @@ export type CourseDetail = {
   source: CourseSourceInfo | null;
   // REV-001 평가 요약 · 내 평가
   rating: CourseRating;
+  // 내가 만든 코스면 고치기 · 지우기를 보여 준다 (결정 로그 90항)
+  isMine: boolean;
   // CRS-103 내 코스 기록. 달린 적 없으면 null.
   myRecord: {
     bestSec: number;
@@ -166,6 +168,14 @@ export type NewCourseInput = {
   recommendedTime: string | null;
   // 출발점 지역 이름 (휴대폰 지오코딩, 모르면 null)
   region: string | null;
+};
+
+// 내 코스 고치기 (결정 로그 90항). 경로는 등록한 뒤 바꾸지 않는다 (43.1장)
+export type CourseEditInput = {
+  name: string;
+  description: string | null;
+  tags: string[];
+  recommendedTime: string | null;
 };
 
 // ---- 내 코스 (SCR-M04, MY-005: 등록/저장/완주) ----

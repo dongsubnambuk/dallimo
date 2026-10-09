@@ -71,10 +71,11 @@ public class SegmentService {
 
     /** 코스 검증이 공식 기록을 만든 뒤 (같은 트랜잭션): 구간 기록을 잰다. 끝까지 가지 못한 구간은 남기지 않는다 */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void record(long courseId, int courseDistanceM, long runId, long userId, List<CourseRoute.Point> route, List<RunPoint> points, Instant now) {
+    public void record(long courseId, int courseDistanceM, long runId, long userId, List<CourseRoute.Point> route, List<RunPoint> points, boolean checkAccuracy,
+                       Instant now) {
         List<CourseSegments.Segment> segments = CourseSegments.of(courseDistanceM);
         if (segments.isEmpty()) return;
-        List<Integer> times = SegmentTimer.time(route, points, segments);
+        List<Integer> times = SegmentTimer.time(route, points, segments, checkAccuracy);
         for (int i = 0; i < times.size(); i++) {
             Integer sec = times.get(i);
             if (sec != null && sec > 0) store.insert(courseId, i, segments.size(), runId, userId, sec, now);

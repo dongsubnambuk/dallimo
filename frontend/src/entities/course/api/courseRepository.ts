@@ -1,4 +1,4 @@
-import type { CourseDetail, CourseReview, CourseSummary, MyCourse, MyCourseKind, NearbyCourseQuery, ReportReason, ReviewInput } from '@/entities/course/types';
+import type { CourseDetail, CourseEditInput, CourseReview, CourseSummary, MyCourse, MyCourseKind, NearbyCourseQuery, ReportReason, ReviewInput } from '@/entities/course/types';
 
 // 119장: API가 없는 단계에서도 화면이 서버 응답 구조에 직접 묶이지 않도록 repository 경계를 둔다.
 // 실제 API가 생기면 이 인터페이스의 구현만 바꾼다.
@@ -16,6 +16,9 @@ export interface CourseRepository {
   getReviews(courseId: string, cursor: string | null): Promise<{ items: CourseReview[]; nextCursor: string | null }>;
   writeReview(courseId: string, input: ReviewInput): Promise<CourseReview>;
   deleteReview(courseId: string): Promise<void>;
+  // 내가 만든 코스 고치기 (PATCH /courses/{id}) · 지우기 (DELETE /courses/{id}). 43장 표에 없어 서버와 정했다 (결정 로그 90항)
+  edit(id: string, input: CourseEditInput): Promise<CourseDetail>;
+  remove(id: string): Promise<void>;
   // CREG-005 신고 (한 사람 한 번, 다시 하면 사유가 바뀐다)
   report(courseId: string, reason: ReportReason, content: string | null): Promise<void>;
 }

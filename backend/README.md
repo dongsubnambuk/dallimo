@@ -151,9 +151,12 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `POST /api/v1/courses/{id}/reports` | 신고(CREG-005) `{ reason: DANGER\|PRIVATE_PROPERTY\|WRONG_INFO\|OTHER, content? }` → 204. 한 사람 한 번, 다시 하면 사유가 바뀐다 |
 | `POST · DELETE /api/v1/courses/{id}/bookmarks` | 204. 여러 번 보내도 같다 |
 | `GET /api/v1/users/me/courses?kind=CREATED\|SAVED\|FINISHED` | 내 코스(MY-005): 등록 · 저장 · 완주 |
+| `PATCH /api/v1/courses/{id}` | 내가 만든 코스 고치기 `{ name, description?, tags?, recommendedTime? }` → 상세. 경로 · 거리는 바꾸지 않는다. 남의 코스 403, 숨겨진 코스 403 |
+| `DELETE /api/v1/courses/{id}` | 내가 만든 코스 지우기 (204, 여러 번 보내도 같다). 남의 코스 403 |
 
 - **코스 등록** (43.1장): 내 FINISHED Run만 된다(남의 것 403, 끝나지 않음 409 `RUN_INVALID_STATE`, 없음 404 `RUN_NOT_FOUND`). Run point 중 거리 계산과 같은 판정(`RunMetrics`)을 통과한 point만 이어서 10m 간격으로 다시 찍는다(`CourseRoute`). 정상 point가 10개 미만이거나 500m 미만이면 422 `RUN_POINT_INVALID`. 경로는 이때 한 번 만들고 바꾸지 않는다(route snapshot 불변). 새 코스는 `NEW` · `PUBLIC`.
-- **보이는 코스**: 삭제 · `HIDDEN` · `BLOCKED`는 목록에서 빠지고 상세는 403 `RESOURCE_FORBIDDEN`. `PRIVATE`은 만든 사람만 본다.
+- **보이는 코스**: 삭제 · `HIDDEN` · `BLOCKED`는 목록에서 빠진다. 상세는 삭제면 404 `COURSE_NOT_FOUND`, 숨김 · 차단이면 403 `RESOURCE_FORBIDDEN`. `PRIVATE`은 만든 사람만 본다. 상세의 `isMine`은 보는 사람이 만든 코스인지.
+- **코스 고치기 · 지우기** (FOUNDATION-DECISION-LOG 90항): 만든 사람만. 지우기는 `deleted_at`만 채운다(22.3장). 이 코스를 달린 Run · 공식 기록은 그대로 두고, 끝나지 않은 도전(`OPEN` · `RUNNING`)은 `CANCELED`. 지운 코스로도 Run은 만들 수 있다(오프라인으로 달린 기록이 올라가야 한다). 이때 완주 판정은 남기되 공식 기록 · 랭킹 · 알림 · 활동은 만들지 않는다.
 - **주변 조회** (23.2장): 위 · 경도 bounding box로 후보를 줄인 뒤 애플리케이션에서 출발점까지 실제 거리를 계산한다. 공간 인덱스는 쓰지 않는다.
 - **숫자**: 코스 1위 · 완주자 수 · 내 기록은 공식 기록(`tbl_course_record`)만 센다. 검증(WBS 5) 전이라 지금은 비어 있다. 주간 러너 수는 최근 7일 이 코스를 끝까지 달린(FINISHED) 사람 수. 예상 시간은 6'00"/km.
 - **평가 · 러닝 환경** (REV-001 · CRS-102): ERD `course_review` 그대로 V10 + `has_toilet` · `has_water` · `updated_at`. 상세 `rating { avg, count, canReview, mine }`, `environment { signals · nightLight · crowd: LOW\|MEDIUM\|HIGH, surface: ROUGH\|NORMAL\|SMOOTH, toilet, water }`는 평가 평균(1~3을 1.67 · 2.34로 세 단계, 화장실 · 급수대는 "있다"가 절반 이상). 목록 한 줄에도 `ratingAvg` · `reviewCount` · `region`.
@@ -405,7 +408,8 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 - **Run 필드** (122.4장): `source · source_provider · provider_activity_id · source_device_name · imported_at · trust_level · verification_policy_version · import_status · import_failure_reason`. 달리모 기록은 `DALLIMO · HIGH`, 건강 앱은 `MEDIUM`, GPX는 `LOW`(순위에 넣지 않음).
 - **결과**: `IMPORTED`(Run을 만듦), `MERGE_CANDIDATE`(같은 시간에 달리모로 기록한 러닝이 있음, Run을 만들지 않고 겹친 Run id), `FAILED`(형식 오류, 다시 보낼 수 있음).
 - **코스 매칭**: 경로 근처(출발점 반경 안에 point가 지나는) 코스를 가까운 순으로 30개까지 골라 검증기를 미리 돌려 본다(저장하지 않음). 인증되는 코스가 있으면 일치율이 가장 높은 코스로 이어 COURSE Run이 되고 보통 검증(비동기)을 거친다. 없으면 코스 없는 FREE Run. 매칭 중 오류가 나도 Run은 남기고 `import_failure_reason = COURSE_MATCH_FAILED`.
-- **검증 정책**: 가져온 기록은 `2026-09-imp-v1`(따라 달린 비율 90% 이상, 출발~도착 point 간격 가운데 값 5초 이하, 넘으면 `GPS_SPARSE`). 결과에 정책 버전을 남긴다.
+- **검증 정책**: 가져온 기록은 `2026-10-imp-v2`(따라 달린 비율 90% 이상, 출발~도착 point 간격 가운데 값 5초 이하, 넘으면 `GPS_SPARSE`). 결과에 정책 버전을 남긴다.
+- **가져온 경로 point** (FOUNDATION-DECISION-LOG 92항): 정확도(20m)로 거르지 않는다. 정확도가 없거나 크게 적혀 와도 경로 · 거리 · 코스 매칭 · 검증 · 고스트 · 구간 기록에 쓴다. 순간 이동(초속 12m)과 15초 넘는 끊김은 그대로 본다. 쓸 point가 2개보다 적으면 건강 앱 거리를 쓴다. 예전에 거리 0으로 저장된 가져온 기록은 서버를 켤 때 `ImportedDistanceRepair`가 다시 잰다.
 - **테스트**: `ImportApiContractTest`를 MySQL · MariaDB에서(코스 매칭 → 인증 · 같은 요청 같은 결과 · check · integrations · 달리모 기록과 겹침 · 성긴 경로 → 코스 없음 · 실내 · 자유 · 실패 기록 뒤 다시 시도 · 잘못된 요청 · 로그인).
 
 ## 외부 추천 코스 (사용자 결정: 명세 2.1장 MVP 제외 "전국 자동 코스 생성"을 외부 공개 데이터 가져오기로 넣는다)
@@ -573,6 +577,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | 코스 설명 길이 | 1000자 | 명세에 규칙 없음 |
 | 예상 시간 · 주간 러너 | 6'00"/km, 최근 7일 | 명세에 값 없음(앱 mock과 같은 기준) |
 | 내 코스 API | `GET /users/me/courses?kind=` | MY-005인데 41~43장 표에 경로 없음 |
+| 코스 고치기 · 지우기 API | `PATCH · DELETE /courses/{id}` | 사용자 결정(결정 로그 90항). 43장 표에 경로 없음. 16장 "사용자 소유 코스 수정 권한을 서버에서 검증" |
 | 코스 cursor | 주변: 거리순 위치, 검색: 마지막 id (둘 다 base64url) | 27.3장 opaque cursor |
 | 코스 신고 처리 | 서로 다른 사람(만든 사람 제외)의 열린 신고 3건이면 자동 `HIDDEN`, 관리자가 `HIDE` · `BLOCK` · `RESTORE`. V16 `moderated_at` · `tbl_course_moderation` | 사용자 결정(명세 20.2장 "코스 공개 정책" 오픈 이슈). 3건은 명세에 없어 정한 시작값 |
 | 비동기 실행기 | `taskExecutor` 코어 2 · 최대 8 · 대기 500, 끌 때 20초까지 하던 일을 마친다 | 명세에 값 없음. 검증 · Push 보내기용 |

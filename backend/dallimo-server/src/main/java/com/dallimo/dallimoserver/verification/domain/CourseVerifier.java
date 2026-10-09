@@ -27,8 +27,8 @@ public final class CourseVerifier {
         if (course.size() < 2) {
             return fail(VerificationOutcome.UNVERIFIED, FailureReason.COURSE_UNAVAILABLE, CheckResult.SKIPPED, CheckResult.SKIPPED, null, null, null);
         }
-        // 1. quality filtering: 거리 계산과 같은 판정(정확도 · 순간 이동)을 통과한 point만 쓴다
-        List<RunPoint> pts = RunMetrics.compute(raw).accepted();
+        // 1. quality filtering: 거리 계산과 같은 판정(정확도 · 순간 이동)을 통과한 point만 쓴다. 가져온 경로는 정확도로 거르지 않는다
+        List<RunPoint> pts = RunMetrics.compute(raw, policy.checkAccuracy()).accepted();
         if (pts.size() < 2) {
             return fail(VerificationOutcome.UNVERIFIED, FailureReason.GPS_INSUFFICIENT, CheckResult.SKIPPED, CheckResult.SKIPPED, null, null, null);
         }

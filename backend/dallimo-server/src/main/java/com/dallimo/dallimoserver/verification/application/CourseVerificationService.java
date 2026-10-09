@@ -81,7 +81,9 @@ public class CourseVerificationService {
 
         Instant now = clock.instant();
         store.insertResult(runId, result, policy.version(), now);
-        if (result.outcome() == VerificationOutcome.VERIFIED) {
+        // 만든 사람이 지운 코스(FOUNDATION-DECISION-LOG 90항): 판정은 남기되 공식 기록 · 랭킹 · 알림 · 활동은 만들지 않는다
+        boolean deleted = store.courseDeleted(courseId);
+        if (result.outcome() == VerificationOutcome.VERIFIED && !deleted) {
             int courseDistance = store.courseDistance(courseId).orElse(result.segmentDistanceM());
             int pace = (int) Math.round(result.recordSeconds() / (Math.max(1, courseDistance) / 1000.0));
             store.insertRecord(courseId, runId, run.getUserId(), result.recordSeconds(), pace, result.matchRate(), now);
@@ -93,7 +95,7 @@ public class CourseVerificationService {
             // 124장: 이 기록으로 코스 크라운 · 로컬 레전드가 됐으면 활동으로 남긴다
             activities.onTitles(recordId, run.getUserId(), titles.change(courseId, run.getUserId(), recordId, now), now);
             // 124장 Segment Attack: 코스를 약 1km씩 나눈 구간 기록
-            segments.record(courseId, courseDistance, runId, run.getUserId(), route, runPoints, now);
+            segments.record(courseId, courseDistance, runId, run.getUserId(), route, runPoints, policy.checkAccuracy(), now);
         }
         run.completeVerification(result.outcome().name(), now);
         // 34장 Verification: runId · policyVersion · matchRate · failureReason

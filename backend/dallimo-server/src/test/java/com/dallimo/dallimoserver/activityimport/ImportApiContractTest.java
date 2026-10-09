@@ -1,5 +1,6 @@
 package com.dallimo.dallimoserver.activityimport;
 
+import com.dallimo.dallimoserver.activityimport.application.ImportedDistanceRepair;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,9 @@ abstract class ImportApiContractTest {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    ImportedDistanceRepair repair;
 
     static final Instant T0 = Instant.parse("2026-09-01T00:00:00Z");
 
@@ -61,11 +65,11 @@ abstract class ImportApiContractTest {
         assertThat((String) JsonPath.read(detail, "$.data.summary.sourceDeviceName")).isEqualTo("Apple Watch");
         assertThat((String) JsonPath.read(detail, "$.data.summary.importedAt")).isNotNull();
         assertThat((String) JsonPath.read(detail, "$.data.summary.mode")).isEqualTo("COURSE");
-        assertThat((String) JsonPath.read(detail, "$.data.verification.policyVersion")).isEqualTo("2026-09-imp-v1");
+        assertThat((String) JsonPath.read(detail, "$.data.verification.policyVersion")).isEqualTo("2026-10-imp-v2");
         assertThat((Integer) JsonPath.read(detail, "$.data.summary.distanceM")).isBetween(880, 910);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course_record WHERE run_id = ?", Integer.class, runId)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT trust_level FROM tbl_run WHERE id = ?", String.class, runId)).isEqualTo("MEDIUM");
-        assertThat(jdbc.queryForObject("SELECT verification_policy_version FROM tbl_run WHERE id = ?", String.class, runId)).isEqualTo("2026-09-imp-v1");
+        assertThat(jdbc.queryForObject("SELECT verification_policy_version FROM tbl_run WHERE id = ?", String.class, runId)).isEqualTo("2026-10-imp-v2");
 
         // 같은 기록을 다시 가져와도 한 번만 (같은 결과)
         String again = body(importRun(me, id, "APPLE_HEALTH", start, 300, 3.0, 1, at));
@@ -96,6 +100,38 @@ abstract class ImportApiContractTest {
         assertThat((String) JsonPath.read(integ, "$.data[0].lastImportedAt")).isNotNull();
         assertThat((Integer) JsonPath.read(integ, "$.data[1].importedCount")).isZero();
         assertThat(get(null, "/api/v1/integrations")).hasStatus(401);
+    }
+
+    @Test
+    void routeWithoutOrWithLargeAccuracyKeepsPathDistanceAndCourse() {
+        // FOUNDATION-DECISION-LOG 92항: 건강 앱 경로는 정확도가 없거나 20m보다 크게 적혀 와도 경로 · 거리 · 코스 매칭에 쓴다
+        User owner = signup(), me = signup();
+        double[] at = somewhere();
+        long course = course(owner, at);
+        String[] accuracies = {null, "35.0"};
+        for (int i = 0; i < accuracies.length; i++) {
+            Instant start = Instant.parse("2026-09-12T06:00:00Z").plusSeconds(3600L * i);
+            MvcTestResult r = importRun(me, "HK-" + UUID.randomUUID(), "APPLE_HEALTH", start, 300, 3.0, 1, at, accuracies[i]);
+            assertThat(r).hasStatusOk();
+            String b = body(r);
+            assertThat((String) JsonPath.read(b, "$.data.status")).isEqualTo("IMPORTED");
+            assertThat(((Number) JsonPath.read(b, "$.data.course.courseId")).longValue()).isEqualTo(course);
+            long runId = ((Number) JsonPath.read(b, "$.data.runId")).longValue();
+            waitVerified(me, runId);
+            String detail = body(get(me, "/api/v1/runs/" + runId));
+            assertThat(JsonPath.<List<?>>read(detail, "$.data.path")).hasSizeGreaterThan(100);
+            assertThat((Integer) JsonPath.read(detail, "$.data.summary.distanceM")).isBetween(880, 910);
+            assertThat((String) JsonPath.read(detail, "$.data.verification.policyVersion")).isEqualTo("2026-10-imp-v2");
+        }
+        // 예전에 거리 0으로 저장된 가져온 기록은 서버를 켤 때 다시 잰다
+        long old = jdbc.queryForObject("SELECT MIN(id) FROM tbl_run WHERE user_id = ?", Long.class, me.id);
+        jdbc.update("UPDATE tbl_run SET distance_m = 0, avg_pace_sec_per_km = NULL WHERE id = ?", old);
+        repair.run(null);
+        assertThat(jdbc.queryForObject("SELECT distance_m FROM tbl_run WHERE id = ?", Integer.class, old)).isBetween(880, 910);
+        assertThat(jdbc.queryForObject("SELECT avg_pace_sec_per_km FROM tbl_run WHERE id = ?", Integer.class, old)).isNotNull();
+        // 고스트 · 구간 기록도 가져온 경로로 만든다
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course_record WHERE course_id = ? AND user_id = ?", Integer.class, course, me.id)).isEqualTo(2);
+        assertThat(JsonPath.<List<?>>read(body(get(me, "/api/v1/courses/" + course + "/ghost")), "$.data.samples")).isNotEmpty();
     }
 
     @Test
@@ -175,9 +211,16 @@ abstract class ImportApiContractTest {
 
     /** at에서 북쪽으로 초속 stepM m, every초마다 point */
     private MvcTestResult importRun(User user, String externalId, String source, Instant start, int seconds, double stepM, int every, double[] at) {
+        return importRun(user, externalId, source, start, seconds, stepM, every, at, "5.0");
+    }
+
+    /** accuracyM: point마다 같은 정확도 (null이면 보내지 않는다) */
+    private MvcTestResult importRun(User user, String externalId, String source, Instant start, int seconds, double stepM, int every, double[] at,
+                                    String accuracyM) {
+        String accuracy = accuracyM == null ? "" : "\"accuracyM\":" + accuracyM + ",";
         String pts = IntStream.iterate(0, s -> s <= seconds, s -> s + every).mapToObj(s -> """
-                {"latitude":%.7f,"longitude":%.7f,"accuracyM":5.0,"recordedAt":"%s"}"""
-                .formatted(at[0] + s * stepM / 111_195.0, at[1], start.plusSeconds(s))).collect(Collectors.joining(","));
+                {"latitude":%.7f,"longitude":%.7f,%s"recordedAt":"%s"}"""
+                .formatted(at[0] + s * stepM / 111_195.0, at[1], accuracy, start.plusSeconds(s))).collect(Collectors.joining(","));
         return post(user, "/api/v1/imported-activities/" + externalId + "/import", """
                 {"source":"%s","sourceProvider":"com.apple.Fitness","sourceDeviceName":"Apple Watch","startedAt":"%s","endedAt":"%s",
                  "activeSeconds":%d,"points":[%s]}""".formatted(source, start, start.plusSeconds(seconds), seconds, pts));

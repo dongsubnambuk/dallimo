@@ -247,7 +247,7 @@ public class RunService {
         Instant end = endedAt.isBefore(run.getStartedAt()) ? run.getStartedAt() : endedAt;
         int wall = (int) Duration.between(run.getStartedAt(), end).toSeconds();
         int elapsed = activeSeconds == null ? wall : Math.max(0, Math.min(activeSeconds, wall));
-        RunMetrics.Result m = RunMetrics.compute(points.findAll(runId));
+        RunMetrics.Result m = RunMetrics.compute(points.findAll(runId), run.getSource());
         int distance = (int) Math.round(m.distanceM());
         run.finish(end, elapsed, distance, RunMetrics.avgPace(m.distanceM(), elapsed), clock.instant());
         if (steps != null && !steps.isEmpty()) workoutSteps.insertAll(runId, steps);
@@ -301,7 +301,7 @@ public class RunService {
     @Transactional(readOnly = true)
     public Detail detail(long userId, long runId) {
         Run run = owned(runs.findById(runId).orElseThrow(() -> new ApiException(ErrorCode.RUN_NOT_FOUND)), userId, ErrorCode.RESOURCE_FORBIDDEN);
-        return new Detail(run, RunMetrics.compute(points.findAll(runId)),
+        return new Detail(run, RunMetrics.compute(points.findAll(runId), run.getSource()),
                 run.getMode() == RunMode.INTERVAL ? workoutSteps.findAll(runId) : List.of(), heartRates.summary(runId));
     }
 
@@ -363,8 +363,10 @@ public class RunService {
         return run;
     }
 
+    // 지운 코스도 받는다: 오프라인으로 달린 뒤 그사이 코스가 지워져도 기록은 올라가야 한다 (FOUNDATION-DECISION-LOG 90항).
+    // 지운 코스에는 공식 기록을 만들지 않는다 (CourseVerificationService)
     private boolean courseExists(long courseId) {
-        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course WHERE id = ? AND deleted_at IS NULL", Integer.class, courseId);
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM tbl_course WHERE id = ?", Integer.class, courseId);
         return n != null && n > 0;
     }
 

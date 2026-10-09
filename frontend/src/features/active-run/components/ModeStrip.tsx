@@ -25,7 +25,7 @@ export function ModeStrip({ engine, target }: { engine: RunningEngine; target: R
   return <CourseStrip engine={engine} />;
 }
 
-// FREE: 현재 페이스 + 지난 1km 스플릿 + 다음 1km까지 진행 (62.1장 FREE 2차 정보 split)
+// FREE: 현재 페이스 + 지난 1km 구간 페이스 + 다음 1km까지 진행 (62.1장 FREE 2차 정보 split)
 function SplitStrip({ engine }: { engine: RunningEngine }) {
   const { colors } = useTheme();
   const d = useRunSnapshot(engine, (s) => s.distanceM);
@@ -40,11 +40,11 @@ function SplitStrip({ engine }: { engine: RunningEngine }) {
       <View style={styles.row}>
         <Stat label="현재 페이스" value={formatPace(current)} a11y={`현재 페이스 ${current == null ? '측정 중' : formatPace(current)}`} />
         <Stat
-          label={last ? `${last.km}km 구간` : '첫 1km 구간'}
-          value={last ? formatDuration(last.sec) : '--'}
+          label={last ? `${last.km}km 구간 페이스` : '첫 1km 구간'}
+          value={last ? formatPace(last.sec) : '--'}
           tone={last ? 'accent' : 'secondary'}
           align="end"
-          a11y={last ? `${last.km}킬로미터 구간 ${formatDuration(last.sec)}` : '첫 1킬로미터 구간 측정 중'}
+          a11y={last ? `${last.km}킬로미터 구간 페이스 ${formatPace(last.sec)}` : '첫 1킬로미터 구간 측정 중'}
         />
       </View>
       <SignalRail progress={(d % 1000) / 1000} showHead />
@@ -89,6 +89,7 @@ function CourseStrip({ engine }: { engine: RunningEngine }) {
           현재 {formatPace(current)}
         </AppText>
       </View>
+      <LastSplitRow engine={engine} />
     </View>
   );
 }
@@ -128,6 +129,24 @@ function GapStrip({ engine, target }: { engine: RunningEngine; target: RunTarget
               : `예상 완주 ${formatDuration(predicted)}`}
         </AppText>
       </View>
+      <LastSplitRow engine={engine} />
+    </View>
+  );
+}
+
+// 코스 · PB · 도전에서도 지난 1km 구간 페이스를 한 줄로 (결정 로그 91항). 1km 전에는 첫 1km까지 남은 거리
+function LastSplitRow({ engine }: { engine: RunningEngine }) {
+  const last = useRunSnapshot(engine, (s) => s.splits[s.splits.length - 1] ?? null);
+  const firstLeftM = useRunSnapshot(engine, (s) => (s.splits.length === 0 ? Math.max(0, Math.round(1000 - s.distanceM)) : null));
+  const text = last ? `${last.km}km 구간 페이스 ${formatPace(last.sec)}` : `첫 1km까지 ${firstLeftM ?? 0}m`;
+  return (
+    <View style={[styles.row, styles.splitRow]} accessible accessibilityLabel={last ? `${last.km}킬로미터 구간 페이스 ${formatPace(last.sec)}` : text}>
+      <AppText role="caption" tone="secondary">
+        {last ? `${last.km}km 구간 페이스` : '구간 페이스'}
+      </AppText>
+      <AppText role="label" tabular tone={last ? 'accent' : 'secondary'} style={styles.splitValue}>
+        {last ? formatPace(last.sec) : `첫 1km까지 ${firstLeftM ?? 0}m`}
+      </AppText>
     </View>
   );
 }
@@ -206,5 +225,11 @@ const styles = StyleSheet.create({
   },
   stateText: {
     fontFamily: fontFamily.bold,
+  },
+  splitRow: {
+    alignItems: 'baseline',
+  },
+  splitValue: {
+    fontFamily: fontFamily.extrabold,
   },
 });

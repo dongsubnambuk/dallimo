@@ -21,6 +21,7 @@ import { useCourseSegments, useCourseTitles } from '@/features/ranking/useCourse
 import { CourseSegmentsCard } from '@/features/ranking/components/CourseSegmentsCard';
 
 import { CompetitionCard } from './components/CompetitionCard';
+import { CourseDeleteSheet } from './CourseDeleteSheet';
 import { CourseRouteMap } from './components/CourseRouteMap';
 import { ReviewsSection } from './components/ReviewsSection';
 import { ElevationProfile } from '@/components/ElevationProfile';
@@ -45,6 +46,8 @@ export function CourseDetailScreen({ id, scenario }: { id: string; scenario: Cou
   const mapHeight = Math.round(windowHeight * MAP_RATIO);
   const course = state.kind === 'ready' ? state.course : null;
   const [bookmarked, setBookmarked] = useState<boolean | null>(null);
+  // 내 코스 지우기 확인 (결정 로그 90항)
+  const [deleting, setDeleting] = useState(false);
   const saved = bookmarked ?? course?.bookmarked ?? false;
   const repo = useMemo(() => getCourseRepository('normal'), []);
   const queryClient = useQueryClient();
@@ -73,6 +76,8 @@ export function CourseDetailScreen({ id, scenario }: { id: string; scenario: Cou
             onPress={() => toggleBookmark(course)}
           />
           <RoundButton icon="share" label="코스 공유" onPress={() => shareCourse(course)} />
+          {/* 내가 만든 코스: 이름 · 설명 · 태그 · 추천 시간 고치기 (결정 로그 90항) */}
+          {course.isMine ? <RoundButton icon="edit" label="코스 고치기" onPress={() => router.push({ pathname: '/course/[id]/edit', params: { id: course.id } })} /> : null}
         </View>
       ) : null}
     </View>
@@ -113,7 +118,7 @@ export function CourseDetailScreen({ id, scenario }: { id: string; scenario: Cou
           accessibilityLabel={course ? `${course.name} 경로 지도, ${formatDistanceKm(course.distanceM, 1)}킬로미터` : undefined}
         />
         <View style={[styles.sheet, { backgroundColor: colors.bg.canvas, marginTop: -SHEET_OVERLAP }]}>
-          {course ? <CourseBody course={course} onRetryRanking={state.kind === 'ready' ? state.refetch : undefined} /> : <BodySkeleton />}
+          {course ? <CourseBody course={course} onRetryRanking={state.kind === 'ready' ? state.refetch : undefined} onDelete={() => setDeleting(true)} /> : <BodySkeleton />}
         </View>
       </ScrollView>
 
@@ -128,11 +133,25 @@ export function CourseDetailScreen({ id, scenario }: { id: string; scenario: Cou
           />
         </View>
       ) : null}
+
+      {deleting && course ? (
+        <CourseDeleteSheet
+          courseId={course.id}
+          name={course.name}
+          otherFinishers={Math.max(0, course.finisherCount - (course.myRecord ? 1 : 0))}
+          onDeleted={() => {
+            setDeleting(false);
+            if (router.canGoBack()) router.back();
+            else router.replace('/my/courses');
+          }}
+          onClose={() => setDeleting(false)}
+        />
+      ) : null}
     </View>
   );
 }
 
-function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryRanking?: () => void }) {
+function CourseBody({ course, onRetryRanking, onDelete }: { course: CourseDetail; onRetryRanking?: () => void; onDelete: () => void }) {
   const { colors } = useTheme();
   const comp = course.competition;
   const showMe = comp?.myEntry && comp.myEntry.rank > comp.weeklyTop.length;
@@ -255,18 +274,28 @@ function CourseBody({ course, onRetryRanking }: { course: CourseDetail; onRetryR
         <ReviewsSection course={course} />
       </Section>
 
-      {/* CREG-005 신고: 맨 아래, 눈에 띄지 않게 */}
-      <AppPressable
-        onPress={() => router.push({ pathname: '/course/[id]/report', params: { id: course.id } })}
-        accessibilityRole="button"
-        accessibilityLabel="이 코스 신고하기"
-        style={styles.report}
-      >
-        <AppIcon name="report" size={14} color={colors.text.secondary} />
-        <AppText role="label" tone="secondary">
-          코스 신고
-        </AppText>
-      </AppPressable>
+      {course.isMine ? (
+        // 내가 만든 코스: 신고 대신 지우기 (결정 로그 90항). 맨 아래, 눈에 띄지 않게
+        <AppPressable onPress={onDelete} accessibilityRole="button" accessibilityLabel="이 코스 지우기" style={styles.report}>
+          <AppIcon name="remove" size={14} color={colors.status.danger} />
+          <AppText role="label" style={{ color: colors.status.danger }}>
+            코스 지우기
+          </AppText>
+        </AppPressable>
+      ) : (
+        // CREG-005 신고: 맨 아래, 눈에 띄지 않게
+        <AppPressable
+          onPress={() => router.push({ pathname: '/course/[id]/report', params: { id: course.id } })}
+          accessibilityRole="button"
+          accessibilityLabel="이 코스 신고하기"
+          style={styles.report}
+        >
+          <AppIcon name="report" size={14} color={colors.text.secondary} />
+          <AppText role="label" tone="secondary">
+            코스 신고
+          </AppText>
+        </AppPressable>
+      )}
       <View style={{ height: spacing.lg, backgroundColor: colors.bg.canvas }} />
     </>
   );

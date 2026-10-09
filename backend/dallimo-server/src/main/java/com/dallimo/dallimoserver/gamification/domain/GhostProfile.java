@@ -25,9 +25,14 @@ public final class GhostProfile {
      * 경로를 따라가지 못하면(point가 코스 밖) 빈 목록
      */
     public static List<double[]> of(List<CourseRoute.Point> route, List<RunPoint> raw, int courseLengthM, int recordSec) {
+        return of(route, raw, courseLengthM, recordSec, true);
+    }
+
+    /** checkAccuracy: false면 point를 정확도로 거르지 않는다 (가져온 경로, RunMetrics.checksAccuracy) */
+    public static List<double[]> of(List<CourseRoute.Point> route, List<RunPoint> raw, int courseLengthM, int recordSec, boolean checkAccuracy) {
         List<double[]> out = new ArrayList<>();
         if (route.size() < 2 || courseLengthM <= 0 || recordSec <= 0) return out;
-        SegmentTimer.Track track = SegmentTimer.track(route, RunMetrics.compute(raw).accepted());
+        SegmentTimer.Track track = SegmentTimer.track(route, RunMetrics.compute(raw, checkAccuracy).accepted());
         if (track.progress().length < 2) return out;
         // 평면 근사 경로 길이와 코스 길이를 맞춘다
         double scale = track.total() / courseLengthM;

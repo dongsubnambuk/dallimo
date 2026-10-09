@@ -26,7 +26,7 @@ export function TogetherSection() {
         { icon: <EyeOff size={20} />, title: '위치는 숨기고 거리 · 순위만', body: '다른 참가자에게 지금 어디를 달리는지는 보내지 않아요.' },
         { icon: <Watch size={20} />, title: 'Apple Watch만 차고 달려도', body: '휴대폰을 두고 나가도 기록하고, 돌아오면 휴대폰으로 옮겨요.' },
         { icon: <Lock size={20} />, title: '잠금 화면 · 다이내믹 아일랜드', body: '거리 · 시간 · 순위를 실시간으로 보여 줘요.' },
-        { icon: <HeartPulse size={20} />, title: '심박 센서 · Apple 건강', body: '심박 밴드를 연결하고, 다른 기기로 달린 기록도 가져와요.' },
+        { icon: <HeartPulse size={20} />, title: 'Apple 건강 가져오기', body: '다른 기기로 달린 기록도 달리모 기록으로 가져와요.' },
       ]}
       visual={
         <div className="relative mx-auto grid w-full max-w-[480px] grid-cols-[1fr_1fr] items-center gap-4 sm:gap-6">
