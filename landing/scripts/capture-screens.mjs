@@ -46,4 +46,12 @@ await shot(light, 'result', '/run/result?demo=pb', 9000);
 await shot(light, 'activity', '/my/activity');
 // mock 러너를 6배속으로 30초 달린 코스 러닝 (0.50km 안팎)
 await shot(light, 'run', '/run/active?mode=COURSE&courseId=c-suseongmot&courseName=%EC%88%98%EC%84%B1%EB%AA%BB%20%EB%91%98%EB%A0%88%EA%B8%B8&speed=6', 30000);
+// 인터벌 달리기 (1분 빠르게 · 1분 천천히)를 20배속으로 19초: "빠르게 1/8 · 0:41 남음" (15초 광고)
+const iv = (stepType, endConditionType, endConditionValue) => ({ stepType, endConditionType, endConditionValue, targetType: null, targetMin: null, targetMax: null });
+const intervalPlan = { id: null, version: null, name: '1분 빠르게 · 1분 천천히', blocks: [
+  { type: 'STEP', repeatCount: 1, steps: [iv('WARMUP', 'TIME', 300)] },
+  { type: 'REPEAT', repeatCount: 8, steps: [iv('WORK', 'TIME', 60), iv('RECOVERY', 'TIME', 60)] },
+  { type: 'STEP', repeatCount: 1, steps: [iv('COOLDOWN', 'TIME', 300)] },
+] };
+await shot(light, 'interval', '/run/active?mode=INTERVAL&speed=20&workout=' + encodeURIComponent(JSON.stringify(intervalPlan)), 19000);
 await b.close();

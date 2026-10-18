@@ -38,6 +38,7 @@ npm install
 npm run studio     # 브라우저에서 미리 보기 · 수정
 npm run render     # out/dallimo-promo.mp4 (Rising Forest)
 npm run render:shiny-tech  # out/dallimo-promo-shiny-tech.mp4 (Shiny Tech)
+npm run render:15s # out/dallimo-promo-15s.mp4 (15초 광고, Rising Forest)
 npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
 ```
 
@@ -59,6 +60,11 @@ npm run cover      # out/dallimo-promo-cover.png (릴스 커버)
   | 함께 달리기 → 끝 | `fade` | 16프레임 |
 
 - 휴대폰이 들어오는 방식도 장면마다 다르다(`src/Scenes.tsx`의 `ScenePhone` `enter`): 탐색 올라오기, 코스 상세 확대, 달리는 중 3D로 기울며 올라오기, 결과 위에서 떨어져 튕기기, 랭킹 오른쪽에서, 함께 달리기 양옆에서.
+- 15초 광고(`src/Promo15.tsx`)는 앱 흐름 그대로 간다. 장면 글을 이어 읽으면 서비스 설명이 된다. 주인공은 휴대폰 앱이고 워치는 달리는 장면에서 손목에 작게 나온다.
+  - 0~1.5초: "오늘 저녁, 어디 달리지?"
+  - 1.5초(드롭)부터 한 마디(1.936초)마다: "내 주변 코스 찾고"(탐색) → "코스를 달리고"(달리는 중 + 워치, "Apple Watch에도 그대로") → "인터벌도 정확하게"(인터벌 + 워치, "구간이 바뀌면 소리 · 진동") → "기록 깨고 순위 올리고"(랭킹, 18위 → 14위) → "친구랑 같이 달리고"(함께 달리기)
+  - 11.2초부터 끝: 앱 아이콘 · 달리모 · "코스 기반 소셜 러닝 앱", 6마디 첫 박에 "곧 App Store 출시"
+  - 워치 숫자는 옆 휴대폰 화면과 맞춘다. 인터벌 화면은 `landing/scripts/capture-screens.mjs`의 `interval`로 찍는다.
 - Chrome이 없거나 headless shell을 써야 하면 `REMOTION_BROWSER=/path/to/headless_shell`을 붙인다.
 
 ## App Store 스크린샷

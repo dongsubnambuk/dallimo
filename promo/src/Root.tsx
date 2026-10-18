@@ -2,6 +2,7 @@ import { Composition } from 'remotion';
 
 import { Cover } from './Cover';
 import { Promo } from './Promo';
+import { DURATION_15, Promo15 } from './Promo15';
 import { STORE_SHOTS, STORE_SIZE, StoreBrand, StoreShot } from './Store';
 import { DURATION, FPS } from './timeline';
 import { WATCH_SHOTS, WATCH_SIZE } from './WatchStore';
@@ -13,6 +14,8 @@ export function Root() {
     <>
       <Composition id="Promo" component={Promo} defaultProps={{ track: 'risingForest' as const }} durationInFrames={DURATION} fps={FPS} width={1080} height={1920} />
       <Composition id="PromoShinyTech" component={Promo} defaultProps={{ track: 'shinyTech' as const }} durationInFrames={DURATION} fps={FPS} width={1080} height={1920} />
+      {/* 15초 광고 (핵심만) */}
+      <Composition id="Promo15" component={Promo15} durationInFrames={DURATION_15} fps={FPS} width={1080} height={1920} />
       <Composition id="Cover" component={Cover} durationInFrames={60} fps={FPS} width={1080} height={1920} />
       {/* App Store 스크린샷 6.9인치 (npm run store). 1장 서비스 소개, 2~8장 기능 */}
       <Composition id="Store1" component={StoreBrand} durationInFrames={1} fps={FPS} {...STORE_SIZE} />

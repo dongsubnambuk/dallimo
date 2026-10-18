@@ -1,0 +1,6 @@
+{
+  "name": "dallimo-heart",
+  "version": "1.0.0",
+  "private": true,
+  "description": "달리모 블루투스 심박 센서(Heart Rate Service) 로컬 Expo 모듈"
+}

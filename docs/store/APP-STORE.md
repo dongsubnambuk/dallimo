@@ -13,7 +13,7 @@ App Store Connect에 그대로 옮겨 넣는 글 · 이미지 · 답안이다. A
 | SKU | `dallimo-ios` | App Store Connect 안에서만 쓰는 값. 아무 값이나 한 번 정하면 된다 |
 | 카테고리 | 기본: 건강 및 피트니스 · 보조: 스포츠 | |
 | 가격 | 무료 · 앱 내 구입 없음 | |
-| 저작권 | 2026 달리모 운영팀 | |
+| 저작권 | 2026 Dallimo | App Store가 앞에 © 를 붙여 "© 2026 Dallimo"로 보여 준다. 칸에는 © 없이 넣는다 |
 | 개인정보 처리방침 URL | https://dallimo-landing.kro.kr/privacy/ | |
 | 지원 URL | https://dallimo-landing.kro.kr/support/ | 문의 양식이 있어 심사 지침 1.5의 연락 수단이 된다 |
 | 마케팅 URL | https://dallimo-landing.kro.kr/ | |
