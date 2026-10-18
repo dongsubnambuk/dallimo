@@ -323,7 +323,7 @@ cd frontend && EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start   # 아�
 | `GET /api/v1/notifications?cursor=&size=` | 알림함 (최근 먼저) `{ id, type, title, body, link, read, createdAt }`. `link`는 앱 안 경로 |
 | `POST /api/v1/notifications/{id}/read` | 읽음 (내 알림만, 아니면 404) |
 | `POST /api/v1/notifications/read-all` · `GET /api/v1/notifications/unread-count` | 모두 읽음 · 안 읽은 수 |
-| `PUT /api/v1/users/me/push-token` | `{ token, platform: ios\|android }`. 이 기기(로그인 세션의 deviceId) Expo Push 토큰 |
+| `PUT /api/v1/users/me/push-token` | `{ token, platform: ios\|android }`. 이 기기(로그인 세션의 deviceId) Expo Push 토큰. 같은 기기의 등록이 겹쳐 데드락 · 중복 키로 실패하면 새 트랜잭션으로 3번까지 다시 한다(FOUNDATION-DECISION-LOG 93항) |
 | `DELETE /api/v1/users/me/push-token` | 알림 권한을 껐을 때 |
 | `GET · PUT /api/v1/users/me/notification-settings` | `{ friend, live, record }` 종류별 Push. 꺼도 알림함에는 남는다 |
 

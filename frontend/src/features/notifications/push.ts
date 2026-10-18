@@ -7,15 +7,39 @@ import { expoPushToken, notificationPermission } from '@/shared/notifications/no
 // 이미 허락했으면 앱이 켜질 때 조용히 등록한다. EAS 프로젝트가 없거나 웹이면 토큰이 없어 등록하지 않는다.
 
 let asked = false;
+// 결정 로그 93항: 앱을 켤 때와 앞으로 올 때 등록이 겹쳐 서버에서 데드락이 났다. 하던 등록이 있으면 그 결과를 같이 쓰고,
+// 이번 로그인에서 이미 올린 토큰은 다시 보내지 않는다 (로그인할 때마다 resetPushRegistration으로 비운다)
+let inFlight: Promise<boolean> | null = null;
+let registered: string | null = null;
 
-export async function registerPush(ask: boolean): Promise<boolean> {
+export function registerPush(ask: boolean): Promise<boolean> {
+  if (inFlight) return ask ? inFlight.then(() => registerPush(true)) : inFlight;
+  const run = register(ask).finally(() => {
+    inFlight = null;
+  });
+  inFlight = run;
+  return run;
+}
+
+/** 로그인한 뒤 알림 준비를 시작할 때 (다른 계정으로 로그인했으면 같은 토큰도 다시 올려야 한다) */
+export function resetPushRegistration() {
+  registered = null;
+}
+
+async function register(ask: boolean): Promise<boolean> {
   const granted = await notificationPermission(ask);
   if (!granted || !API_BASE_URL) return granted;
   const t = await expoPushToken().catch((e) => {
     console.warn('[push] token', e);
     return null;
   });
-  if (t) await getNotificationRepository().registerToken(t.token, t.platform).catch((e) => console.warn('[push] register', e));
+  if (!t || t.token === registered) return granted;
+  await getNotificationRepository()
+    .registerToken(t.token, t.platform)
+    .then(() => {
+      registered = t.token;
+    })
+    .catch((e) => console.warn('[push] register', e));
   return granted;
 }
 

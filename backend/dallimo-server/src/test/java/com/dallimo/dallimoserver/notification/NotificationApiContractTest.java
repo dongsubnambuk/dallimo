@@ -12,9 +12,15 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -197,6 +203,34 @@ abstract class NotificationApiContractTest {
     }
 
     // ── 도우미 ──
+
+    @Test
+    void concurrentTokenRegistrationFromSameDeviceDoesNotFail() throws Exception {
+        // FOUNDATION-DECISION-LOG 93항: 앱을 켤 때와 앞으로 올 때 등록이 겹쳐도 모두 성공하고 토큰은 하나
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        try {
+            for (int round = 0; round < 5; round++) {
+                User u = signup("겹침" + round), other = signup("옛주인" + round);
+                String token = "ExponentPushToken[" + UUID.randomUUID() + "]";
+                // 짝수 회차는 다른 계정이 쓰던 토큰을 옮겨 오는 경우
+                if (round % 2 == 0) assertThat(put(other, "/api/v1/users/me/push-token", "{\"token\":\"%s\",\"platform\":\"ios\"}".formatted(token))).hasStatus(204);
+                CountDownLatch start = new CountDownLatch(1);
+                List<Future<Integer>> results = new ArrayList<>();
+                for (int i = 0; i < 8; i++) {
+                    results.add(pool.submit(() -> {
+                        start.await();
+                        return put(u, "/api/v1/users/me/push-token", "{\"token\":\"%s\",\"platform\":\"ios\"}".formatted(token)).getResponse().getStatus();
+                    }));
+                }
+                start.countDown();
+                for (Future<Integer> r : results) assertThat(r.get(30, TimeUnit.SECONDS)).isEqualTo(204);
+                assertThat(tokens(u)).containsExactly(token);
+                assertThat(tokens(other)).isEmpty();
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
 
     private String registerToken(User u) {
         String token = "ExponentPushToken[" + UUID.randomUUID() + "]";
