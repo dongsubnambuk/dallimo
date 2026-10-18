@@ -7,7 +7,7 @@ import { getNotificationRepository } from '@/entities/notification/api';
 import { isRunning } from '@/features/run/engine/activeRunSession';
 import { onNotificationTap, setForegroundSuppressor, setupNotifications } from '@/shared/notifications/notifier';
 
-import { registerPush } from './push';
+import { registerPush, resetPushRegistration } from './push';
 
 // 로그인한 뒤 탭이 뜰 때 한 번: 알림 채널 · 앞에 있을 때 표시 규칙 · 이미 허락했으면 토큰 등록(앞으로 올 때마다) · 알림을 눌렀을 때 이동
 export function useNotificationSetup() {
@@ -15,8 +15,9 @@ export function useNotificationSetup() {
   useEffect(() => {
     // 달리는 중에는 친구 · 함께 달리기 · 기록 Push를 화면에 띄우지 않는다 (알림 목록 · 알림함에는 남는다)
     setForegroundSuppressor(isRunning);
+    resetPushRegistration();
     void setupNotifications().then(() => registerPush(false));
-    // 휴대폰 설정에서 알림을 켜고 돌아오면 토큰을 등록한다 (이미 허락했으면 다시 등록해도 같다)
+    // 휴대폰 설정에서 알림을 켜고 돌아오면 토큰을 등록한다 (이번 로그인에서 이미 올린 토큰이면 보내지 않는다)
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'active') void registerPush(false).catch(() => undefined);
     });

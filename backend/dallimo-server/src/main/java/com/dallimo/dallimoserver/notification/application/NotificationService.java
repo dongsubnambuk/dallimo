@@ -10,8 +10,12 @@ import com.dallimo.dallimoserver.notification.infrastructure.NotificationJdbcRep
 import com.dallimo.dallimoserver.notification.infrastructure.NotificationJdbcRepository.Settings;
 import com.dallimo.dallimoserver.notification.infrastructure.PushTokenJdbcRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -33,14 +37,19 @@ public class NotificationService {
     private final RefreshSessionRepository sessions;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final TransactionTemplate tx;
+
+    // 같은 기기의 토큰 등록이 겹쳐 데드락 · 중복 키로 실패하면 이만큼 다시 한다 (FOUNDATION-DECISION-LOG 93항)
+    static final int TOKEN_SAVE_ATTEMPTS = 3;
 
     public NotificationService(NotificationJdbcRepository store, PushTokenJdbcRepository tokens, RefreshSessionRepository sessions,
-                               ApplicationEventPublisher events, Clock clock) {
+                               ApplicationEventPublisher events, Clock clock, PlatformTransactionManager txm) {
         this.store = store;
         this.tokens = tokens;
         this.sessions = sessions;
         this.events = events;
         this.clock = clock;
+        this.tx = new TransactionTemplate(txm);
     }
 
     /** link: 알림을 누르면 열 앱 안 경로 (예: /together/12) */
@@ -86,10 +95,19 @@ public class NotificationService {
         return s;
     }
 
-    /** 이 기기의 Expo Push 토큰. 기기는 로그인 세션의 device_id로 정한다 */
-    @Transactional
+    /**
+     * 이 기기의 Expo Push 토큰. 기기는 로그인 세션의 device_id로 정한다.
+     * 앱을 켤 때와 앞으로 올 때 등록이 겹칠 수 있다. 겹쳐서 실패한 쪽은 새 트랜잭션으로 다시 한다 (다시 하면 먼저 끝난 쪽 줄을 고친다)
+     */
     public void registerToken(long userId, long sessionId, String token, String platform) {
-        tokens.save(userId, deviceOf(userId, sessionId), token, platform, clock.instant());
+        for (int attempt = 1; ; attempt++) {
+            try {
+                tx.executeWithoutResult(s -> tokens.save(userId, deviceOf(userId, sessionId), token, platform, clock.instant()));
+                return;
+            } catch (PessimisticLockingFailureException | DuplicateKeyException e) {
+                if (attempt >= TOKEN_SAVE_ATTEMPTS) throw e;
+            }
+        }
     }
 
     /** 로그아웃 · 알림 권한 끔: 이 기기 토큰을 지운다 */
